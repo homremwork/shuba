@@ -1,0 +1,112 @@
+apply plugin: 'com.android.application'
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(8)
+def ndkVersionString = "28.1.13356709"
+
+android {
+    compileSdk(34)
+    ndkVersion = ndkVersionString
+    namespace = "com.shuba.catalog"
+    externalNativeBuild {
+        cmake {
+            path("CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+    signingConfigs {
+        juceSigning {
+            storeFile(file("${System.properties['user.home']}${File.separator}.android${File.separator}debug.keystore"))
+            storePassword("android")
+            keyAlias("androiddebugkey")
+            keyPassword("android")
+            storeType("jks")
+        }
+    }
+
+    defaultConfig {
+        applicationId("com.shuba.catalog")
+        minSdkVersion(34)
+        targetSdkVersion(34)
+        externalNativeBuild {
+            cmake {
+                arguments("-DANDROID_TOOLCHAIN=clang", "-DANDROID_PLATFORM=android-34", "-DANDROID_STL=c++_static", "-DANDROID_CPP_FEATURES=exceptions rtti", "-DANDROID_ARM_MODE=arm", "-DANDROID_ARM_NEON=TRUE", "-DANDROID_WEAK_API_DEFS=ON", "-DCMAKE_CXX_STANDARD=23", "-DCMAKE_CXX_EXTENSIONS=OFF")
+            }
+        }
+    }
+
+    buildTypes {
+         debug {
+             initWith(debug)
+             debuggable(true)
+             jniDebuggable(true)
+             signingConfig = signingConfigs.juceSigning
+         }
+         release {
+             initWith(release)
+             debuggable(false)
+             jniDebuggable(false)
+             signingConfig = signingConfigs.juceSigning
+         }
+    }
+
+    flavorDimensions("default")
+    productFlavors {
+        debug_ {
+            ndk {
+                abiFilters("arm64-v8a")
+            }
+            externalNativeBuild {
+                cmake {
+                    cFlags("-O0")
+                    cppFlags("-O0")
+                    arguments("-DJUCE_BUILD_CONFIGURATION=DEBUG")
+                }
+            }
+
+            dimension("default")
+        }
+        release_ {
+            ndk {
+                abiFilters("arm64-v8a")
+            }
+            externalNativeBuild {
+                cmake {
+                    cFlags("-O3")
+                    cppFlags("-O3")
+                    arguments("-DJUCE_BUILD_CONFIGURATION=RELEASE")
+                }
+            }
+
+            dimension("default")
+        }
+    }
+
+    androidComponents {
+        beforeVariants(selector().all(), { variant ->
+            variant.enabled = false
+            variant.enabled |= variant.productFlavors*.second.contains ("debug_") && variant.buildType == "debug"
+            variant.enabled |= variant.productFlavors*.second.contains ("release_") && variant.buildType == "release"
+        })
+    }
+
+    sourceSets {
+        main.java.srcDirs +=
+            ["../../../third_party/JUCE/modules/juce_core/native/javacore/init",
+             "../../../third_party/JUCE/modules/juce_core/native/javacore/app"]
+
+        main.res.srcDirs +=
+            []
+    }
+
+    repositories {
+    }
+
+    dependencies {
+    }
+
+    ndkVersion = "29.0.14206865"
+    buildToolsVersion = "35.0.1"
+
+
+}
+

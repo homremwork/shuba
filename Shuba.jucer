@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<JUCERPROJECT id="ShubaB01" name="Shuba" projectType="guiapp" bundleIdentifier="com.shuba.catalog"
+              version="0.1.0" companyName="Shuba" companyWebsite="" companyEmail=""
+              displaySplashScreen="0" reportAppUsage="0" splashScreenColour="Dark"
+              useAppConfig="0" addUsingNamespaceToJuceHeader="1" jucerFormatVersion="1"
+              cppLanguageStandard="23" useGNUExtensions="0" headerPath="../../third_party/glaze/include;../../build/libjxl-android-arm64/lib/include"
+              projectLineFeed="&#10;">
+  <MAINGROUP id="main01" name="Shuba">
+    <GROUP id="source01" name="Source">
+      <FILE id="maincpp" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
+    </GROUP>
+  </MAINGROUP>
+  <EXPORTFORMATS>
+    <ANDROIDSTUDIO targetFolder="Builds/Android" androidMinimumSDK="34" androidTargetSDK="34"
+                   androidInternetNeeded="0" microphonePermissionNeeded="0" cameraPermissionNeeded="0"
+                   androidBluetoothScanNeeded="0" androidBluetoothAdvertiseNeeded="0"
+                   androidBluetoothConnectNeeded="0" androidReadMediaAudioPermission="0"
+                   androidReadMediaImagesPermission="0" androidReadMediaVideoPermission="0"
+                   androidExternalWriteNeeded="0" androidInAppBilling="0" androidVibratePermissionNeeded="0"
+                   androidPushNotifications="0" androidEnableRemoteNotifications="0"
+                   androidEnableContentSharing="0" androidEnableVirtualMidi="0"
+                   androidOtherPermissions="" headerPath="../../third_party/glaze/include;../../build/libjxl-android-arm64/lib/include"
+                   extraDefs="JXL_STATIC_DEFINE=1 JXL_THREADS_STATIC_DEFINE=1 JXL_CMS_STATIC_DEFINE=1 HWY_STATIC_DEFINE=1"
+                   externalLibraries="jxl_dec;jxl;jxl_threads;jxl_cms;brotlienc;brotlidec;brotlicommon;hwy;m"
+                   androidCustomAppBuildGradleContent="    ndkVersion = &quot;29.0.14206865&quot;&#10;    buildToolsVersion = &quot;35.0.1&quot;&#10;">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="Shuba" androidArchitectures="arm64-v8a"
+                       libraryPath="../../build/libjxl-android-arm64/lib;../../build/libjxl-android-arm64/third_party/brotli;../../build/libjxl-android-arm64/third_party/highway"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="Shuba" androidArchitectures="arm64-v8a"
+                       libraryPath="../../build/libjxl-android-arm64/lib;../../build/libjxl-android-arm64/third_party/brotli;../../build/libjxl-android-arm64/third_party/highway"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_core" path="third_party/JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="third_party/JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="third_party/JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="third_party/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="third_party/JUCE/modules"/>
+      </MODULEPATHS>
+    </ANDROIDSTUDIO>
+  </EXPORTFORMATS>
+  <MODULES>
+    <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+  </MODULES>
+  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_USE_CAMERA="0" JUCE_USE_CURL="0"
+               JUCE_WEB_BROWSER="0" JUCE_USE_MP3AUDIOFORMAT="0"/>
+</JUCERPROJECT>
