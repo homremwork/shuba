@@ -1,6 +1,6 @@
 #include "Persistence/JsonlCatalog.hpp"
 
-#include <glaze/glaze.hpp>
+#include <glaze/json.hpp>
 
 #include <algorithm>
 #include <optional>

@@ -1,6 +1,7 @@
 #include "Persistence/MetadataSchema.hpp"
 
-#include <glaze/glaze.hpp>
+#include <glaze/json.hpp>
+#include <glaze/json/read.hpp>
 
 #include <algorithm>
 #include <array>
