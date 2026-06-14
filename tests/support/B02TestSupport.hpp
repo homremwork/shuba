@@ -124,7 +124,7 @@ private:
 	std::vector<OperationProgressEvent> recorded_events;
 };
 
-enum class CleanupPolicy {
+enum class CleanupPolicy : std::uint8_t {
 	Keep,
 	RemoveOnDestruction,
 };
@@ -196,7 +196,7 @@ public:
 	}
 
 	[[nodiscard]] std::filesystem::path media_root() const {
-		return active_catalog_root() / "photos";
+		return active_catalog_root() / "media" / "photos";
 	}
 
 private:

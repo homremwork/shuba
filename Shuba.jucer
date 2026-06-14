@@ -8,6 +8,59 @@
               projectLineFeed="&#10;">
   <MAINGROUP id="main01" name="Shuba">
     <GROUP id="source01" name="Source">
+	  <GROUP id="catalog01" name="Catalog">
+		<FILE id="backuparchive_cpp" name="BackupArchive.cpp" compile="1" resource="0" file="Source/Catalog/BackupArchive.cpp"/>
+		<FILE id="backuparchive_hpp" name="BackupArchive.hpp" compile="0" resource="0" file="Source/Catalog/BackupArchive.hpp"/>
+		<FILE id="catalogreplacement_cpp" name="CatalogReplacement.cpp" compile="1" resource="0" file="Source/Catalog/CatalogReplacement.cpp"/>
+		<FILE id="catalogreplacement_hpp" name="CatalogReplacement.hpp" compile="0" resource="0" file="Source/Catalog/CatalogReplacement.hpp"/>
+		<FILE id="catalogrepo_cpp" name="CatalogRepository.cpp" compile="1" resource="0" file="Source/Catalog/CatalogRepository.cpp"/>
+		<FILE id="catalogrepo_hpp" name="CatalogRepository.hpp" compile="0" resource="0" file="Source/Catalog/CatalogRepository.hpp"/>
+		<FILE id="photoexport_cpp" name="PhotoExport.cpp" compile="1" resource="0" file="Source/Catalog/PhotoExport.cpp"/>
+		<FILE id="photoexport_hpp" name="PhotoExport.hpp" compile="0" resource="0" file="Source/Catalog/PhotoExport.hpp"/>
+		<FILE id="photoimport_cpp" name="PhotoImport.cpp" compile="1" resource="0" file="Source/Catalog/PhotoImport.cpp"/>
+		<FILE id="photoimport_hpp" name="PhotoImport.hpp" compile="0" resource="0" file="Source/Catalog/PhotoImport.hpp"/>
+        <FILE id="catalogsearch_cpp" name="Search.cpp" compile="1" resource="0" file="Source/Catalog/Search.cpp"/>
+        <FILE id="catalogsearch_hpp" name="Search.hpp" compile="0" resource="0" file="Source/Catalog/Search.hpp"/>
+      </GROUP>
+      <GROUP id="core01" name="Core">
+        <FILE id="coreclockcpp" name="Clock.cpp" compile="1" resource="0" file="Source/Core/Clock.cpp"/>
+        <FILE id="coreclockhpp" name="Clock.hpp" compile="0" resource="0" file="Source/Core/Clock.hpp"/>
+        <FILE id="coreidcpp" name="Identifier.cpp" compile="1" resource="0" file="Source/Core/Identifier.cpp"/>
+        <FILE id="coreidhpp" name="Identifier.hpp" compile="0" resource="0" file="Source/Core/Identifier.hpp"/>
+        <FILE id="opgatecpp" name="OperationGate.cpp" compile="1" resource="0" file="Source/Core/OperationGate.cpp"/>
+        <FILE id="opgatehpp" name="OperationGate.hpp" compile="0" resource="0" file="Source/Core/OperationGate.hpp"/>
+        <FILE id="resultcpp" name="Result.cpp" compile="1" resource="0" file="Source/Core/Result.cpp"/>
+        <FILE id="resulthpp" name="Result.hpp" compile="0" resource="0" file="Source/Core/Result.hpp"/>
+      </GROUP>
+      <GROUP id="domain01" name="Domain">
+        <FILE id="domaincpp" name="Domain.cpp" compile="1" resource="0" file="Source/Domain/Domain.cpp"/>
+        <FILE id="domainhpp" name="Domain.hpp" compile="0" resource="0" file="Source/Domain/Domain.hpp"/>
+      </GROUP>
+      <GROUP id="persistence01" name="Persistence">
+        <FILE id="catalogstoragecpp" name="CatalogStorage.cpp" compile="1" resource="0" file="Source/Persistence/CatalogStorage.cpp"/>
+        <FILE id="catalogstoragehpp" name="CatalogStorage.hpp" compile="0" resource="0" file="Source/Persistence/CatalogStorage.hpp"/>
+        <FILE id="jsonlcatalogcpp" name="JsonlCatalog.cpp" compile="1" resource="0" file="Source/Persistence/JsonlCatalog.cpp"/>
+        <FILE id="jsonlcataloghpp" name="JsonlCatalog.hpp" compile="0" resource="0" file="Source/Persistence/JsonlCatalog.hpp"/>
+        <FILE id="metadataschemacpp" name="MetadataSchema.cpp" compile="1" resource="0" file="Source/Persistence/MetadataSchema.cpp"/>
+        <FILE id="metadataschemahpp" name="MetadataSchema.hpp" compile="0" resource="0" file="Source/Persistence/MetadataSchema.hpp"/>
+      </GROUP>
+	  <GROUP id="platform01" name="Platform">
+		<FILE id="jxlcodeccpp" name="JpegXlPhotoCodec.cpp" compile="1" resource="0" file="Source/Platform/JpegXlPhotoCodec.cpp"/>
+		<FILE id="jxlcodechpp" name="JpegXlPhotoCodec.hpp" compile="0" resource="0" file="Source/Platform/JpegXlPhotoCodec.hpp"/>
+		<FILE id="jucejpegexportcpp" name="JuceJpegExport.cpp" compile="1" resource="0" file="Source/Platform/JuceJpegExport.cpp"/>
+		<FILE id="juceziparchivecpp" name="JuceZipArchive.cpp" compile="1" resource="0" file="Source/Platform/JuceZipArchive.cpp"/>
+		<FILE id="juceziparchivehpp" name="JuceZipArchive.hpp" compile="0" resource="0" file="Source/Platform/JuceZipArchive.hpp"/>
+		<FILE id="juceandroidcpp" name="JuceAndroidServices.cpp" compile="1" resource="0" file="Source/Platform/JuceAndroidServices.cpp"/>
+        <FILE id="juceandroidhpp" name="JuceAndroidServices.hpp" compile="0" resource="0" file="Source/Platform/JuceAndroidServices.hpp"/>
+        <FILE id="platformcpp" name="PlatformServices.cpp" compile="1" resource="0" file="Source/Platform/PlatformServices.cpp"/>
+        <FILE id="platformhpp" name="PlatformServices.hpp" compile="0" resource="0" file="Source/Platform/PlatformServices.hpp"/>
+      </GROUP>
+      <GROUP id="ui01" name="UI">
+        <FILE id="appshellcpp" name="AppShell.cpp" compile="1" resource="0" file="Source/UI/AppShell.cpp"/>
+        <FILE id="appshellhpp" name="AppShell.hpp" compile="0" resource="0" file="Source/UI/AppShell.hpp"/>
+        <FILE id="catalogsessioncpp" name="CatalogSession.cpp" compile="1" resource="0" file="Source/UI/CatalogSession.cpp"/>
+        <FILE id="catalogsessionhpp" name="CatalogSession.hpp" compile="0" resource="0" file="Source/UI/CatalogSession.hpp"/>
+      </GROUP>
       <FILE id="maincpp" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
     </GROUP>
   </MAINGROUP>
@@ -22,7 +75,7 @@
                    androidEnableContentSharing="0" androidEnableVirtualMidi="0"
                    androidOtherPermissions="" headerPath="../../third_party/glaze/include;../../build/libjxl-android-arm64/lib/include"
                    extraDefs="JXL_STATIC_DEFINE=1 JXL_THREADS_STATIC_DEFINE=1 JXL_CMS_STATIC_DEFINE=1 HWY_STATIC_DEFINE=1"
-                   externalLibraries="jxl_dec;jxl;jxl_threads;jxl_cms;brotlienc;brotlidec;brotlicommon;hwy;m"
+                   externalLibraries="jxl_dec;jxl;jxl_threads;jxl_cms;brotlienc;brotlidec;brotlicommon;hwy;jnigraphics;m"
                    androidCustomAppBuildGradleContent="    ndkVersion = &quot;29.0.14206865&quot;&#10;    buildToolsVersion = &quot;35.0.1&quot;&#10;">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="1" name="Debug" targetName="Shuba" androidArchitectures="arm64-v8a"

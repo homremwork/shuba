@@ -24,7 +24,7 @@ inline constexpr auto storages_quarantine_file_path =
 inline constexpr auto photos_quarantine_file_path =
 	std::string_view{"recovery/quarantine/photos.invalid.jsonl"};
 
-enum class EntityTableKind {
+enum class EntityTableKind : std::uint8_t {
 	Items,
 	Storages,
 	Photos,
@@ -32,7 +32,7 @@ enum class EntityTableKind {
 
 [[nodiscard]] std::string_view to_string(EntityTableKind kind) noexcept;
 
-enum class LoadDiagnosticSeverity {
+enum class LoadDiagnosticSeverity : std::uint8_t {
 	Info,
 	Warning,
 	Error,
@@ -42,7 +42,7 @@ enum class LoadDiagnosticSeverity {
 [[nodiscard]] std::string_view to_string(
 	LoadDiagnosticSeverity severity) noexcept;
 
-enum class CatalogLoadStatus {
+enum class CatalogLoadStatus : std::uint8_t {
 	Normal,
 	Degraded,
 	Fatal,

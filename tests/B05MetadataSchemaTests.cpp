@@ -218,3 +218,35 @@ TEST_CASE("B05 representative schema rows reload deterministically",
 	REQUIRE(conflict_write.diagnostic->issue == SchemaIssue::InvalidKnownValue);
 	REQUIRE(conflict_write.diagnostic->field == "displayName");
 }
+
+TEST_CASE(
+	"B05 entity serializers reject unknown fields colliding with known fields",
+	"[b05][schema][unknown-fields]") {
+	using namespace shuba::persistence;
+	using namespace shuba::domain;
+
+	const StorageEnvelope storage{
+		.record			= StorageRecord{.id			  = make_id("storage-conflict"),
+										.display_name = "Conflict storage",
+										.storage_type = "box",
+										.timestamps	  = make_timestamps(1, 2)},
+		.unknown_fields = {{"displayName", R"("raw display")"}}};
+	const SchemaWriteResult storage_write =
+		serialize_storage_record_json(storage);
+	REQUIRE_FALSE(storage_write.succeeded());
+	REQUIRE(storage_write.diagnostic.has_value());
+	REQUIRE(storage_write.diagnostic->issue == SchemaIssue::InvalidKnownValue);
+	REQUIRE(storage_write.diagnostic->field == "displayName");
+
+	const PhotoEnvelope photo{
+		.record = PhotoRecord{.id		  = make_id("photo-conflict"),
+							  .owner_id	  = make_id("item-conflict-owner"),
+							  .sort_order = 1000,
+							  .timestamps = make_timestamps(3, 4)},
+		.unknown_fields = {{"ownerId", R"("raw-owner")"}}};
+	const SchemaWriteResult photo_write = serialize_photo_record_json(photo);
+	REQUIRE_FALSE(photo_write.succeeded());
+	REQUIRE(photo_write.diagnostic.has_value());
+	REQUIRE(photo_write.diagnostic->issue == SchemaIssue::InvalidKnownValue);
+	REQUIRE(photo_write.diagnostic->field == "ownerId");
+}

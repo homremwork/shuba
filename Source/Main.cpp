@@ -1,82 +1,47 @@
+#include "Core/Clock.hpp"
+#include "Core/Identifier.hpp"
+#include "Platform/JuceAndroidServices.hpp"
+#include "UI/AppShell.hpp"
+#include "UI/CatalogSession.hpp"
+
 #include <juce_gui_basics/juce_gui_basics.h>
-#include <jxl/decode.h>
-#include <glaze/glaze.hpp>
 
-#include <string>
-
-struct GlazeSmokeRecord {
-	int id{};
-	std::string name;
-};
+#include <memory>
+#include <utility>
 
 namespace {
-constexpr int COMPILED_CPP_STANDARD = __cplusplus;
-
-juce::String describe_cpp_standard() {
-	if constexpr (COMPILED_CPP_STANDARD > 202002L)
-		return "C++23 or newer";
-
-	return "unexpected pre-C++23 standard";
+[[nodiscard]] bool debug_demo_seed_enabled() noexcept {
+#if defined(NDEBUG)
+	return false;
+#else
+	return true;
+#endif
 }
 
-bool run_glaze_smoke() {
-	const GlazeSmokeRecord input{.id = 7, .name = "b01"};
-	const auto encoded = glz::write_json(input);
-
-	if (!encoded)
-		return false;
-
-	GlazeSmokeRecord output{};
-	const auto error = glz::read_json(output, encoded.value());
-
-	return !error && output.id == input.id && output.name == input.name;
+[[nodiscard]] shuba::ui::CatalogSessionState make_catalog_session() {
+	shuba::platform::JuceAndroidPathProvider path_provider;
+	shuba::core::RandomIdentifierSource identifiers;
+	shuba::core::SystemClock clock;
+	return shuba::ui::load_catalog_session(shuba::ui::CatalogSessionLoadRequest{
+		.path_provider			 = path_provider,
+		.identifiers			 = identifiers,
+		.clock					 = clock,
+		.debug_demo_seed_enabled = debug_demo_seed_enabled()});
 }
-
-uint32_t get_jxl_decoder_version() {
-	return JxlDecoderVersion();
-}
-
-class MainComponent final : public juce::Component {
-public:
-	MainComponent() { setSize(480, 720); }
-
-	void paint(juce::Graphics& GraphicsContext) override {
-		GraphicsContext.fillAll(juce::Colour::fromRGB(18, 24, 32));
-		GraphicsContext.setColour(juce::Colours::white);
-		GraphicsContext.setFont(juce::FontOptions(24.0f, juce::Font::bold));
-		GraphicsContext.drawFittedText(
-			"Shuba B01", getLocalBounds().reduced(24).removeFromTop(80),
-			juce::Justification::centred, 1);
-
-		GraphicsContext.setFont(juce::FontOptions(16.0f));
-		GraphicsContext.setColour(juce::Colour::fromRGB(210, 220, 235));
-
-		auto body = getLocalBounds().reduced(24);
-		body.removeFromTop(120);
-
-		const auto text =
-			juce::String("Minimal JUCE Android launch proof\n") + "JUCE "
-			+ juce::String(JUCE_MAJOR_VERSION) + "."
-			+ juce::String(JUCE_MINOR_VERSION) + "."
-			+ juce::String(JUCE_BUILDNUMBER) + "\n" + describe_cpp_standard()
-			+ " (__cplusplus=" + juce::String(COMPILED_CPP_STANDARD) + ")\n"
-			+ "Glaze smoke: " + (run_glaze_smoke() ? "pass" : "fail") + "\n"
-			+ "libjxl decoder version: "
-			+ juce::String(static_cast<int>(get_jxl_decoder_version()));
-
-		GraphicsContext.drawFittedText(text, body,
-									   juce::Justification::centredTop, 6);
-	}
-};
 
 class MainWindow final : public juce::DocumentWindow {
 public:
-	MainWindow(juce::String Name)
-		: DocumentWindow(std::move(Name), juce::Colours::black,
+	explicit MainWindow(juce::String name)
+		: DocumentWindow(std::move(name), juce::Colours::black,
 						 DocumentWindow::allButtons) {
 		setUsingNativeTitleBar(true);
-		setContentOwned(new MainComponent(), true);
+		setContentOwned(
+			new shuba::ui::AppShellComponent(make_catalog_session()), true);
+#if JUCE_ANDROID
+		setFullScreen(true);
+#else
 		centreWithSize(getWidth(), getHeight());
+#endif
 		setVisible(true);
 	}
 

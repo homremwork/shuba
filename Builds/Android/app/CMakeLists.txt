@@ -13,6 +13,7 @@ set_source_files_properties("${ANDROID_NDK}/sources/android/cpufeatures/cpu-feat
 add_definitions([[-DJUCE_ANDROID=1]] [[-DJUCE_ANDROID_API_VERSION=34]] [[-DJUCE_ANDROID_GL_ES_VERSION_3_0=1]] [[-DJXL_STATIC_DEFINE=1]] [[-DJXL_THREADS_STATIC_DEFINE=1]] [[-DJXL_CMS_STATIC_DEFINE=1]] [[-DHWY_STATIC_DEFINE=1]] [[-DJUCER_ANDROIDSTUDIO_7F0E4A25=1]] [[-DJUCE_APP_VERSION=0.1.0]] [[-DJUCE_APP_VERSION_HEX=0x100]])
 
 include_directories( AFTER
+    "../../../Source"
     "../../../JuceLibraryCode"
     "../../../third_party/JUCE/modules"
     "${ANDROID_NDK}/sources/android/cpufeatures"
@@ -165,6 +166,27 @@ add_library( ${BINARY_NAME}
     SHARED
 
     "../../../Source/Main.cpp"
+    "../../../Source/Catalog/BackupArchive.cpp"
+    "../../../Source/Catalog/CatalogReplacement.cpp"
+    "../../../Source/Catalog/CatalogRepository.cpp"
+    "../../../Source/Catalog/PhotoExport.cpp"
+    "../../../Source/Catalog/PhotoImport.cpp"
+    "../../../Source/Catalog/Search.cpp"
+    "../../../Source/Core/Clock.cpp"
+    "../../../Source/Core/Identifier.cpp"
+    "../../../Source/Core/OperationGate.cpp"
+    "../../../Source/Core/Result.cpp"
+    "../../../Source/Domain/Domain.cpp"
+    "../../../Source/Persistence/CatalogStorage.cpp"
+    "../../../Source/Persistence/JsonlCatalog.cpp"
+    "../../../Source/Persistence/MetadataSchema.cpp"
+    "../../../Source/UI/AppShell.cpp"
+    "../../../Source/UI/CatalogSession.cpp"
+    "../../../Source/Platform/JpegXlPhotoCodec.cpp"
+    "../../../Source/Platform/JuceJpegExport.cpp"
+    "../../../Source/Platform/JuceZipArchive.cpp"
+    "../../../Source/Platform/JuceAndroidServices.cpp"
+    "../../../Source/Platform/PlatformServices.cpp"
     "../../../third_party/JUCE/modules/juce_core/containers/juce_AbstractFifo.cpp"
     "../../../third_party/JUCE/modules/juce_core/containers/juce_AbstractFifo.h"
     "../../../third_party/JUCE/modules/juce_core/containers/juce_Array.h"
@@ -2944,6 +2966,7 @@ endif()
 
 find_library(log "log")
 find_library(android "android")
+find_library(jnigraphics "jnigraphics")
 find_library(glesv3 "GLESv3")
 find_library(egl "EGL")
 
@@ -2951,6 +2974,7 @@ target_link_libraries( ${BINARY_NAME}
 
     ${log}
     ${android}
+    ${jnigraphics}
     ${glesv3}
     ${egl}
     "cpufeatures"

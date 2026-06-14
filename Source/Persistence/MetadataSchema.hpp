@@ -4,6 +4,7 @@
 #include "Core/Identifier.hpp"
 #include "Domain/Domain.hpp"
 
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <string>
@@ -27,7 +28,7 @@ inline constexpr auto photo_media_directory_path =
 inline constexpr auto photo_media_format_name = std::string_view{"jxl"};
 inline constexpr auto photo_media_extension	  = std::string_view{".jxl"};
 
-enum class SchemaIssue {
+enum class SchemaIssue : std::uint8_t {
 	None,
 	JsonParseError,
 	UnsupportedSchemaVersion,

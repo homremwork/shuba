@@ -10,6 +10,8 @@ std::string_view to_string(OperationKind Kind) noexcept {
 			return "metadata write";
 		case OperationKind::PhotoImport:
 			return "photo import";
+		case OperationKind::JpegExport:
+			return "JPEG export";
 		case OperationKind::BackupExport:
 			return "backup export";
 		case OperationKind::BackupImport:

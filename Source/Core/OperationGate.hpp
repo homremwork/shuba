@@ -2,14 +2,16 @@
 
 #include "Core/Identifier.hpp"
 
+#include <cstdint>
 #include <mutex>
 #include <optional>
 #include <string_view>
 
 namespace shuba::core {
-enum class OperationKind {
+enum class OperationKind : std::uint8_t {
 	MetadataWrite,
 	PhotoImport,
+	JpegExport,
 	BackupExport,
 	BackupImport,
 	CatalogReplacement,

@@ -19,7 +19,7 @@ inline constexpr auto max_money_scale			  = std::uint8_t{9};
 [[nodiscard]] bool has_non_whitespace(std::string_view Text) noexcept;
 [[nodiscard]] std::string trim_ascii_copy(std::string_view Text);
 
-enum class ItemStatus {
+enum class ItemStatus : std::uint8_t {
 	Draft,
 	Planned,
 	Listed,
@@ -31,7 +31,7 @@ enum class ItemStatus {
 [[nodiscard]] std::optional<ItemStatus> parse_item_status(
 	std::string_view Text) noexcept;
 
-enum class StorageLifecycleStatus {
+enum class StorageLifecycleStatus : std::uint8_t {
 	Active,
 	Archived,
 };
@@ -41,7 +41,7 @@ enum class StorageLifecycleStatus {
 [[nodiscard]] std::optional<StorageLifecycleStatus>
 parse_storage_lifecycle_status(std::string_view Text) noexcept;
 
-enum class PhotoOwnerType {
+enum class PhotoOwnerType : std::uint8_t {
 	Item,
 	Storage,
 };
@@ -50,7 +50,7 @@ enum class PhotoOwnerType {
 [[nodiscard]] std::optional<PhotoOwnerType> parse_photo_owner_type(
 	std::string_view Text) noexcept;
 
-enum class PhotoMediaFormat {
+enum class PhotoMediaFormat : std::uint8_t {
 	JpegXl,
 };
 
@@ -72,7 +72,7 @@ struct RecordTimestamps final {
 						   const RecordTimestamps&) = default;
 };
 
-enum class MoneyParseIssue {
+enum class MoneyParseIssue : std::uint8_t {
 	None,
 	EmptyAmount,
 	EmptyCurrency,
@@ -211,7 +211,7 @@ struct PhotoRecord final {
 	friend bool operator==(const PhotoRecord&, const PhotoRecord&) = default;
 };
 
-enum class TagKeyValidationIssue {
+enum class TagKeyValidationIssue : std::uint8_t {
 	None,
 	BlankKey,
 };
@@ -233,7 +233,7 @@ struct TagValidationResult final {
 [[nodiscard]] std::vector<std::string> derive_tag_key_hints(
 	std::span<const ItemRecord> Items, std::span<const StorageRecord> Storages);
 
-enum class RecordRequiredFieldIssue {
+enum class RecordRequiredFieldIssue : std::uint8_t {
 	EmptyDisplayName,
 	EmptyCategory,
 	EmptyStorageType,
@@ -244,7 +244,7 @@ enum class RecordRequiredFieldIssue {
 [[nodiscard]] std::vector<RecordRequiredFieldIssue> validate_required_fields(
 	const StorageRecord& Storage);
 
-enum class ReferenceState {
+enum class ReferenceState : std::uint8_t {
 	Absent,
 	Resolved,
 	Broken,
@@ -276,7 +276,7 @@ struct StorageCycleCheck final {
 void archive_item(ItemRecord& Item) noexcept;
 void archive_storage(StorageRecord& Storage) noexcept;
 
-enum class RecordLifecycleAction {
+enum class RecordLifecycleAction : std::uint8_t {
 	Archive,
 	HardDelete,
 };

@@ -9,7 +9,7 @@
 #include <string_view>
 
 namespace shuba::core {
-enum class IdentifierValidationIssue {
+enum class IdentifierValidationIssue : std::uint8_t {
 	None,
 	Empty,
 	ContainsPathSeparator,

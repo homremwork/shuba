@@ -5,14 +5,24 @@ add_executable(shuba_headless_tests
 	B03CorePrimitivesTests.cpp
 	B04DomainModelTests.cpp
 	B05MetadataSchemaTests.cpp
-	B06JsonlCatalogTests.cpp)
+	B06JsonlCatalogTests.cpp
+	B07CatalogStorageTests.cpp
+	B08CatalogRepositoryTests.cpp
+	B09CatalogSearchTests.cpp
+	B10PlatformServicesTests.cpp
+	B11AndroidPlatformContractTests.cpp
+	B12MediaCodecContractTests.cpp
+	B13PhotoImportTests.cpp
+	B14PhotoExportTests.cpp
+	B15BackupArchiveTests.cpp
+	B16CatalogReplacementTests.cpp)
 
 target_compile_features(shuba_headless_tests PRIVATE cxx_std_23)
-set_target_properties(shuba_headless_tests PROPERTIES CXX_EXTENSIONS OFF)
+shuba_apply_common_target_options(shuba_headless_tests)
 
 target_include_directories(shuba_headless_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/support")
 
-target_link_libraries(shuba_headless_tests PRIVATE shuba_core Catch2::Catch2WithMain)
+target_link_libraries(shuba_headless_tests PRIVATE shuba_juce_platform juce::juce_core Catch2::Catch2WithMain)
 
 include(Catch)
 catch_discover_tests(shuba_headless_tests)

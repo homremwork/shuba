@@ -1,11 +1,12 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace shuba::core {
-enum class OperationResultCategory {
+enum class OperationResultCategory : std::uint8_t {
 	Success,
 	UserCancelled,
 	Unsupported,
@@ -19,7 +20,7 @@ enum class OperationResultCategory {
 	InternalError,
 };
 
-enum class DiagnosticSeverity {
+enum class DiagnosticSeverity : std::uint8_t {
 	FatalCatalogError,
 	DegradedLoad,
 	RecoverableWarning,

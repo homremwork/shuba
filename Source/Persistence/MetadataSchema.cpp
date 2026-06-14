@@ -322,7 +322,9 @@ template<class Value>
 template<class Value>
 [[nodiscard]] SchemaReadResult<Value> read_failure(
 	SchemaDiagnostic diagnostic) {
-	return {.diagnostic = std::move(diagnostic)};
+	auto result = SchemaReadResult<Value>{};
+	result.diagnostic.emplace(std::move(diagnostic));
+	return result;
 }
 
 [[nodiscard]] SchemaWriteResult write_success(std::string json) {
@@ -410,7 +412,7 @@ template<class Dto>
 		return std::nullopt;
 	}
 
-	return *value;
+	return value;
 }
 
 [[nodiscard]] std::optional<core::StableIdentifier> required_identifier(
@@ -855,7 +857,7 @@ template<class Dto>
 		return std::nullopt;
 	}
 
-	return *value;
+	return value;
 }
 
 [[nodiscard]] std::optional<CatalogDataFiles> catalog_data_files(
@@ -1069,7 +1071,7 @@ SchemaReadResult<ManifestRecord> parse_manifest_json(std::string_view json) {
 				: std::nullopt,
 		.data_files = std::move(*data_files),
 		.media		= std::move(*media),
-		.features	= std::move(*features)});
+		.features	= *features});
 }
 
 SchemaWriteResult serialize_manifest_json(const ManifestRecord& manifest) {

@@ -85,6 +85,26 @@ TEST_CASE("B06 JSONL loader skips corrupted and duplicate item lines",
 	REQUIRE(has_code(loaded.diagnostics, "blank_line"));
 }
 
+TEST_CASE("B06 JSONL loader accepts CRLF and final records without newline",
+		  "[b06][jsonl][loader]") {
+	using namespace shuba::persistence;
+
+	const std::string input = item_row("item-crlf", "CRLF accepted") + "\r\n"
+							  + "   \r\n"
+							  + item_row("item-final", "No trailing newline");
+
+	const ItemTableLoadResult loaded = load_item_jsonl(input);
+
+	REQUIRE(loaded.records.size() == 2);
+	REQUIRE(loaded.records[0].record.id.value() == "item-crlf");
+	REQUIRE(loaded.records[1].record.id.value() == "item-final");
+	REQUIRE(loaded.quarantine_entries.empty());
+	REQUIRE(loaded.summary.accepted_records == 2);
+	REQUIRE(loaded.summary.rejected_lines == 0);
+	REQUIRE(loaded.summary.warnings == 1);
+	REQUIRE(has_code(loaded.diagnostics, "blank_line"));
+}
+
 TEST_CASE(
 	"B06 deterministic JSONL writer sorts records and keeps unknown fields",
 	"[b06][jsonl][writer]") {
