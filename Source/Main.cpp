@@ -1,5 +1,6 @@
 #include "Core/Clock.hpp"
 #include "Core/Identifier.hpp"
+#include "Platform/JpegXlPhotoCodec.hpp"
 #include "Platform/JuceAndroidServices.hpp"
 #include "UI/AppShell.hpp"
 #include "UI/CatalogSession.hpp"
@@ -33,10 +34,15 @@ class MainWindow final : public juce::DocumentWindow {
 public:
 	explicit MainWindow(juce::String name)
 		: DocumentWindow(std::move(name), juce::Colours::black,
-						 DocumentWindow::allButtons) {
+						 DocumentWindow::allButtons)
+		, internal_photo_codec(
+			  std::make_unique<shuba::platform::JpegXlInternalPhotoCodec>()) {
 		setUsingNativeTitleBar(true);
-		setContentOwned(
-			new shuba::ui::AppShellComponent(make_catalog_session()), true);
+		setContentOwned(new shuba::ui::AppShellComponent(
+							make_catalog_session(),
+							shuba::ui::AppShellComponent::PlatformServices{
+								.internal_photo_codec = *internal_photo_codec}),
+						true);
 #if JUCE_ANDROID
 		setFullScreen(true);
 #else
@@ -45,9 +51,15 @@ public:
 		setVisible(true);
 	}
 
+	~MainWindow() override { clearContentComponent(); }
+
 	void closeButtonPressed() override {
 		juce::JUCEApplication::getInstance()->systemRequestedQuit();
 	}
+
+private:
+	std::unique_ptr<shuba::platform::JpegXlInternalPhotoCodec>
+		internal_photo_codec;
 };
 
 class ShubaApplication final : public juce::JUCEApplication {

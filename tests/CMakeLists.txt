@@ -15,7 +15,11 @@ add_executable(shuba_headless_tests
 	B13PhotoImportTests.cpp
 	B14PhotoExportTests.cpp
 	B15BackupArchiveTests.cpp
-	B16CatalogReplacementTests.cpp)
+	B16CatalogReplacementTests.cpp
+	B17CatalogSessionTests.cpp
+	B18EntityEditTests.cpp
+	B19PhotoWorkflowTests.cpp
+	B20BackupRecoverySessionTests.cpp)
 
 target_compile_features(shuba_headless_tests PRIVATE cxx_std_23)
 shuba_apply_common_target_options(shuba_headless_tests)
