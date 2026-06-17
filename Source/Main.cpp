@@ -37,6 +37,7 @@ public:
 						 DocumentWindow::allButtons)
 		, internal_photo_codec(
 			  std::make_unique<shuba::platform::JpegXlInternalPhotoCodec>()) {
+		setOpaque(true);
 		setUsingNativeTitleBar(true);
 		setContentOwned(new shuba::ui::AppShellComponent(
 							make_catalog_session(),

@@ -73,15 +73,57 @@ void draw_card_background(juce::Graphics& graphics, juce::Rectangle<int> bounds,
 	graphics.drawRoundedRectangle(area, 12.0f, 1.0f);
 }
 
+[[nodiscard]] bool touch_like_source(const juce::MouseEvent& event) noexcept {
+	return event.source.isTouch() || event.source.isPen();
+}
+
+class TouchScrollActivationGuard final {
+public:
+	void begin(const juce::MouseEvent& event) noexcept {
+		tracking_touch_like = touch_like_source(event);
+		suppress_release	= false;
+	}
+
+	void update(const juce::MouseEvent& event) noexcept {
+		if (!tracking_touch_like || !touch_like_source(event))
+			return;
+
+		if (event.mouseWasDraggedSinceMouseDown()
+			|| event.getDistanceFromDragStart()
+				   > scroll_suppression_distance_pixels) {
+			suppress_release = true;
+		}
+	}
+
+	[[nodiscard]] bool consume_suppressed_release(
+		const juce::MouseEvent& event) noexcept {
+		update(event);
+		const bool should_suppress = tracking_touch_like && suppress_release;
+		tracking_touch_like		   = false;
+		suppress_release		   = false;
+		return should_suppress;
+	}
+
+private:
+	static constexpr int scroll_suppression_distance_pixels = 8;
+
+	bool tracking_touch_like{};
+	bool suppress_release{};
+};
+
 class TextRowComponent final : public juce::Component {
 public:
 	TextRowComponent(juce::String text_value, juce::Colour background_value,
 					 bool strong_value)
 		: text(std::move(text_value))
 		, background(background_value)
-		, strong(strong_value) {}
+		, strong(strong_value) {
+		setOpaque(true);
+		setBufferedToImage(true);
+	}
 
 	void paint(juce::Graphics& graphics) override {
+		graphics.fillAll(background_colour());
 		draw_card_background(graphics, getLocalBounds(), background, false);
 
 		const float font_height			 = strong ? 16.5f : 14.8f;
@@ -103,10 +145,14 @@ private:
 class RowButtonComponent final : public juce::Button {
 public:
 	RowButtonComponent(juce::String text_value, juce::Colour background_value)
-		: juce::Button(std::move(text_value)), background(background_value) {}
+		: juce::Button(std::move(text_value)), background(background_value) {
+		setOpaque(true);
+		setBufferedToImage(true);
+	}
 
 	void paintButton(juce::Graphics& graphics, bool highlighted,
 					 bool down) override {
+		graphics.fillAll(background_colour());
 		juce::Colour fill = background;
 		if (down)
 			fill = fill.brighter(0.14f);
@@ -134,7 +180,57 @@ public:
 	}
 
 private:
+	void mouseDown(const juce::MouseEvent& event) override {
+		touch_activation_guard.begin(event);
+		juce::Button::mouseDown(event);
+	}
+
+	void mouseDrag(const juce::MouseEvent& event) override {
+		touch_activation_guard.update(event);
+		juce::Button::mouseDrag(event);
+	}
+
+	void mouseUp(const juce::MouseEvent& event) override {
+		if (touch_activation_guard.consume_suppressed_release(event)) {
+			setState(juce::Button::buttonNormal);
+			return;
+		}
+
+		juce::Button::mouseUp(event);
+	}
+
 	juce::Colour background;
+	TouchScrollActivationGuard touch_activation_guard;
+};
+
+class TouchSafeToggleButton final : public juce::ToggleButton {
+public:
+	explicit TouchSafeToggleButton(juce::String text_value)
+		: juce::ToggleButton(std::move(text_value)) {
+		setBufferedToImage(true);
+	}
+
+private:
+	void mouseDown(const juce::MouseEvent& event) override {
+		touch_activation_guard.begin(event);
+		juce::Button::mouseDown(event);
+	}
+
+	void mouseDrag(const juce::MouseEvent& event) override {
+		touch_activation_guard.update(event);
+		juce::Button::mouseDrag(event);
+	}
+
+	void mouseUp(const juce::MouseEvent& event) override {
+		if (touch_activation_guard.consume_suppressed_release(event)) {
+			setState(juce::Button::buttonNormal);
+			return;
+		}
+
+		juce::Button::mouseUp(event);
+	}
+
+	TouchScrollActivationGuard touch_activation_guard;
 };
 
 class ImagePanelComponent final : public juce::Component {
@@ -143,9 +239,13 @@ public:
 						juce::String placeholder_value)
 		: image(std::move(image_value))
 		, caption(std::move(caption_value))
-		, placeholder(std::move(placeholder_value)) {}
+		, placeholder(std::move(placeholder_value)) {
+		setOpaque(true);
+		setBufferedToImage(true);
+	}
 
 	void paint(juce::Graphics& graphics) override {
+		graphics.fillAll(background_colour());
 		draw_card_background(graphics, getLocalBounds(), surface_colour(),
 							 false);
 		juce::Rectangle<int> area		  = getLocalBounds().reduced(12, 10);
@@ -821,6 +921,8 @@ struct AppShellComponent::ContentComponent final : public juce::Component {
 		bool owned{true};
 	};
 
+	ContentComponent() { setOpaque(true); }
+
 	~ContentComponent() override {
 		for (Row& row : rows)
 			if (!row.owned)
@@ -876,9 +978,9 @@ struct AppShellComponent::ContentComponent final : public juce::Component {
 	}
 
 	juce::ToggleButton& add_toggle(juce::String text, bool state, int height) {
-		std::unique_ptr<juce::ToggleButton> toggle =
-			std::make_unique<juce::ToggleButton>(std::move(text));
-		juce::ToggleButton& reference = *toggle;
+		std::unique_ptr<TouchSafeToggleButton> toggle =
+			std::make_unique<TouchSafeToggleButton>(std::move(text));
+		TouchSafeToggleButton& reference = *toggle;
 		toggle->setToggleState(state, juce::dontSendNotification);
 		toggle->setColour(juce::ToggleButton::textColourId, text_colour());
 		toggle->setColour(juce::ToggleButton::tickColourId, accent_colour());
@@ -935,6 +1037,7 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 	: session(std::move(session_state))
 	, internal_photo_codec(platform_services.internal_photo_codec)
 	, content(std::make_unique<ContentComponent>()) {
+	setOpaque(true);
 	setSize(480, 720);
 
 	title_label.setJustificationType(juce::Justification::centredLeft);
@@ -1013,6 +1116,7 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 
 	viewport.setViewedComponent(content.get(), false);
 	viewport.setScrollBarsShown(true, false);
+	viewport.setScrollOnDragMode(juce::Viewport::ScrollOnDragMode::nonHover);
 	addAndMakeVisible(viewport);
 
 	catalog_nav_button.onClick = [this] {
