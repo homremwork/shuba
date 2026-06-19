@@ -163,6 +163,34 @@ TEST_CASE(
 	REQUIRE(contains(items_text, "Boots"));
 }
 
+TEST_CASE("B18 pending item photos suppress only the no-photo warning") {
+	TemporaryDirectory temporary{"shuba-b18-item-pending-photos"};
+	shuba::platform::LinuxFakePathProvider path_provider{temporary.path()};
+	shuba::platform::ScriptedIdentifierSource identifiers;
+	identifiers.script_stable_identifier("catalog-b18-item-pending-photos");
+	identifiers.script_operation_identifier(
+		"operation-init-item-pending-photos");
+	shuba::core::ManualClock clock{shuba::core::EpochMilliseconds{1000}};
+	shuba::ui::CatalogSessionState session =
+		load_session(path_provider, identifiers, clock);
+	REQUIRE(session.ready_for_browsing());
+
+	identifiers.script_stable_identifier("item-pending-photo-planned");
+	shuba::ui::ItemDraft draft{.display_name = "Camera",
+							   .category	 = "Electronics"};
+	draft.pending_photo_import_planned	= true;
+	shuba::ui::EntityEditResult warning = shuba::ui::save_item_draft(
+		edit_request(session, identifiers, clock), draft);
+
+	REQUIRE_FALSE(warning.failed());
+	REQUIRE_FALSE(warning.metadata_changed);
+	REQUIRE(warning.saved_record_id.has_value());
+	REQUIRE(warning.warning_acknowledgement_required);
+	REQUIRE(warning.diagnostics.size() == 1U);
+	REQUIRE(warning.diagnostics.front().code == "item_saved_without_storage");
+	REQUIRE(session.repository.items.empty());
+}
+
 TEST_CASE("B18 item editing validates tags and preserves unknown fields") {
 	TemporaryDirectory temporary{"shuba-b18-item-edit"};
 	shuba::platform::LinuxFakePathProvider path_provider{temporary.path()};

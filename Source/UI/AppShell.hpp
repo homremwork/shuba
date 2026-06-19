@@ -89,10 +89,12 @@ private:
 	void open_new_storage_form(std::optional<core::StableIdentifier> parent_id);
 	void open_existing_storage_form(core::StableIdentifier storage_id);
 	void request_add_photos(domain::PhotoOwner owner);
+	void request_add_pending_item_photos();
 	void request_export_photo(core::StableIdentifier photo_id);
 	void request_export_backup();
 	void request_export_diagnostic_archive();
 	void request_import_backup();
+	void apply_pending_photo_staging_result(PendingPhotoStagingResult result);
 	void apply_backup_export_result(BackupExportSessionResult result,
 									bool diagnostic_archive);
 	void apply_backup_import_staging_result(
@@ -103,12 +105,18 @@ private:
 	void apply_photo_import_result(PhotoImportSessionResult result);
 	void apply_photo_edit_result(EntityEditResult result,
 								 core::StableIdentifier selected_photo_id);
+	void cleanup_item_pending_photos();
+	void remove_item_pending_photo(std::size_t pending_photo_index);
 	void reset_catalog_filters();
 	void reset_item_form();
 	void reset_storage_form();
 	void load_item_form_from_record(const persistence::ItemEnvelope& item);
 	void load_storage_form_from_record(
 		const persistence::StorageEnvelope& storage);
+	void save_item_form();
+	void save_storage_form();
+	void apply_item_save_with_pending_photos_result(
+		ItemSaveWithPendingPhotosResult result);
 	void apply_entity_edit_result(EntityEditResult result);
 	void schedule_content_refresh();
 	void timerCallback() override;
@@ -143,6 +151,7 @@ private:
 	platform::NeverCancelledToken never_cancelled;
 	std::string last_photo_message;
 	std::vector<core::Diagnostic> last_photo_diagnostics;
+	std::vector<PendingPhotoSource> item_form_pending_photos;
 	std::string last_backup_message;
 	std::vector<core::Diagnostic> last_backup_diagnostics;
 	std::optional<catalog::BackupImportStagingResult> pending_import_staging;
@@ -151,8 +160,12 @@ private:
 	std::optional<core::StableIdentifier> last_display_photo_id;
 	bool catalog_filter_panel_visible{};
 	bool storage_detail_include_nested{true};
+	bool item_storage_candidates_expanded{};
+	bool item_tag_candidates_expanded{};
 	bool item_listing_expanded{};
 	bool item_finance_expanded{};
+	bool storage_parent_candidates_expanded{};
+	bool storage_tag_candidates_expanded{};
 	bool storage_archive_warning_acknowledged{};
 
 	juce::Label title_label;
@@ -164,10 +177,11 @@ private:
 	juce::TextButton catalog_clear_filters_button{"Clear filters"};
 	juce::TextButton storage_clear_button{"Clear"};
 	juce::TextButton back_button{"Back"};
+	juce::TextButton form_cancel_button{"Cancel"};
+	juce::TextButton form_save_button{"Save"};
 	juce::Viewport viewport;
 	juce::TextEditor item_name_editor;
 	juce::TextEditor item_category_editor;
-	juce::TextEditor item_tags_editor;
 	juce::TextEditor item_notes_editor;
 	juce::TextEditor item_listing_marketplace_editor;
 	juce::TextEditor item_listing_url_editor;
@@ -176,7 +190,6 @@ private:
 	juce::TextEditor storage_name_editor;
 	juce::TextEditor storage_type_editor;
 	juce::TextEditor storage_location_editor;
-	juce::TextEditor storage_tags_editor;
 	juce::TextEditor storage_notes_editor;
 	std::unique_ptr<ContentComponent> content;
 	juce::TextButton catalog_nav_button{"Catalog"};

@@ -3,14 +3,15 @@
 #include "Domain/Domain.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <limits>
 #include <map>
 #include <optional>
 #include <set>
 #include <span>
-#include <sstream>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -75,6 +76,49 @@ void draw_card_background(juce::Graphics& graphics, juce::Rectangle<int> bounds,
 
 [[nodiscard]] bool touch_like_source(const juce::MouseEvent& event) noexcept {
 	return event.source.isTouch() || event.source.isPen();
+}
+
+void style_text_button(juce::TextButton& button);
+void style_text_editor(juce::TextEditor& editor);
+
+[[nodiscard]] std::string compact_byte_summary(
+	const std::optional<std::uint64_t>& byte_count) {
+	if (!byte_count.has_value())
+		return "size unknown";
+	if (*byte_count < 1024U)
+		return std::to_string(*byte_count) + " B";
+	if (*byte_count < 1024U * 1024U)
+		return std::to_string(*byte_count / 1024U) + " KB";
+	return std::to_string(*byte_count / (1024U * 1024U)) + " MB";
+}
+
+[[nodiscard]] std::string pending_photo_count_text(
+	std::span<const PendingPhotoSource> sources) {
+	std::uint64_t staged_count{};
+	std::uint64_t failed_count{};
+	for (const PendingPhotoSource& source : sources)
+		if (source.ready_for_import())
+			++staged_count;
+		else if (source.status == PendingPhotoStatus::Failed
+				 || source.status == PendingPhotoStatus::Cancelled)
+			++failed_count;
+
+	std::string text = "Photos: " + std::to_string(staged_count) + " staged";
+	if (failed_count > 0U)
+		text += " · " + std::to_string(failed_count) + " failed";
+	return text;
+}
+
+[[nodiscard]] std::string pending_photo_card_text(
+	const PendingPhotoSource& source, std::size_t display_index) {
+	std::string text = "#" + std::to_string(display_index) + " · "
+					   + std::string{to_string(source.status)};
+	if (!source.display_name.empty())
+		text += " · " + source.display_name;
+	text += " · " + compact_byte_summary(source.byte_count);
+	if (!source.diagnostics.empty())
+		text += " · " + std::to_string(source.diagnostics.size()) + " issue(s)";
+	return text;
 }
 
 class TouchScrollActivationGuard final {
@@ -171,11 +215,23 @@ public:
 			fitted_line_count(getHeight(), 16, font_height + 2.0f), 0.92f);
 
 		if (isEnabled()) {
-			juce::Rectangle<int> arrow_bounds = getLocalBounds().reduced(12, 8);
+			juce::Rectangle<int> arrow_bounds =
+				getLocalBounds().removeFromRight(30).reduced(8, 12);
+			juce::Path chevron;
+			const float centre_y = arrow_bounds.getCentreY();
+			const float left_x = static_cast<float>(arrow_bounds.getX()) + 3.0f;
+			const float right_x =
+				static_cast<float>(arrow_bounds.getRight()) - 3.0f;
+			const float top_y = static_cast<float>(arrow_bounds.getY()) + 2.0f;
+			const float bottom_y =
+				static_cast<float>(arrow_bounds.getBottom()) - 2.0f;
+			chevron.startNewSubPath(left_x, top_y);
+			chevron.lineTo(right_x, centre_y);
+			chevron.lineTo(left_x, bottom_y);
 			graphics.setColour(muted_text_colour());
-			graphics.setFont(juce::FontOptions(20.0f, juce::Font::plain));
-			graphics.drawText("›", arrow_bounds,
-							  juce::Justification::centredRight, false);
+			graphics.strokePath(chevron, juce::PathStrokeType{
+											 2.0f, juce::PathStrokeType::curved,
+											 juce::PathStrokeType::rounded});
 		}
 	}
 
@@ -275,6 +331,403 @@ private:
 	juce::Image image;
 	juce::String caption;
 	juce::String placeholder;
+};
+
+class InlineButtonRowComponent final : public juce::Component {
+public:
+	struct Action final {
+		juce::String label;
+		std::function<void()> handler;
+		bool enabled{true};
+	};
+
+	InlineButtonRowComponent(juce::String title_value,
+							 std::vector<Action> actions_value)
+		: title(std::move(title_value)) {
+		setOpaque(true);
+		setBufferedToImage(true);
+		for (Action& action : actions_value) {
+			std::unique_ptr<juce::TextButton> button =
+				std::make_unique<juce::TextButton>(action.label);
+			style_text_button(*button);
+			button->setEnabled(action.enabled);
+			button->onClick = std::move(action.handler);
+			addAndMakeVisible(*button);
+			buttons.push_back(std::move(button));
+		}
+	}
+
+	void resized() override {
+		juce::Rectangle<int> area = getLocalBounds().reduced(12, 8);
+		if (area.isEmpty())
+			return;
+
+		if (!title.isEmpty())
+			area.removeFromLeft(std::min(112, area.getWidth() / 3));
+
+		const int gap	= 6;
+		const int count = static_cast<int>(buttons.size());
+		if (count <= 0)
+			return;
+
+		const int button_width =
+			std::max(1, (area.getWidth() - gap * (count - 1)) / count);
+		for (std::unique_ptr<juce::TextButton>& button : buttons) {
+			button->setBounds(area.removeFromLeft(button_width));
+			area.removeFromLeft(gap);
+		}
+	}
+
+	void paint(juce::Graphics& graphics) override {
+		graphics.fillAll(background_colour());
+		draw_card_background(graphics, getLocalBounds(), panel_colour(), false);
+		if (title.isEmpty())
+			return;
+
+		juce::Rectangle<int> title_area = getLocalBounds().reduced(12, 8);
+		title_area.setWidth(std::min(112, title_area.getWidth() / 3));
+		graphics.setColour(text_colour());
+		graphics.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+		graphics.drawFittedText(title, title_area,
+								juce::Justification::centredLeft, 1, 0.88f);
+	}
+
+private:
+	juce::String title;
+	std::vector<std::unique_ptr<juce::TextButton>> buttons;
+};
+
+class ButtonGridComponent final : public juce::Component {
+public:
+	struct Action final {
+		juce::String label;
+		std::function<void()> handler;
+		bool enabled{true};
+	};
+
+	ButtonGridComponent(juce::String title_value,
+						std::vector<Action> actions_value,
+						int column_count_value)
+		: title(std::move(title_value))
+		, column_count(std::max(1, column_count_value)) {
+		setOpaque(true);
+		setBufferedToImage(true);
+		for (Action& action : actions_value) {
+			std::unique_ptr<juce::TextButton> button =
+				std::make_unique<juce::TextButton>(action.label);
+			style_text_button(*button);
+			button->setEnabled(action.enabled);
+			button->setTooltip(action.label);
+			button->onClick = std::move(action.handler);
+			addAndMakeVisible(*button);
+			buttons.push_back(std::move(button));
+		}
+	}
+
+	[[nodiscard]] static int preferred_height(int action_count,
+											  int column_count_value) noexcept {
+		const int safe_columns = std::max(1, column_count_value);
+		const int row_count =
+			std::max(1, (action_count + safe_columns - 1) / safe_columns);
+		return 32 + row_count * 38 + 8;
+	}
+
+	void resized() override {
+		juce::Rectangle<int> area = getLocalBounds().reduced(10, 8);
+		if (!title.isEmpty())
+			area.removeFromTop(24);
+		const int gap			= 6;
+		const int button_height = 32;
+		const int button_width	= std::max(
+			1, (area.getWidth() - gap * (column_count - 1)) / column_count);
+		for (std::size_t index = 0; index < buttons.size(); ++index) {
+			const int row	 = static_cast<int>(index) / column_count;
+			const int column = static_cast<int>(index) % column_count;
+			buttons[index]->setBounds(
+				area.getX() + column * (button_width + gap),
+				area.getY() + row * (button_height + gap), button_width,
+				button_height);
+		}
+	}
+
+	void paint(juce::Graphics& graphics) override {
+		graphics.fillAll(background_colour());
+		draw_card_background(graphics, getLocalBounds(), panel_colour(), false);
+		if (title.isEmpty())
+			return;
+
+		juce::Rectangle<int> title_area = getLocalBounds().reduced(12, 8);
+		title_area.setHeight(22);
+		graphics.setColour(text_colour());
+		graphics.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+		graphics.drawFittedText(title, title_area,
+								juce::Justification::centredLeft, 1, 0.90f);
+	}
+
+private:
+	juce::String title;
+	int column_count{1};
+	std::vector<std::unique_ptr<juce::TextButton>> buttons;
+};
+
+class TagRowEditorComponent final : public juce::Component {
+public:
+	TagRowEditorComponent(
+		std::size_t row_index_value, domain::TagRow tag_value,
+		std::function<void(std::size_t, domain::TagRow)> change_handler,
+		std::function<void(std::size_t)> remove_handler)
+		: row_index(row_index_value)
+		, on_change(std::move(change_handler))
+		, on_remove(std::move(remove_handler)) {
+		setOpaque(true);
+		setBufferedToImage(true);
+		key_editor.setText(juce_text(tag_value.key),
+						   juce::dontSendNotification);
+		value_editor.setText(juce_text(tag_value.value),
+							 juce::dontSendNotification);
+		key_editor.setTextToShowWhenEmpty("Key", muted_text_colour());
+		value_editor.setTextToShowWhenEmpty("Value", muted_text_colour());
+		style_text_editor(key_editor);
+		style_text_editor(value_editor);
+		style_text_button(remove_button);
+		key_editor.onTextChange	  = [this] { publish_change(); };
+		value_editor.onTextChange = [this] { publish_change(); };
+		remove_button.onClick	  = [this] {
+			if (on_remove)
+				on_remove(row_index);
+		};
+		addAndMakeVisible(key_editor);
+		addAndMakeVisible(value_editor);
+		addAndMakeVisible(remove_button);
+	}
+
+	void resized() override {
+		juce::Rectangle<int> area		 = getLocalBounds().reduced(12, 8);
+		juce::Rectangle<int> remove_area = area.removeFromRight(82);
+		area.removeFromRight(6);
+		const int key_width = std::max(86, area.getWidth() / 2);
+		key_editor.setBounds(area.removeFromLeft(key_width));
+		area.removeFromLeft(6);
+		value_editor.setBounds(area);
+		remove_button.setBounds(remove_area);
+	}
+
+	void paint(juce::Graphics& graphics) override {
+		graphics.fillAll(background_colour());
+		draw_card_background(graphics, getLocalBounds(), panel_colour(), false);
+	}
+
+private:
+	void publish_change() {
+		if (!on_change)
+			return;
+
+		on_change(
+			row_index,
+			domain::TagRow{.key	  = key_editor.getText().toStdString(),
+						   .value = value_editor.getText().toStdString()});
+	}
+
+	std::size_t row_index{};
+	std::function<void(std::size_t, domain::TagRow)> on_change;
+	std::function<void(std::size_t)> on_remove;
+	juce::TextEditor key_editor;
+	juce::TextEditor value_editor;
+	juce::TextButton remove_button{"Remove"};
+};
+
+class EditorPairComponent final : public juce::Component {
+public:
+	EditorPairComponent(juce::TextEditor& first_editor_value,
+						juce::TextEditor& second_editor_value,
+						juce::String first_placeholder,
+						juce::String second_placeholder)
+		: first_editor(first_editor_value), second_editor(second_editor_value) {
+		setOpaque(true);
+		setBufferedToImage(true);
+		prepare_editor(first_editor, std::move(first_placeholder));
+		prepare_editor(second_editor, std::move(second_placeholder));
+		addAndMakeVisible(first_editor);
+		addAndMakeVisible(second_editor);
+	}
+
+	~EditorPairComponent() override {
+		removeChildComponent(&first_editor);
+		removeChildComponent(&second_editor);
+	}
+
+	void resized() override {
+		juce::Rectangle<int> area = getLocalBounds().reduced(12, 8);
+		const int gap			  = 6;
+		const int editor_width	  = std::max(1, (area.getWidth() - gap) / 2);
+		first_editor.setBounds(area.removeFromLeft(editor_width));
+		area.removeFromLeft(gap);
+		second_editor.setBounds(area);
+	}
+
+	void paint(juce::Graphics& graphics) override {
+		graphics.fillAll(background_colour());
+		draw_card_background(graphics, getLocalBounds(), panel_colour(), false);
+	}
+
+private:
+	static void prepare_editor(juce::TextEditor& editor,
+							   juce::String placeholder) {
+		if (juce::Component* parent = editor.getParentComponent())
+			parent->removeChildComponent(&editor);
+		editor.setTextToShowWhenEmpty(std::move(placeholder),
+									  muted_text_colour());
+		editor.setMultiLine(false);
+		editor.setReturnKeyStartsNewLine(false);
+		editor.setScrollbarsShown(false);
+		style_text_editor(editor);
+	}
+
+	juce::TextEditor& first_editor;
+	juce::TextEditor& second_editor;
+};
+
+class PendingPhotoCardsComponent final : public juce::Component {
+public:
+	PendingPhotoCardsComponent(
+		std::vector<PendingPhotoSource> sources_value,
+		std::function<void(std::size_t)> remove_handler_value)
+		: sources(std::move(sources_value)) {
+		setOpaque(true);
+		setBufferedToImage(true);
+		for (std::size_t index = 0; index < sources.size(); ++index) {
+			std::unique_ptr<juce::TextButton> button =
+				std::make_unique<juce::TextButton>("Remove");
+			style_text_button(*button);
+			button->onClick = [remove_handler_value, index] {
+				if (remove_handler_value)
+					remove_handler_value(index);
+			};
+			addAndMakeVisible(*button);
+			remove_buttons.push_back(std::move(button));
+		}
+		setSize(preferred_width(), 62);
+	}
+
+	[[nodiscard]] int preferred_width() const noexcept {
+		if (sources.empty())
+			return 1;
+		return 10 + static_cast<int>(sources.size()) * (card_width + card_gap);
+	}
+
+	void resized() override {
+		for (std::size_t index = 0; index < remove_buttons.size(); ++index) {
+			juce::Rectangle<int> card = card_bounds(index).reduced(8, 7);
+			remove_buttons[index]->setBounds(card.removeFromBottom(24));
+		}
+	}
+
+	void paint(juce::Graphics& graphics) override {
+		graphics.fillAll(panel_colour());
+		if (sources.empty()) {
+			graphics.setColour(muted_text_colour());
+			graphics.setFont(juce::FontOptions(14.0f, juce::Font::plain));
+			graphics.drawFittedText("No staged entries yet.", getLocalBounds(),
+									juce::Justification::centredLeft, 1, 0.90f);
+			return;
+		}
+
+		for (std::size_t index = 0; index < sources.size(); ++index) {
+			const PendingPhotoSource& source = sources[index];
+			const bool failed =
+				source.status == PendingPhotoStatus::Failed
+				|| source.status == PendingPhotoStatus::Cancelled;
+			juce::Colour colour =
+				failed ? warning_panel_colour() : elevated_surface_colour();
+			juce::Rectangle<int> card = card_bounds(index);
+			draw_card_background(graphics, card, colour,
+								 source.ready_for_import());
+			juce::Rectangle<int> text_area = card.reduced(8, 7);
+			text_area.removeFromBottom(26);
+			graphics.setColour(text_colour());
+			graphics.setFont(juce::FontOptions(13.0f, juce::Font::plain));
+			graphics.drawFittedText(
+				juce_text(pending_photo_card_text(source, index + 1U)),
+				text_area, juce::Justification::centredLeft, 3, 0.88f);
+		}
+	}
+
+private:
+	[[nodiscard]] juce::Rectangle<int> card_bounds(
+		std::size_t index) const noexcept {
+		return juce::Rectangle<int>{
+			6 + static_cast<int>(index) * (card_width + card_gap), 2,
+			card_width, std::max(1, getHeight() - 4)};
+	}
+
+	static constexpr int card_width = 142;
+	static constexpr int card_gap	= 8;
+
+	std::vector<PendingPhotoSource> sources;
+	std::vector<std::unique_ptr<juce::TextButton>> remove_buttons;
+};
+
+class PendingPhotoStripComponent final : public juce::Component {
+public:
+	PendingPhotoStripComponent(std::vector<PendingPhotoSource> sources_value,
+							   std::function<void()> add_handler,
+							   std::function<void()> clear_handler,
+							   std::function<void(std::size_t)> remove_handler)
+		: sources(std::move(sources_value))
+		, cards(std::make_unique<PendingPhotoCardsComponent>(
+			  sources, std::move(remove_handler))) {
+		setOpaque(true);
+		setBufferedToImage(true);
+		style_text_button(add_button);
+		style_text_button(clear_button);
+		add_button.onClick	 = std::move(add_handler);
+		clear_button.onClick = std::move(clear_handler);
+		clear_button.setEnabled(!sources.empty());
+		card_viewport.setViewedComponent(cards.get(), false);
+		card_viewport.setScrollBarsShown(false, true);
+		card_viewport.setScrollOnDragMode(
+			juce::Viewport::ScrollOnDragMode::nonHover);
+		addAndMakeVisible(add_button);
+		addAndMakeVisible(clear_button);
+		addAndMakeVisible(card_viewport);
+	}
+
+	~PendingPhotoStripComponent() override {
+		card_viewport.setViewedComponent(nullptr, false);
+	}
+
+	void resized() override {
+		juce::Rectangle<int> area	= getLocalBounds().reduced(10, 8);
+		juce::Rectangle<int> header = area.removeFromTop(32);
+		clear_button.setBounds(header.removeFromRight(82).reduced(2));
+		header.removeFromRight(6);
+		add_button.setBounds(header.removeFromRight(96).reduced(2));
+		area.removeFromTop(4);
+		card_viewport.setBounds(area);
+		if (cards)
+			cards->setSize(cards->preferred_width(),
+						   std::max(1, card_viewport.getHeight()));
+	}
+
+	void paint(juce::Graphics& graphics) override {
+		graphics.fillAll(background_colour());
+		draw_card_background(graphics, getLocalBounds(), panel_colour(), false);
+		juce::Rectangle<int> header = getLocalBounds().reduced(12, 8);
+		header.setHeight(30);
+		header.removeFromRight(188);
+		graphics.setColour(text_colour());
+		graphics.setFont(juce::FontOptions(14.5f, juce::Font::bold));
+		graphics.drawFittedText(juce_text(pending_photo_count_text(sources)),
+								header, juce::Justification::centredLeft, 1,
+								0.90f);
+	}
+
+private:
+	std::vector<PendingPhotoSource> sources;
+	juce::TextButton add_button{"Add photos"};
+	juce::TextButton clear_button{"Clear"};
+	juce::Viewport card_viewport;
+	std::unique_ptr<PendingPhotoCardsComponent> cards;
 };
 
 void style_text_button(juce::TextButton& button) {
@@ -399,40 +852,6 @@ void style_text_editor(juce::TextEditor& editor) {
 	return text;
 }
 
-[[nodiscard]] std::vector<domain::TagRow> parse_tag_rows(
-	std::string_view text) {
-	std::vector<domain::TagRow> tags;
-	std::istringstream input{std::string{text}};
-	std::string line;
-	while (std::getline(input, line)) {
-		line = domain::trim_ascii_copy(line);
-		if (line.empty())
-			continue;
-		const std::string::size_type separator = line.find('=');
-		if (separator == std::string::npos) {
-			tags.push_back(domain::TagRow{.key = line});
-			continue;
-		}
-		tags.push_back(domain::TagRow{
-			.key   = domain::trim_ascii_copy(line.substr(0U, separator)),
-			.value = domain::trim_ascii_copy(line.substr(separator + 1U))});
-	}
-	return tags;
-}
-
-[[nodiscard]] juce::String tag_editor_text(
-	std::span<const domain::TagRow> tags) {
-	std::string text;
-	for (const domain::TagRow& tag : tags) {
-		if (!text.empty())
-			text += "\n";
-		text += tag.key;
-		if (!tag.value.empty())
-			text += "=" + tag.value;
-	}
-	return juce_text(text);
-}
-
 [[nodiscard]] std::string storage_label(
 	const catalog::CatalogRepositoryState& repository,
 	const std::optional<core::StableIdentifier>& storage_id) {
@@ -443,6 +862,25 @@ void style_text_editor(juce::TextEditor& editor) {
 	if (storage == nullptr)
 		return "Missing storage: " + storage_id->value();
 	return storage->record.display_name;
+}
+
+[[nodiscard]] std::string storage_choice_label(
+	const catalog::CatalogRepositoryState& repository,
+	const persistence::StorageEnvelope& storage) {
+	std::string text = storage.record.display_name;
+	if (!storage.record.storage_type.empty())
+		text += " · " + storage.record.storage_type;
+
+	const std::map<std::string, catalog::StorageProjection>::const_iterator
+		projection =
+			repository.storage_projections.find(storage.record.id.value());
+	if (projection != repository.storage_projections.end()
+		&& !projection->second.path_label.empty()) {
+		text += " · " + projection->second.path_label;
+	} else if (!storage.record.location.empty()) {
+		text += " · " + storage.record.location;
+	}
+	return text;
 }
 
 [[nodiscard]] std::optional<core::StableIdentifier> next_storage_choice(
@@ -510,6 +948,103 @@ void style_text_editor(juce::TextEditor& editor) {
 	}
 	text += latest.cancellable ? " · cancellable" : " · not cancellable";
 	return text;
+}
+
+[[nodiscard]] std::string pending_photo_summary(
+	std::span<const PendingPhotoSource> pending_sources) {
+	std::uint64_t staged_count{};
+	std::uint64_t failed_count{};
+	std::uint64_t removed_count{};
+	std::uint64_t consumed_count{};
+	for (const PendingPhotoSource& source : pending_sources)
+		if (source.ready_for_import())
+			++staged_count;
+		else if (source.status == PendingPhotoStatus::Failed
+				 || source.status == PendingPhotoStatus::Cancelled)
+			++failed_count;
+		else if (source.status == PendingPhotoStatus::Removed)
+			++removed_count;
+		else if (source.status == PendingPhotoStatus::Consumed)
+			++consumed_count;
+
+	std::string text = "Pending photos: " + std::to_string(staged_count)
+					   + " staged for import";
+	if (failed_count > 0U)
+		text += " · " + std::to_string(failed_count) + " failed";
+	if (removed_count > 0U)
+		text += " · " + std::to_string(removed_count) + " removed";
+	if (consumed_count > 0U)
+		text += " · " + std::to_string(consumed_count) + " consumed";
+	return text;
+}
+
+[[nodiscard]] std::string pending_photo_source_summary(
+	const PendingPhotoSource& source, std::size_t display_index) {
+	std::string text = "Pending photo " + std::to_string(display_index) + ": "
+					   + std::string{to_string(source.status)};
+	if (source.ready_for_import())
+		text += " · staged";
+	if (source.byte_count)
+		text += " · " + std::to_string(*source.byte_count) + " bytes";
+	if (!source.diagnostics.empty())
+		text += " · " + std::to_string(source.diagnostics.size()) + " issue(s)";
+	return text;
+}
+
+[[nodiscard]] std::string tag_row_count_summary(
+	std::span<const domain::TagRow> tags) {
+	if (tags.empty())
+		return "Tags: no rows yet";
+	return "Tags: " + std::to_string(tags.size())
+		   + (tags.size() == 1U ? " row" : " rows");
+}
+
+struct TagKeyCandidateGroups final {
+	std::vector<std::string> item_keys;
+	std::vector<std::string> storage_keys;
+};
+
+void append_tag_key_candidate(std::vector<std::string>& keys,
+							  std::set<std::string>& seen,
+							  const domain::TagRow& tag) {
+	if (!domain::is_tag_key_hint_candidate(tag))
+		return;
+	if (seen.insert(tag.key).second)
+		keys.push_back(tag.key);
+}
+
+[[nodiscard]] TagKeyCandidateGroups derive_tag_key_candidate_groups(
+	const catalog::CatalogRepositoryState& repository) {
+	TagKeyCandidateGroups groups;
+	std::set<std::string> seen_item_keys;
+	std::set<std::string> seen_storage_keys;
+	for (const persistence::ItemEnvelope& item : repository.items)
+		for (const domain::TagRow& tag : item.record.tags)
+			append_tag_key_candidate(groups.item_keys, seen_item_keys, tag);
+	for (const persistence::StorageEnvelope& storage : repository.storages)
+		for (const domain::TagRow& tag : storage.record.tags)
+			append_tag_key_candidate(groups.storage_keys, seen_storage_keys,
+									 tag);
+	return groups;
+}
+
+void apply_tag_key_candidate(std::vector<domain::TagRow>& tags,
+							 std::string key) {
+	for (domain::TagRow& tag : tags) {
+		if (domain::is_blank_tag_key(tag.key)) {
+			tag.key = std::move(key);
+			return;
+		}
+	}
+	tags.push_back(domain::TagRow{.key = std::move(key)});
+}
+
+[[nodiscard]] bool has_ready_pending_photo(
+	std::span<const PendingPhotoSource> pending_sources) noexcept {
+	return std::ranges::any_of(pending_sources,
+							   [](const PendingPhotoSource& source) {
+		return source.ready_for_import();
+	});
 }
 
 [[nodiscard]] std::string recovery_action_summary(
@@ -977,6 +1512,68 @@ struct AppShellComponent::ContentComponent final : public juce::Component {
 		return reference;
 	}
 
+	InlineButtonRowComponent& add_inline_buttons(
+		juce::String title,
+		std::vector<InlineButtonRowComponent::Action> actions, int height) {
+		std::unique_ptr<InlineButtonRowComponent> row =
+			std::make_unique<InlineButtonRowComponent>(std::move(title),
+													   std::move(actions));
+		InlineButtonRowComponent& reference = *row;
+		add_row(std::move(row), height);
+		return reference;
+	}
+
+	ButtonGridComponent& add_button_grid(
+		juce::String title, std::vector<ButtonGridComponent::Action> actions,
+		int column_count, int height) {
+		std::unique_ptr<ButtonGridComponent> grid =
+			std::make_unique<ButtonGridComponent>(
+				std::move(title), std::move(actions), column_count);
+		ButtonGridComponent& reference = *grid;
+		add_row(std::move(grid), height);
+		return reference;
+	}
+
+	EditorPairComponent& add_editor_pair(juce::TextEditor& first_editor,
+										 juce::String first_placeholder,
+										 juce::TextEditor& second_editor,
+										 juce::String second_placeholder,
+										 int height) {
+		std::unique_ptr<EditorPairComponent> row =
+			std::make_unique<EditorPairComponent>(
+				first_editor, second_editor, std::move(first_placeholder),
+				std::move(second_placeholder));
+		EditorPairComponent& reference = *row;
+		add_row(std::move(row), height);
+		return reference;
+	}
+
+	PendingPhotoStripComponent& add_pending_photo_strip(
+		std::vector<PendingPhotoSource> sources,
+		std::function<void()> add_handler, std::function<void()> clear_handler,
+		std::function<void(std::size_t)> remove_handler, int height) {
+		std::unique_ptr<PendingPhotoStripComponent> strip =
+			std::make_unique<PendingPhotoStripComponent>(
+				std::move(sources), std::move(add_handler),
+				std::move(clear_handler), std::move(remove_handler));
+		PendingPhotoStripComponent& reference = *strip;
+		add_row(std::move(strip), height);
+		return reference;
+	}
+
+	TagRowEditorComponent& add_tag_editor_row(
+		std::size_t row_index, domain::TagRow tag,
+		std::function<void(std::size_t, domain::TagRow)> change_handler,
+		std::function<void(std::size_t)> remove_handler, int height) {
+		std::unique_ptr<TagRowEditorComponent> row =
+			std::make_unique<TagRowEditorComponent>(row_index, std::move(tag),
+													std::move(change_handler),
+													std::move(remove_handler));
+		TagRowEditorComponent& reference = *row;
+		add_row(std::move(row), height);
+		return reference;
+	}
+
 	juce::ToggleButton& add_toggle(juce::String text, bool state, int height) {
 		std::unique_ptr<TouchSafeToggleButton> toggle =
 			std::make_unique<TouchSafeToggleButton>(std::move(text));
@@ -1082,6 +1679,15 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 									  juce::dontSendNotification);
 		refresh_content();
 	};
+	form_cancel_button.onClick = [this] {
+		select_root(form_return_destination.value_or(RootDestination::Catalog));
+	};
+	form_save_button.onClick = [this] {
+		if (destination == RootDestination::ItemForm)
+			save_item_form();
+		else if (destination == RootDestination::StorageForm)
+			save_storage_form();
+	};
 	back_button.onClick = [this] {
 		if (destination == RootDestination::ItemDetail) {
 			select_root(RootDestination::Catalog);
@@ -1110,6 +1716,10 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 	for (juce::TextButton* button :
 		 {&catalog_clear_button, &catalog_filter_button,
 		  &catalog_clear_filters_button, &storage_clear_button, &back_button}) {
+		style_text_button(*button);
+		addAndMakeVisible(*button);
+	}
+	for (juce::TextButton* button : {&form_cancel_button, &form_save_button}) {
 		style_text_button(*button);
 		addAndMakeVisible(*button);
 	}
@@ -1146,12 +1756,30 @@ void AppShellComponent::paint(juce::Graphics& graphics) {
 
 void AppShellComponent::resized() {
 	juce::Rectangle<int> bounds = getLocalBounds().reduced(10);
-	juce::Rectangle<int> nav	= bounds.removeFromBottom(54);
-	const int nav_width			= nav.getWidth() / 4;
-	catalog_nav_button.setBounds(nav.removeFromLeft(nav_width).reduced(3));
-	storages_nav_button.setBounds(nav.removeFromLeft(nav_width).reduced(3));
-	add_nav_button.setBounds(nav.removeFromLeft(nav_width).reduced(3));
-	more_nav_button.setBounds(nav.reduced(3));
+	const bool form_visible = destination == RootDestination::ItemForm
+							  || destination == RootDestination::StorageForm;
+	catalog_nav_button.setVisible(!form_visible);
+	storages_nav_button.setVisible(!form_visible);
+	add_nav_button.setVisible(!form_visible);
+	more_nav_button.setVisible(!form_visible);
+	form_cancel_button.setVisible(form_visible);
+	form_save_button.setVisible(form_visible);
+
+	if (form_visible) {
+		juce::Rectangle<int> form_actions = bounds.removeFromBottom(58);
+		const int action_width = std::max(1, form_actions.getWidth() / 2);
+		juce::Rectangle<int> cancel_area =
+			form_actions.removeFromLeft(action_width);
+		form_cancel_button.setBounds(cancel_area.reduced(3));
+		form_save_button.setBounds(form_actions.reduced(3));
+	} else {
+		juce::Rectangle<int> nav = bounds.removeFromBottom(54);
+		const int nav_width		 = nav.getWidth() / 4;
+		catalog_nav_button.setBounds(nav.removeFromLeft(nav_width).reduced(3));
+		storages_nav_button.setBounds(nav.removeFromLeft(nav_width).reduced(3));
+		add_nav_button.setBounds(nav.removeFromLeft(nav_width).reduced(3));
+		more_nav_button.setBounds(nav.reduced(3));
+	}
 
 	title_label.setBounds(bounds.removeFromTop(32));
 	status_label.setBounds(bounds.removeFromTop(26));
@@ -1198,6 +1826,11 @@ void AppShellComponent::resized() {
 }
 
 void AppShellComponent::select_root(RootDestination destination_value) {
+	const RootDestination previous_destination = destination;
+	if (previous_destination == RootDestination::ItemForm
+		&& destination_value != RootDestination::ItemForm) {
+		cleanup_item_pending_photos();
+	}
 	destination = destination_value;
 	if (destination != RootDestination::ItemDetail
 		&& destination != RootDestination::ItemForm
@@ -1355,6 +1988,54 @@ void AppShellComponent::request_add_photos(domain::PhotoOwner owner) {
 	});
 	if (picker_started.failed()) {
 		last_photo_message	   = "Photo picker could not be opened.";
+		last_photo_diagnostics = picker_started.diagnostics();
+		refresh_all();
+	}
+}
+
+void AppShellComponent::request_add_pending_item_photos() {
+	last_progress_events.clear();
+	last_photo_diagnostics.clear();
+	last_photo_message = "Select photos to stage before saving the item.";
+	core::OperationResult picker_started =
+		photo_selection_service.request_photo_selection(
+			platform::PhotoSelectionRequest{
+				.allow_multiple		 = true,
+				.accepted_mime_types = {"image/jpeg", "image/png", "image/webp",
+										"image/heic", "image/heif"}},
+			[this](platform::PlatformValueResult<
+				   std::vector<platform::ContentSourceDescriptor>>
+					   result) mutable {
+		if (result.was_user_cancelled()) {
+			last_photo_message = "Pending photo selection cancelled.";
+			refresh_all();
+			return;
+		}
+		if (result.failed()) {
+			last_photo_message	   = "Pending photo selection failed.";
+			last_photo_diagnostics = std::move(result.diagnostics);
+			refresh_all();
+			return;
+		}
+		if (result.value->empty()) {
+			last_photo_message = "No photos selected for pending staging.";
+			refresh_all();
+			return;
+		}
+
+		PendingPhotoStagingResult staging_result =
+			stage_pending_photos_for_session(
+				PendingPhotoStagingRequest{
+					.current_session = session,
+					.identifiers	 = edit_identifiers,
+					.operation_gate	 = ui_operation_gate,
+					.staging_service = content_staging_service,
+					.sources		 = std::move(*result.value)},
+				last_progress_events, never_cancelled);
+		apply_pending_photo_staging_result(std::move(staging_result));
+	});
+	if (picker_started.failed()) {
+		last_photo_message	   = "Pending photo picker could not be opened.";
 		last_photo_diagnostics = picker_started.diagnostics();
 		refresh_all();
 	}
@@ -1654,6 +2335,25 @@ void AppShellComponent::apply_backup_import_replacement_result(
 	select_root(RootDestination::BackupRecovery);
 }
 
+void AppShellComponent::apply_pending_photo_staging_result(
+	PendingPhotoStagingResult result) {
+	last_photo_diagnostics = std::move(result.diagnostics);
+	for (PendingPhotoSource& source : result.sources)
+		item_form_pending_photos.push_back(std::move(source));
+
+	if (result.succeeded()) {
+		last_photo_message = "Pending photo staging completed: "
+							 + std::to_string(result.staged_count) + " staged, "
+							 + std::to_string(result.failure_count)
+							 + " failed.";
+	} else if (result.was_user_cancelled()) {
+		last_photo_message = "Pending photo staging cancelled.";
+	} else {
+		last_photo_message = "Pending photo staging failed.";
+	}
+	refresh_all();
+}
+
 void AppShellComponent::apply_photo_import_result(
 	PhotoImportSessionResult result) {
 	last_photo_diagnostics.clear();
@@ -1704,6 +2404,51 @@ void AppShellComponent::apply_photo_edit_result(
 	refresh_all();
 }
 
+void AppShellComponent::cleanup_item_pending_photos() {
+	if (item_form_pending_photos.empty())
+		return;
+
+	PendingPhotoCleanupResult cleanup =
+		cleanup_pending_photo_sources(item_form_pending_photos);
+	last_photo_diagnostics = cleanup.diagnostics;
+	std::erase_if(item_form_pending_photos,
+				  [](const PendingPhotoSource& source) {
+		return !source.staged_path.has_value();
+	});
+	last_photo_message =
+		cleanup.failed() ? "Some pending staged photos could not be cleaned."
+						 : "Pending photos cleared.";
+}
+
+void AppShellComponent::remove_item_pending_photo(
+	std::size_t pending_photo_index) {
+	if (pending_photo_index >= item_form_pending_photos.size())
+		return;
+
+	std::vector<PendingPhotoSource> cleanup_sources;
+	cleanup_sources.push_back(item_form_pending_photos[pending_photo_index]);
+	PendingPhotoCleanupResult cleanup =
+		cleanup_pending_photo_sources(cleanup_sources);
+	last_photo_diagnostics = cleanup.diagnostics;
+	if (cleanup.failed()) {
+		PendingPhotoSource& source =
+			item_form_pending_photos[pending_photo_index];
+		source.diagnostics.insert(source.diagnostics.end(),
+								  cleanup.diagnostics.begin(),
+								  cleanup.diagnostics.end());
+		last_photo_message =
+			"Pending photo cleanup needs attention; source kept for retry.";
+		refresh_all();
+		return;
+	}
+
+	item_form_pending_photos.erase(
+		item_form_pending_photos.begin()
+		+ static_cast<std::ptrdiff_t>(pending_photo_index));
+	last_photo_message = "Pending photo removed.";
+	refresh_all();
+}
+
 void AppShellComponent::reset_catalog_filters() {
 	catalog_filters				 = catalog::CatalogSearchFilters{};
 	catalog_filter_draft		 = catalog_filters;
@@ -1711,15 +2456,17 @@ void AppShellComponent::reset_catalog_filters() {
 }
 
 void AppShellComponent::reset_item_form() {
-	item_form_draft		  = ItemDraft{};
-	item_form_mode		  = FormMode::Create;
-	item_listing_expanded = false;
-	item_finance_expanded = false;
+	cleanup_item_pending_photos();
+	item_form_draft					 = ItemDraft{};
+	item_form_mode					 = FormMode::Create;
+	item_storage_candidates_expanded = false;
+	item_tag_candidates_expanded	 = false;
+	item_listing_expanded			 = false;
+	item_finance_expanded			 = false;
 	for (juce::TextEditor* editor :
-		 {&item_name_editor, &item_category_editor, &item_tags_editor,
-		  &item_notes_editor, &item_listing_marketplace_editor,
-		  &item_listing_url_editor, &item_listing_note_editor,
-		  &item_acquisition_source_editor}) {
+		 {&item_name_editor, &item_category_editor, &item_notes_editor,
+		  &item_listing_marketplace_editor, &item_listing_url_editor,
+		  &item_listing_note_editor, &item_acquisition_source_editor}) {
 		editor->setText(juce::String{}, juce::dontSendNotification);
 	}
 }
@@ -1727,10 +2474,12 @@ void AppShellComponent::reset_item_form() {
 void AppShellComponent::reset_storage_form() {
 	storage_form_draft					 = StorageDraft{};
 	storage_form_mode					 = FormMode::Create;
+	storage_parent_candidates_expanded	 = false;
+	storage_tag_candidates_expanded		 = false;
 	storage_archive_warning_acknowledged = false;
 	for (juce::TextEditor* editor :
 		 {&storage_name_editor, &storage_type_editor, &storage_location_editor,
-		  &storage_tags_editor, &storage_notes_editor}) {
+		  &storage_notes_editor}) {
 		editor->setText(juce::String{}, juce::dontSendNotification);
 	}
 }
@@ -1752,8 +2501,6 @@ void AppShellComponent::load_item_form_from_record(
 							 juce::dontSendNotification);
 	item_category_editor.setText(juce_text(item.record.category),
 								 juce::dontSendNotification);
-	item_tags_editor.setText(tag_editor_text(item.record.tags),
-							 juce::dontSendNotification);
 	item_notes_editor.setText(juce_text(item.record.notes),
 							  juce::dontSendNotification);
 	item_listing_marketplace_editor.setText(
@@ -1767,6 +2514,8 @@ void AppShellComponent::load_item_form_from_record(
 	item_listing_expanded = !item.record.listing.empty();
 	item_finance_expanded =
 		!item.record.acquisition.empty() || !item.record.finance.empty();
+	item_storage_candidates_expanded = false;
+	item_tag_candidates_expanded	 = false;
 }
 
 void AppShellComponent::load_storage_form_from_record(
@@ -1787,11 +2536,141 @@ void AppShellComponent::load_storage_form_from_record(
 								juce::dontSendNotification);
 	storage_location_editor.setText(juce_text(storage.record.location),
 									juce::dontSendNotification);
-	storage_tags_editor.setText(tag_editor_text(storage.record.tags),
-								juce::dontSendNotification);
 	storage_notes_editor.setText(juce_text(storage.record.notes),
 								 juce::dontSendNotification);
+	storage_parent_candidates_expanded	 = false;
+	storage_tag_candidates_expanded		 = false;
 	storage_archive_warning_acknowledged = false;
+}
+
+void AppShellComponent::save_item_form() {
+	item_form_draft.display_name = item_name_editor.getText().toStdString();
+	item_form_draft.category	 = item_category_editor.getText().toStdString();
+	item_form_draft.notes		 = item_notes_editor.getText().toStdString();
+	item_form_draft.listing.marketplace =
+		item_listing_marketplace_editor.getText().toStdString();
+	item_form_draft.listing.url =
+		item_listing_url_editor.getText().toStdString();
+	item_form_draft.listing.note =
+		item_listing_note_editor.getText().toStdString();
+	item_form_draft.acquisition.source =
+		item_acquisition_source_editor.getText().toStdString();
+	item_form_draft.pending_photo_import_planned =
+		has_ready_pending_photo(item_form_pending_photos);
+
+	ItemSaveWithPendingPhotosResult result =
+		save_item_draft_and_import_pending_photos(
+			ItemSaveWithPendingPhotosRequest{
+				.current_session = session,
+				.identifiers	 = edit_identifiers,
+				.clock			 = edit_clock,
+				.operation_gate	 = ui_operation_gate,
+				.staging_service = content_staging_service,
+				.decode_service	 = source_decode_service,
+				.photo_codec	 = internal_photo_codec,
+				.draft			 = item_form_draft,
+				.pending_sources = item_form_pending_photos},
+			last_progress_events, never_cancelled);
+	if (result.warning_acknowledgement_required())
+		item_form_draft.warning_acknowledged = true;
+	if (result.warning_acknowledgement_required()
+		&& result.save_result.saved_record_id) {
+		item_form_draft.reserved_new_id = result.save_result.saved_record_id;
+	}
+	if (result.item_saved())
+		item_form_draft.existing_id = result.save_result.saved_record_id;
+	apply_item_save_with_pending_photos_result(std::move(result));
+}
+
+void AppShellComponent::save_storage_form() {
+	storage_form_draft.display_name =
+		storage_name_editor.getText().toStdString();
+	storage_form_draft.storage_type =
+		storage_type_editor.getText().toStdString();
+	storage_form_draft.location =
+		storage_location_editor.getText().toStdString();
+	storage_form_draft.notes = storage_notes_editor.getText().toStdString();
+	storage_form_draft.archive_warning_acknowledged =
+		storage_archive_warning_acknowledged;
+	EntityEditResult result =
+		save_storage_draft(EntityEditRequest{.current_session = session,
+											 .identifiers = edit_identifiers,
+											 .clock		  = edit_clock},
+						   storage_form_draft);
+	if (result.warning_acknowledgement_required)
+		storage_archive_warning_acknowledged = true;
+	if (result.warning_acknowledgement_required && result.saved_record_id)
+		storage_form_draft.reserved_new_id = result.saved_record_id;
+	if (result.succeeded() && result.saved_record_id)
+		storage_form_draft.existing_id = result.saved_record_id;
+	apply_entity_edit_result(std::move(result));
+}
+
+void AppShellComponent::apply_item_save_with_pending_photos_result(
+	ItemSaveWithPendingPhotosResult result) {
+	last_edit_diagnostics	 = result.save_result.diagnostics;
+	item_form_pending_photos = std::move(result.pending_sources);
+	std::erase_if(item_form_pending_photos,
+				  [](const PendingPhotoSource& source) {
+		return !source.staged_path.has_value();
+	});
+	if (result.warning_acknowledgement_required()) {
+		last_edit_message = "Confirm warning and save again.";
+		refresh_all();
+		return;
+	}
+	if (result.save_result.failed()) {
+		last_edit_message = "Save failed.";
+		refresh_all();
+		return;
+	}
+
+	last_photo_diagnostics.clear();
+	if (result.import_attempted) {
+		for (const EntityEditDiagnostic& diagnostic :
+			 result.import_result.diagnostics) {
+			last_photo_diagnostics.push_back(core::Diagnostic{
+				.severity		   = diagnostic.severity,
+				.code			   = diagnostic.code,
+				.message		   = diagnostic.message,
+				.technical_details = diagnostic.technical_details});
+		}
+		last_photo_diagnostics.insert(last_photo_diagnostics.end(),
+									  result.cleanup_result.diagnostics.begin(),
+									  result.cleanup_result.diagnostics.end());
+		if (result.import_result.succeeded()) {
+			last_photo_message =
+				"Pending photo import completed: "
+				+ std::to_string(result.import_result.summary.success_count)
+				+ " imported, "
+				+ std::to_string(result.import_result.summary.failure_count)
+				+ " failed.";
+		} else if (result.import_result.was_user_cancelled()) {
+			last_photo_message = "Item saved, pending photo import cancelled.";
+		} else {
+			last_photo_message = "Item saved, but pending photo import failed.";
+		}
+		if (result.cleanup_attempted && result.cleanup_result.failed())
+			last_photo_message += " Pending source cleanup needs attention.";
+		if (!result.import_result.imported_photo_ids.empty())
+			selected_photo_id = result.import_result.imported_photo_ids.front();
+	} else if (!item_form_pending_photos.empty()) {
+		last_photo_message =
+			"Item saved, but no staged pending photos were ready.";
+	}
+
+	session = std::move(result.session);
+	last_edit_message =
+		result.save_result.metadata_changed ? "Saved." : "No changes.";
+	last_edit_diagnostics.clear();
+	if (item_form_draft.existing_id) {
+		selected_item_id = *item_form_draft.existing_id;
+		destination		 = RootDestination::ItemDetail;
+	} else {
+		destination =
+			form_return_destination.value_or(RootDestination::Catalog);
+	}
+	refresh_all();
 }
 
 void AppShellComponent::apply_entity_edit_result(EntityEditResult result) {
@@ -1888,6 +2767,10 @@ void AppShellComponent::refresh_controls() {
 		title		= "Fatal recovery";
 	}
 	title_label.setText(title, juce::dontSendNotification);
+	form_save_button.setButtonText(
+		destination == RootDestination::ItemForm	  ? "Save item"
+		: destination == RootDestination::StorageForm ? "Save storage"
+													  : "Save");
 
 	if (session.fatal()) {
 		catalog_nav_button.setEnabled(false);
@@ -2456,70 +3339,254 @@ void AppShellComponent::build_storage_detail_content() {
 	};
 }
 
+namespace {
+template<typename Content>
+void add_status_rows(Content& content, domain::ItemStatus selected_status,
+					 std::function<void(domain::ItemStatus)> choose_status) {
+	content.add_inline_buttons(
+		"Status",
+		{InlineButtonRowComponent::Action{
+			 .label = selected_status == domain::ItemStatus::Draft ? "* Draft"
+																   : "Draft",
+			 .handler =
+				 [choose_status] { choose_status(domain::ItemStatus::Draft); }},
+		 InlineButtonRowComponent::Action{
+			 .label = selected_status == domain::ItemStatus::Planned ? "* Plan"
+																	 : "Plan",
+			 .handler =
+				 [choose_status] {
+		choose_status(domain::ItemStatus::Planned);
+	}},
+		 InlineButtonRowComponent::Action{
+			 .label = selected_status == domain::ItemStatus::Listed ? "* List"
+																	: "List",
+			 .handler =
+				 [choose_status] {
+		choose_status(domain::ItemStatus::Listed);
+	}},
+		 InlineButtonRowComponent::Action{
+			 .label = selected_status == domain::ItemStatus::Sold ? "* Sold"
+																  : "Sold",
+			 .handler =
+				 [choose_status] { choose_status(domain::ItemStatus::Sold); }},
+		 InlineButtonRowComponent::Action{
+			 .label = selected_status == domain::ItemStatus::Archived ? "* Arch"
+																	  : "Arch",
+			 .handler =
+				 [choose_status] {
+		choose_status(domain::ItemStatus::Archived);
+	}}},
+		42);
+}
+template<typename Content>
+void add_tag_rows(Content& content, std::vector<domain::TagRow>& tags,
+				  std::function<void()> refresh) {
+	content.add_label(juce_text(tag_row_count_summary(tags)), 38,
+					  panel_colour(), true);
+	if (tags.empty())
+		content.add_label(
+			"No tags yet. Add a row for brand, size, condition, or any custom "
+			"fact.",
+			50, panel_colour());
+
+	for (std::size_t index = 0; index < tags.size(); ++index) {
+		content.add_tag_editor_row(
+			index, tags[index],
+			[&tags](std::size_t changed_index, domain::TagRow changed_tag) {
+			if (changed_index < tags.size())
+				tags[changed_index] = std::move(changed_tag);
+		}, [&tags, refresh](std::size_t removed_index) {
+			if (removed_index >= tags.size())
+				return;
+			tags.erase(tags.begin()
+					   + static_cast<std::ptrdiff_t>(removed_index));
+			refresh();
+		}, 52);
+	}
+
+	content.add_inline_buttons(
+		"Tags",
+		{InlineButtonRowComponent::Action{.label = "Add row",
+										  .handler =
+											  [&tags, refresh] {
+		tags.push_back(domain::TagRow{});
+		refresh();
+	}},
+		 InlineButtonRowComponent::Action{.label = "Clear all",
+										  .handler =
+											  [&tags, refresh] {
+		tags.clear();
+		refresh();
+	},
+										  .enabled = !tags.empty()}},
+		40);
+}
+}	 // namespace
+
 void AppShellComponent::build_item_form_content() {
-	content->add_label(
-		"Required first: display name, category, storage, status, "
-		"tags, and notes. Save first, then add photos from item detail.",
-		70, surface_colour(), true);
-	content->add_label(
-		"Photos can be imported after the item exists. Save can continue "
-		"with a non-blocking no-photo warning.",
-		64, panel_colour());
-	content->add_editor(item_name_editor, "Display name (required)", 46)
-		.onTextChange = [this] {
+	content->add_pending_photo_strip(item_form_pending_photos, [this] {
+		request_add_pending_item_photos();
+	}, [this] {
+		cleanup_item_pending_photos();
+		refresh_all();
+	}, [this](std::size_t index) { remove_item_pending_photo(index); }, 104);
+
+	content->add_editor_pair(item_name_editor, "Display name (required)",
+							 item_category_editor, "Category (required)", 54);
+	item_name_editor.onTextChange = [this] {
 		item_form_draft.display_name = item_name_editor.getText().toStdString();
 	};
-	content->add_editor(item_category_editor, "Category (required)", 46)
-		.onTextChange = [this] {
+	item_category_editor.onTextChange = [this] {
 		item_form_draft.category = item_category_editor.getText().toStdString();
 	};
 
-	juce::Button& storage = content->add_button(
+	content->add_inline_buttons(
 		juce_text(
 			"Storage: "
 			+ storage_label(session.repository, item_form_draft.storage_id)),
-		42);
-	storage.onClick = [this] {
-		item_form_draft.storage_id =
-			next_storage_choice(session.repository, item_form_draft.storage_id);
-		last_edit_message = "Storage selection cycled.";
+		{InlineButtonRowComponent::Action{
+			 .label = item_storage_candidates_expanded ? "Hide choices"
+					  : item_form_draft.storage_id	   ? "Change"
+													   : "Choose",
+			 .handler =
+				 [this] {
+		item_storage_candidates_expanded = !item_storage_candidates_expanded;
 		refresh_all();
-	};
-	juce::Button& clear_storage = content->add_button("Clear storage", 38);
-	clear_storage.onClick		= [this] {
+	}},
+		 InlineButtonRowComponent::Action{
+			 .label = "Clear",
+			 .handler =
+				 [this] {
 		item_form_draft.storage_id.reset();
+		item_storage_candidates_expanded = false;
 		refresh_all();
-	};
+	},
+			 .enabled = item_form_draft.storage_id.has_value()}},
+		42);
 
-	for (domain::ItemStatus status :
-		 {domain::ItemStatus::Draft, domain::ItemStatus::Planned,
-		  domain::ItemStatus::Listed, domain::ItemStatus::Sold,
-		  domain::ItemStatus::Archived}) {
-		std::string label = "Status: " + status_text(status);
-		if (item_form_draft.status == status)
-			label = "* " + label;
-		juce::Button& button = content->add_button(juce_text(label), 36);
-		button.onClick		 = [this, status] {
-			item_form_draft.status = status;
+	if (item_storage_candidates_expanded) {
+		std::vector<ButtonGridComponent::Action> storage_actions;
+		storage_actions.push_back(ButtonGridComponent::Action{
+			.label = "Unassigned storage", .handler = [this] {
+			item_form_draft.storage_id.reset();
+			item_storage_candidates_expanded = false;
 			refresh_all();
-		};
+		}});
+		for (const persistence::StorageEnvelope& storage :
+			 session.repository.storages) {
+			const core::StableIdentifier storage_id = storage.record.id;
+			storage_actions.push_back(ButtonGridComponent::Action{
+				.label = juce_text(
+					storage_choice_label(session.repository, storage)),
+				.handler = [this, storage_id] {
+				item_form_draft.storage_id		 = storage_id;
+				item_storage_candidates_expanded = false;
+				refresh_all();
+			}});
+		}
+		const int storage_choices_height =
+			ButtonGridComponent::preferred_height(
+				static_cast<int>(storage_actions.size()), 2);
+		content->add_button_grid("Storage choices", std::move(storage_actions),
+								 2, storage_choices_height);
 	}
 
-	content->add_label(
-		"Tags use one key=value row per line. Blank keys are "
-		"blocked for UI saves.",
-		54, panel_colour());
-	content->add_editor(item_tags_editor, "brand=Acme\nsize=39", 80, true)
-		.onTextChange = [this] {
-		item_form_draft.tags =
-			parse_tag_rows(item_tags_editor.getText().toStdString());
-	};
-	content->add_editor(item_notes_editor, "Notes", 92, true).onTextChange =
+	add_status_rows(*content, item_form_draft.status,
+					[this](domain::ItemStatus status) {
+		item_form_draft.status = status;
+		refresh_all();
+	});
+
+	content->add_inline_buttons(
+		juce_text(tag_row_count_summary(item_form_draft.tags)),
+		{InlineButtonRowComponent::Action{.label = "Add row",
+										  .handler =
+											  [this] {
+		item_form_draft.tags.push_back(domain::TagRow{});
+		refresh_all();
+	}},
+		 InlineButtonRowComponent::Action{
+			 .label = item_tag_candidates_expanded ? "Hide keys" : "Key hints",
+			 .handler =
+				 [this] {
+		item_tag_candidates_expanded = !item_tag_candidates_expanded;
+		refresh_all();
+	}},
+		 InlineButtonRowComponent::Action{
+			 .label = "Clear",
+			 .handler =
+				 [this] {
+		item_form_draft.tags.clear();
+		refresh_all();
+	},
+			 .enabled = !item_form_draft.tags.empty()}},
+		42);
+
+	if (item_tag_candidates_expanded) {
+		const TagKeyCandidateGroups groups =
+			derive_tag_key_candidate_groups(session.repository);
+		if (groups.item_keys.empty() && groups.storage_keys.empty()) {
+			content->add_label("No reusable tag keys in this catalog yet.", 34,
+							   panel_colour());
+		}
+		if (!groups.item_keys.empty()) {
+			std::vector<ButtonGridComponent::Action> item_key_actions;
+			for (const std::string& key : groups.item_keys) {
+				item_key_actions.push_back(ButtonGridComponent::Action{
+					.label = juce_text(key), .handler = [this, key] {
+					apply_tag_key_candidate(item_form_draft.tags, key);
+					refresh_all();
+				}});
+			}
+			const int item_key_height = ButtonGridComponent::preferred_height(
+				static_cast<int>(item_key_actions.size()), 3);
+			content->add_button_grid("Item tag keys",
+									 std::move(item_key_actions), 3,
+									 item_key_height);
+		}
+		if (!groups.storage_keys.empty()) {
+			std::vector<ButtonGridComponent::Action> storage_key_actions;
+			for (const std::string& key : groups.storage_keys) {
+				storage_key_actions.push_back(ButtonGridComponent::Action{
+					.label = juce_text(key), .handler = [this, key] {
+					apply_tag_key_candidate(item_form_draft.tags, key);
+					refresh_all();
+				}});
+			}
+			const int storage_key_height =
+				ButtonGridComponent::preferred_height(
+					static_cast<int>(storage_key_actions.size()), 3);
+			content->add_button_grid("Storage tag keys",
+									 std::move(storage_key_actions), 3,
+									 storage_key_height);
+		}
+	}
+
+	if (item_form_draft.tags.empty())
+		content->add_label("No tags yet. Use Key hints or Add row.", 34,
+						   panel_colour());
+	for (std::size_t index = 0; index < item_form_draft.tags.size(); ++index) {
+		content->add_tag_editor_row(
+			index, item_form_draft.tags[index],
+			[this](std::size_t changed_index, domain::TagRow changed_tag) {
+			if (changed_index < item_form_draft.tags.size())
+				item_form_draft.tags[changed_index] = std::move(changed_tag);
+		}, [this](std::size_t removed_index) {
+			if (removed_index >= item_form_draft.tags.size())
+				return;
+			item_form_draft.tags.erase(
+				item_form_draft.tags.begin()
+				+ static_cast<std::ptrdiff_t>(removed_index));
+			refresh_all();
+		}, 52);
+	}
+
+	content->add_editor(item_notes_editor, "Notes", 80, true).onTextChange =
 		[this] {
 		item_form_draft.notes = item_notes_editor.getText().toStdString();
 	};
 
-	content->add_label(juce_text(listing_summary(item_form_draft.listing)), 48,
+	content->add_label(juce_text(listing_summary(item_form_draft.listing)), 46,
 					   panel_colour(), !item_form_draft.listing.empty());
 	juce::Button& listing_toggle =
 		content->add_button(item_listing_expanded ? "Collapse listing details"
@@ -2549,7 +3616,7 @@ void AppShellComponent::build_item_form_content() {
 
 	content->add_label(juce_text(finance_summary(item_form_draft.acquisition,
 												 item_form_draft.finance)),
-					   48, panel_colour(),
+					   46, panel_colour(),
 					   !item_form_draft.acquisition.empty()
 						   || !item_form_draft.finance.empty());
 	juce::Button& finance_toggle =
@@ -2569,41 +3636,13 @@ void AppShellComponent::build_item_form_content() {
 				item_acquisition_source_editor.getText().toStdString();
 		};
 		content->add_label(
-			"Money fields stay omitted from the first compact JUCE "
-			"form pass; existing values are preserved when editing.",
+			"Money fields stay omitted from this compact JUCE form pass; "
+			"existing values are preserved when editing.",
 			52, panel_colour());
 	}
 
-	juce::Button& save = content->add_button("Save item", 46);
-	save.onClick	   = [this] {
-		item_form_draft.display_name = item_name_editor.getText().toStdString();
-		item_form_draft.category = item_category_editor.getText().toStdString();
-		item_form_draft.tags =
-			parse_tag_rows(item_tags_editor.getText().toStdString());
-		item_form_draft.notes = item_notes_editor.getText().toStdString();
-		item_form_draft.listing.marketplace =
-			item_listing_marketplace_editor.getText().toStdString();
-		item_form_draft.listing.url =
-			item_listing_url_editor.getText().toStdString();
-		item_form_draft.listing.note =
-			item_listing_note_editor.getText().toStdString();
-		item_form_draft.acquisition.source =
-			item_acquisition_source_editor.getText().toStdString();
-		EntityEditResult result =
-			save_item_draft(EntityEditRequest{.current_session = session,
-											  .identifiers = edit_identifiers,
-											  .clock	   = edit_clock},
-							item_form_draft);
-		if (result.warning_acknowledgement_required)
-			item_form_draft.warning_acknowledged = true;
-		if (result.warning_acknowledgement_required && result.saved_record_id)
-			item_form_draft.reserved_new_id = result.saved_record_id;
-		if (result.succeeded() && result.saved_record_id)
-			item_form_draft.existing_id = result.saved_record_id;
-		apply_entity_edit_result(std::move(result));
-	};
-
 	if (item_form_mode == FormMode::Edit) {
+		content->add_label("Edit-only actions", 34, panel_colour(), true);
 		juce::Button& archive = content->add_button("Archive item", 42);
 		archive.onClick		  = [this] {
 			if (!item_form_draft.existing_id)
@@ -2620,57 +3659,173 @@ void AppShellComponent::build_item_form_content() {
 		hard_delete.setEnabled(false);
 	}
 }
-
 void AppShellComponent::build_storage_form_content() {
-	content->add_label(
-		"Required first: display name and storage type. Parent, "
-		"location, tags, and notes are optional.",
-		70, surface_colour(), true);
-	content->add_editor(storage_name_editor, "Display name (required)", 46)
-		.onTextChange = [this] {
+	content->add_editor_pair(storage_name_editor, "Display name (required)",
+							 storage_type_editor, "Storage type (required)",
+							 54);
+	storage_name_editor.onTextChange = [this] {
 		storage_form_draft.display_name =
 			storage_name_editor.getText().toStdString();
 	};
-	content->add_editor(storage_type_editor, "Storage type (required)", 46)
-		.onTextChange = [this] {
+	storage_type_editor.onTextChange = [this] {
 		storage_form_draft.storage_type =
 			storage_type_editor.getText().toStdString();
 	};
-	juce::Button& parent = content->add_button(
+
+	content->add_inline_buttons(
 		juce_text("Parent: "
 				  + storage_label(session.repository,
 								  storage_form_draft.parent_storage_id)),
-		42);
-	parent.onClick = [this] {
-		storage_form_draft.parent_storage_id = next_storage_choice(
-			session.repository, storage_form_draft.parent_storage_id,
-			storage_form_draft.existing_id);
+		{InlineButtonRowComponent::Action{
+			 .label = storage_parent_candidates_expanded	 ? "Hide choices"
+					  : storage_form_draft.parent_storage_id ? "Change"
+															 : "Choose",
+			 .handler =
+				 [this] {
+		storage_parent_candidates_expanded =
+			!storage_parent_candidates_expanded;
 		refresh_all();
-	};
-	juce::Button& clear_parent = content->add_button("Clear parent", 38);
-	clear_parent.onClick	   = [this] {
+	}},
+		 InlineButtonRowComponent::Action{
+			 .label = "Clear",
+			 .handler =
+				 [this] {
 		storage_form_draft.parent_storage_id.reset();
+		storage_parent_candidates_expanded = false;
 		refresh_all();
-	};
+	},
+			 .enabled = storage_form_draft.parent_storage_id.has_value()}},
+		42);
+
+	if (storage_parent_candidates_expanded) {
+		std::vector<ButtonGridComponent::Action> parent_actions;
+		parent_actions.push_back(ButtonGridComponent::Action{
+			.label = "No parent storage", .handler = [this] {
+			storage_form_draft.parent_storage_id.reset();
+			storage_parent_candidates_expanded = false;
+			refresh_all();
+		}});
+		for (const persistence::StorageEnvelope& storage :
+			 session.repository.storages) {
+			if (storage_form_draft.existing_id
+				&& storage.record.id == *storage_form_draft.existing_id) {
+				continue;
+			}
+			const core::StableIdentifier storage_id = storage.record.id;
+			parent_actions.push_back(ButtonGridComponent::Action{
+				.label = juce_text(
+					storage_choice_label(session.repository, storage)),
+				.handler = [this, storage_id] {
+				storage_form_draft.parent_storage_id = storage_id;
+				storage_parent_candidates_expanded	 = false;
+				refresh_all();
+			}});
+		}
+		const int parent_choices_height = ButtonGridComponent::preferred_height(
+			static_cast<int>(parent_actions.size()), 2);
+		content->add_button_grid("Parent choices", std::move(parent_actions), 2,
+								 parent_choices_height);
+	}
+
 	content->add_editor(storage_location_editor, "Physical location", 46)
 		.onTextChange = [this] {
 		storage_form_draft.location =
 			storage_location_editor.getText().toStdString();
 	};
-	content->add_label(
-		"Tags use one key=value row per line. Blank keys are "
-		"blocked for UI saves.",
-		54, panel_colour());
-	content->add_editor(storage_tags_editor, "room=bedroom", 80, true)
-		.onTextChange = [this] {
-		storage_form_draft.tags =
-			parse_tag_rows(storage_tags_editor.getText().toStdString());
-	};
-	content->add_editor(storage_notes_editor, "Notes", 92, true).onTextChange =
+
+	content->add_inline_buttons(
+		juce_text(tag_row_count_summary(storage_form_draft.tags)),
+		{InlineButtonRowComponent::Action{.label = "Add row",
+										  .handler =
+											  [this] {
+		storage_form_draft.tags.push_back(domain::TagRow{});
+		refresh_all();
+	}},
+		 InlineButtonRowComponent::Action{
+			 .label =
+				 storage_tag_candidates_expanded ? "Hide keys" : "Key hints",
+			 .handler =
+				 [this] {
+		storage_tag_candidates_expanded = !storage_tag_candidates_expanded;
+		refresh_all();
+	}},
+		 InlineButtonRowComponent::Action{
+			 .label = "Clear",
+			 .handler =
+				 [this] {
+		storage_form_draft.tags.clear();
+		refresh_all();
+	},
+			 .enabled = !storage_form_draft.tags.empty()}},
+		42);
+
+	if (storage_tag_candidates_expanded) {
+		const TagKeyCandidateGroups groups =
+			derive_tag_key_candidate_groups(session.repository);
+		if (groups.item_keys.empty() && groups.storage_keys.empty()) {
+			content->add_label("No reusable tag keys in this catalog yet.", 34,
+							   panel_colour());
+		}
+		if (!groups.item_keys.empty()) {
+			std::vector<ButtonGridComponent::Action> item_key_actions;
+			for (const std::string& key : groups.item_keys) {
+				item_key_actions.push_back(ButtonGridComponent::Action{
+					.label = juce_text(key), .handler = [this, key] {
+					apply_tag_key_candidate(storage_form_draft.tags, key);
+					refresh_all();
+				}});
+			}
+			const int storage_form_item_key_height =
+				ButtonGridComponent::preferred_height(
+					static_cast<int>(item_key_actions.size()), 3);
+			content->add_button_grid("Item tag keys",
+									 std::move(item_key_actions), 3,
+									 storage_form_item_key_height);
+		}
+		if (!groups.storage_keys.empty()) {
+			std::vector<ButtonGridComponent::Action> storage_key_actions;
+			for (const std::string& key : groups.storage_keys) {
+				storage_key_actions.push_back(ButtonGridComponent::Action{
+					.label = juce_text(key), .handler = [this, key] {
+					apply_tag_key_candidate(storage_form_draft.tags, key);
+					refresh_all();
+				}});
+			}
+			const int storage_form_storage_key_height =
+				ButtonGridComponent::preferred_height(
+					static_cast<int>(storage_key_actions.size()), 3);
+			content->add_button_grid("Storage tag keys",
+									 std::move(storage_key_actions), 3,
+									 storage_form_storage_key_height);
+		}
+	}
+
+	if (storage_form_draft.tags.empty())
+		content->add_label("No tags yet. Use Key hints or Add row.", 34,
+						   panel_colour());
+	for (std::size_t index = 0; index < storage_form_draft.tags.size();
+		 ++index) {
+		content->add_tag_editor_row(
+			index, storage_form_draft.tags[index],
+			[this](std::size_t changed_index, domain::TagRow changed_tag) {
+			if (changed_index < storage_form_draft.tags.size())
+				storage_form_draft.tags[changed_index] = std::move(changed_tag);
+		}, [this](std::size_t removed_index) {
+			if (removed_index >= storage_form_draft.tags.size())
+				return;
+			storage_form_draft.tags.erase(
+				storage_form_draft.tags.begin()
+				+ static_cast<std::ptrdiff_t>(removed_index));
+			refresh_all();
+		}, 52);
+	}
+
+	content->add_editor(storage_notes_editor, "Notes", 80, true).onTextChange =
 		[this] {
 		storage_form_draft.notes = storage_notes_editor.getText().toStdString();
 	};
 	if (storage_form_mode == FormMode::Edit) {
+		content->add_label("Edit-only actions", 34, panel_colour(), true);
 		juce::Button& archive = content->add_button(
 			storage_form_draft.lifecycle_status
 					== domain::StorageLifecycleStatus::Archived
@@ -2698,32 +3853,6 @@ void AppShellComponent::build_storage_form_content() {
 			"Hard delete disabled until deletion sequence tests pass", 46);
 		hard_delete.setEnabled(false);
 	}
-	juce::Button& save = content->add_button("Save storage", 46);
-	save.onClick	   = [this] {
-		storage_form_draft.display_name =
-			storage_name_editor.getText().toStdString();
-		storage_form_draft.storage_type =
-			storage_type_editor.getText().toStdString();
-		storage_form_draft.location =
-			storage_location_editor.getText().toStdString();
-		storage_form_draft.tags =
-			parse_tag_rows(storage_tags_editor.getText().toStdString());
-		storage_form_draft.notes = storage_notes_editor.getText().toStdString();
-		storage_form_draft.archive_warning_acknowledged =
-			storage_archive_warning_acknowledged;
-		EntityEditResult result = save_storage_draft(
-			EntityEditRequest{.current_session = session,
-							  .identifiers	   = edit_identifiers,
-							  .clock		   = edit_clock},
-			storage_form_draft);
-		if (result.warning_acknowledgement_required)
-			storage_archive_warning_acknowledged = true;
-		if (result.warning_acknowledgement_required && result.saved_record_id)
-			storage_form_draft.reserved_new_id = result.saved_record_id;
-		if (result.succeeded() && result.saved_record_id)
-			storage_form_draft.existing_id = result.saved_record_id;
-		apply_entity_edit_result(std::move(result));
-	};
 }
 
 void AppShellComponent::build_photo_viewer_content() {

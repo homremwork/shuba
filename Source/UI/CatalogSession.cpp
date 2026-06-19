@@ -760,6 +760,27 @@ void append_import_diagnostics(PhotoImportSessionResult& result,
 								 entity_diagnostic_from_core(diagnostic));
 }
 
+void append_pending_diagnostic(PendingPhotoStagingResult& result,
+							   PendingPhotoSource& pending_source,
+							   Diagnostic diagnostic) {
+	pending_source.diagnostics.push_back(diagnostic);
+	result.diagnostics.push_back(std::move(diagnostic));
+}
+
+void append_pending_diagnostics(PendingPhotoStagingResult& result,
+								PendingPhotoSource& pending_source,
+								const std::vector<Diagnostic>& diagnostics) {
+	for (const Diagnostic& diagnostic : diagnostics)
+		append_pending_diagnostic(result, pending_source, diagnostic);
+}
+
+void append_cleanup_diagnostic(PendingPhotoCleanupResult& result,
+							   PendingPhotoSource& pending_source,
+							   Diagnostic diagnostic) {
+	pending_source.diagnostics.push_back(diagnostic);
+	result.diagnostics.push_back(std::move(diagnostic));
+}
+
 void append_core_diagnostics(std::vector<Diagnostic>& target,
 							 const std::vector<Diagnostic>& source) {
 	for (const Diagnostic& diagnostic : source)
@@ -901,6 +922,83 @@ void append_core_technical_details(std::vector<std::string>& details,
 		"Photo import needs at least one selected source image.");
 }
 
+[[nodiscard]] std::string pending_display_name_for_source(
+	const platform::ContentSourceDescriptor& source) {
+	if (!source.display_name.empty())
+		return source.display_name;
+	if (!source.local_path.empty())
+		return source.local_path.filename().string();
+	if (!source.opaque_handle.empty())
+		return source.opaque_handle;
+
+	return "pending photo source";
+}
+
+[[nodiscard]] Diagnostic pending_stage_blocking_diagnostic(
+	std::string code, std::string message, std::string technical_details = {}) {
+	return make_diagnostic(DiagnosticSeverity::ActionValidationError,
+						   std::move(code), std::move(message),
+						   std::move(technical_details));
+}
+
+void append_pending_platform_failure(
+	PendingPhotoStagingResult& result, PendingPhotoSource& pending_source,
+	const platform::PlatformValueResult<platform::StagedContent>& staged) {
+	append_pending_diagnostics(result, pending_source, staged.diagnostics);
+	if (pending_source.diagnostics.empty()
+		&& staged.category != OperationResultCategory::UserCancelled) {
+		append_pending_diagnostic(
+			result, pending_source,
+			make_diagnostic(DiagnosticSeverity::WriteBlockingError,
+							"pending_photo_staging_failed",
+							"Pending photo source could not be staged."));
+	}
+}
+
+[[nodiscard]] platform::ContentSourceDescriptor staged_pending_descriptor(
+	const platform::StagedContent& staged) {
+	platform::ContentSourceDescriptor descriptor =
+		platform::make_local_file_source(staged.staged_path,
+										 staged.display_name);
+	descriptor.byte_count = staged.byte_count;
+	descriptor.transient  = true;
+	return descriptor;
+}
+
+void finalize_pending_staging_result(PendingPhotoStagingResult& result) {
+	for (const PendingPhotoSource& source : result.sources)
+		if (source.status == PendingPhotoStatus::Staged)
+			++result.staged_count;
+		else if (source.status == PendingPhotoStatus::Cancelled)
+			++result.cancelled_count;
+		else if (source.status == PendingPhotoStatus::Failed)
+			++result.failure_count;
+
+	if (result.staged_count > 0U) {
+		result.category = OperationResultCategory::Success;
+		return;
+	}
+	if (result.cancelled_count > 0U) {
+		result.category = OperationResultCategory::UserCancelled;
+		return;
+	}
+	for (const PendingPhotoSource& source : result.sources) {
+		if (!source.diagnostics.empty()) {
+			result.category = OperationResultCategory::TemporaryStorageFailure;
+			return;
+		}
+	}
+	result.category = OperationResultCategory::Success;
+}
+
+[[nodiscard]] bool has_ready_pending_photos(
+	std::span<const PendingPhotoSource> pending_sources) noexcept {
+	return std::ranges::any_of(pending_sources,
+							   [](const PendingPhotoSource& source) {
+		return source.ready_for_import();
+	});
+}
+
 [[nodiscard]] std::optional<EntityEditDiagnostic> commit_photo_records(
 	EntityEditResult& result, const EntityEditRequest& request,
 	std::span<const persistence::PhotoEnvelope> candidate_photos,
@@ -992,9 +1090,11 @@ void append_item_save_nudges(EntityEditResult& result,
 	}
 	const std::map<std::string, catalog::ItemProjection>::const_iterator found =
 		session.repository.item_projections.find(item_id.value());
-	if (found == session.repository.item_projections.end()
+	const bool item_has_no_photos =
+		found == session.repository.item_projections.end()
 		|| found->second.photo_presence
-			   == catalog::PhotoPresenceState::NoPhotoRecords) {
+			   == catalog::PhotoPresenceState::NoPhotoRecords;
+	if (item_has_no_photos && !draft.pending_photo_import_planned) {
 		append_edit_diagnostic(
 			result,
 			make_entity_diagnostic(
@@ -1312,6 +1412,66 @@ bool PhotoImportSessionResult::failed() const noexcept {
 
 bool PhotoImportSessionResult::has_partial_failures() const noexcept {
 	return summary.has_partial_failures();
+}
+
+std::string_view to_string(PendingPhotoStatus status) noexcept {
+	switch (status) {
+		case PendingPhotoStatus::Selected:
+			return "selected";
+		case PendingPhotoStatus::Staged:
+			return "staged";
+		case PendingPhotoStatus::Failed:
+			return "failed";
+		case PendingPhotoStatus::Cancelled:
+			return "cancelled";
+		case PendingPhotoStatus::Removed:
+			return "removed";
+		case PendingPhotoStatus::Consumed:
+			return "consumed";
+	}
+
+	return "unknown pending photo status";
+}
+
+bool PendingPhotoSource::ready_for_import() const noexcept {
+	return status == PendingPhotoStatus::Staged && staged_source.has_value();
+}
+
+bool PendingPhotoStagingResult::succeeded() const noexcept {
+	return category == core::OperationResultCategory::Success;
+}
+
+bool PendingPhotoStagingResult::was_user_cancelled() const noexcept {
+	return category == core::OperationResultCategory::UserCancelled;
+}
+
+bool PendingPhotoStagingResult::failed() const noexcept {
+	return !succeeded() && !was_user_cancelled();
+}
+
+bool PendingPhotoStagingResult::has_partial_failures() const noexcept {
+	return staged_count > 0U && (failure_count > 0U || cancelled_count > 0U);
+}
+
+bool PendingPhotoCleanupResult::succeeded() const noexcept {
+	return category == core::OperationResultCategory::Success;
+}
+
+bool PendingPhotoCleanupResult::failed() const noexcept {
+	return !succeeded();
+}
+
+bool ItemSaveWithPendingPhotosResult::item_saved() const noexcept {
+	return save_result.succeeded() && save_result.saved_record_id.has_value();
+}
+
+bool ItemSaveWithPendingPhotosResult::warning_acknowledgement_required()
+	const noexcept {
+	return save_result.warning_acknowledgement_required;
+}
+
+bool ItemSaveWithPendingPhotosResult::import_failed() const noexcept {
+	return import_attempted && import_result.failed();
 }
 
 bool CatalogRecoveryUiSummary::fatal() const noexcept {
@@ -1956,6 +2116,217 @@ PhotoImportSessionResult import_photos_into_session(
 			request.current_session, result.summary.updated_state.photos,
 			active_catalog_root);
 	}
+	return result;
+}
+
+ItemSaveWithPendingPhotosResult save_item_draft_and_import_pending_photos(
+	const ItemSaveWithPendingPhotosRequest& request,
+	platform::ProgressSink& progress_sink,
+	platform::CancellationToken& cancellation_token) {
+	ItemSaveWithPendingPhotosResult result{
+		.session		 = request.current_session,
+		.pending_sources = request.pending_sources};
+	result.import_result.session = request.current_session;
+
+	ItemDraft draft = request.draft;
+	draft.pending_photo_import_planned =
+		has_ready_pending_photos(result.pending_sources);
+	result.save_result = save_item_draft(
+		EntityEditRequest{.current_session = request.current_session,
+						  .identifiers	   = request.identifiers,
+						  .clock		   = request.clock,
+						  .active_catalog_root_override =
+							  request.active_catalog_root_override,
+						  .create_previous_copy = request.create_previous_copy},
+		draft);
+	result.session				 = result.save_result.session;
+	result.import_result.session = result.session;
+	if (result.save_result.warning_acknowledgement_required
+		|| result.save_result.failed()
+		|| !result.save_result.saved_record_id.has_value()) {
+		return result;
+	}
+
+	std::vector<platform::ContentSourceDescriptor> sources;
+	std::vector<std::size_t> source_indexes;
+	for (std::size_t index = 0; index < result.pending_sources.size();
+		 ++index) {
+		const PendingPhotoSource& pending_source =
+			result.pending_sources[index];
+		if (!pending_source.ready_for_import())
+			continue;
+
+		sources.push_back(*pending_source.staged_source);
+		source_indexes.push_back(index);
+	}
+	if (sources.empty())
+		return result;
+
+	result.import_attempted = true;
+	result.import_result	= import_photos_into_session(
+		PhotoImportSessionRequest{
+			.current_session = result.save_result.session,
+			.identifiers	 = request.identifiers,
+			.clock			 = request.clock,
+			.operation_gate	 = request.operation_gate,
+			.staging_service = request.staging_service,
+			.decode_service	 = request.decode_service,
+			.photo_codec	 = request.photo_codec,
+			.owner =
+				domain::PhotoOwner{.type = PhotoOwnerType::Item,
+								   .id	 = *result.save_result.saved_record_id},
+			.sources = std::move(sources),
+			.active_catalog_root_override =
+				request.active_catalog_root_override,
+			.create_previous_copy = request.create_previous_copy},
+		progress_sink, cancellation_token);
+	result.session = result.import_result.session;
+
+	for (const std::size_t index : source_indexes)
+		result.pending_sources[index].status = PendingPhotoStatus::Consumed;
+	result.cleanup_attempted = true;
+	result.cleanup_result =
+		cleanup_pending_photo_sources(result.pending_sources);
+	return result;
+}
+
+PendingPhotoStagingResult stage_pending_photos_for_session(
+	const PendingPhotoStagingRequest& request,
+	platform::ProgressSink& progress_sink,
+	platform::CancellationToken& cancellation_token) {
+	PendingPhotoStagingResult result;
+	if (!request.current_session.paths) {
+		result.category = OperationResultCategory::ValidationFailure;
+		result.diagnostics.push_back(pending_stage_blocking_diagnostic(
+			"catalog_paths_missing",
+			"App-private catalog paths are unavailable for pending photo "
+			"staging."));
+		return result;
+	}
+	if (request.sources.empty()) {
+		result.category = OperationResultCategory::ValidationFailure;
+		result.diagnostics.push_back(pending_stage_blocking_diagnostic(
+			"pending_photo_staging_no_sources",
+			"Pending photo staging needs at least one selected source image."));
+		return result;
+	}
+
+	const core::OperationIdentifier operation_id =
+		request.identifiers.next_operation_identifier();
+	platform::PlatformOperationStartResult operation_start =
+		platform::try_start_platform_operation(
+			request.operation_gate,
+			platform::PlatformOperationStartRequest{
+				.operation_kind = core::OperationKind::PhotoImport,
+				.operation_id	= operation_id,
+				.operation_type = platform::ProgressOperationType::PhotoImport},
+			progress_sink, cancellation_token);
+	if (!operation_start.succeeded()) {
+		result.category	   = operation_start.category;
+		result.diagnostics = std::move(operation_start.diagnostics);
+		return result;
+	}
+
+	platform::ScopedPlatformOperation& operation = *operation_start.operation;
+	const std::uint64_t total_sources =
+		static_cast<std::uint64_t>(request.sources.size());
+	operation.publish_progress("pending-photo-staging-started",
+							   std::uint64_t{0}, total_sources,
+							   "Pending photo staging started.", true);
+
+	for (std::size_t index = 0; index < request.sources.size(); ++index) {
+		const platform::ContentSourceDescriptor& source =
+			request.sources[index];
+		PendingPhotoSource pending_source{
+			.source_index = index,
+			.display_name = pending_display_name_for_source(source),
+			.byte_count	  = source.byte_count,
+			.status		  = PendingPhotoStatus::Selected};
+
+		if (operation.cancellation_requested()) {
+			pending_source.status = PendingPhotoStatus::Cancelled;
+			result.sources.push_back(std::move(pending_source));
+			break;
+		}
+
+		operation.publish_progress(
+			"pending-photo-source-started",
+			static_cast<std::uint64_t>(index + 1U), total_sources,
+			"Pending photo source staging started.", true);
+		const std::string staged_name = platform::make_staged_content_file_name(
+			"pending-photo-source", operation.context().operation_id,
+			index + 1U, pending_source.display_name);
+		platform::PlatformValueResult<platform::StagedContent> staged =
+			request.staging_service.stage_content(
+				platform::ContentStagingRequest{
+					.source = source,
+					.target_directory =
+						request.current_session.paths->staged_content_root,
+					.target_file_name			= staged_name,
+					.allow_no_copy_optimization = false},
+				operation.context(), progress_sink, cancellation_token);
+		if (!staged.succeeded()) {
+			if (staged.was_user_cancelled()) {
+				pending_source.status = PendingPhotoStatus::Cancelled;
+			} else {
+				pending_source.status = PendingPhotoStatus::Failed;
+				append_pending_platform_failure(result, pending_source, staged);
+			}
+			result.sources.push_back(std::move(pending_source));
+			if (staged.was_user_cancelled())
+				break;
+			continue;
+		}
+
+		pending_source.status		 = PendingPhotoStatus::Staged;
+		pending_source.display_name	 = staged.value->display_name.empty()
+										   ? pending_source.display_name
+										   : staged.value->display_name;
+		pending_source.byte_count	 = staged.value->byte_count;
+		pending_source.staged_path	 = staged.value->staged_path;
+		pending_source.staged_source = staged_pending_descriptor(*staged.value);
+		result.sources.push_back(std::move(pending_source));
+	}
+
+	operation.publish_progress("pending-photo-staging-completed", total_sources,
+							   total_sources,
+							   "Pending photo staging completed.", false);
+	finalize_pending_staging_result(result);
+	return result;
+}
+
+PendingPhotoCleanupResult cleanup_pending_photo_sources(
+	std::vector<PendingPhotoSource>& pending_sources) {
+	PendingPhotoCleanupResult result;
+	for (PendingPhotoSource& pending_source : pending_sources) {
+		if (!pending_source.staged_path.has_value())
+			continue;
+
+		++result.cleanup_attempt_count;
+		std::error_code error;
+		std::filesystem::remove(*pending_source.staged_path, error);
+		if (error) {
+			++result.failure_count;
+			append_cleanup_diagnostic(
+				result, pending_source,
+				make_diagnostic(
+					DiagnosticSeverity::RecoverableWarning,
+					"pending_photo_cleanup_failed",
+					"Pending staged photo source could not be removed.",
+					pending_source.staged_path->string() + ": "
+						+ error.message()));
+			continue;
+		}
+
+		++result.removed_count;
+		pending_source.staged_source.reset();
+		pending_source.staged_path.reset();
+		if (pending_source.status != PendingPhotoStatus::Consumed)
+			pending_source.status = PendingPhotoStatus::Removed;
+	}
+
+	if (result.failure_count > 0U)
+		result.category = OperationResultCategory::TemporaryStorageFailure;
 	return result;
 }
 

@@ -116,6 +116,64 @@ struct PhotoImportSessionResult final {
 	[[nodiscard]] bool has_partial_failures() const noexcept;
 };
 
+enum class PendingPhotoStatus : std::uint8_t {
+	Selected,
+	Staged,
+	Failed,
+	Cancelled,
+	Removed,
+	Consumed,
+};
+
+[[nodiscard]] std::string_view to_string(PendingPhotoStatus status) noexcept;
+
+struct PendingPhotoSource final {
+	std::size_t source_index{};
+	std::string display_name;
+	std::optional<std::uint64_t> byte_count;
+	PendingPhotoStatus status{PendingPhotoStatus::Selected};
+	std::optional<platform::ContentSourceDescriptor> staged_source;
+	std::optional<std::filesystem::path> staged_path;
+	std::vector<core::Diagnostic> diagnostics;
+
+	[[nodiscard]] bool ready_for_import() const noexcept;
+};
+
+struct PendingPhotoStagingRequest final {
+	CatalogSessionState current_session;
+	core::IdentifierSource& identifiers;
+	core::OperationGate& operation_gate;
+	platform::ContentStagingService& staging_service;
+	std::vector<platform::ContentSourceDescriptor> sources;
+};
+
+struct PendingPhotoStagingResult final {
+	core::OperationResultCategory category{
+		core::OperationResultCategory::Success};
+	std::vector<core::Diagnostic> diagnostics;
+	std::vector<PendingPhotoSource> sources;
+	std::uint64_t staged_count{};
+	std::uint64_t failure_count{};
+	std::uint64_t cancelled_count{};
+
+	[[nodiscard]] bool succeeded() const noexcept;
+	[[nodiscard]] bool was_user_cancelled() const noexcept;
+	[[nodiscard]] bool failed() const noexcept;
+	[[nodiscard]] bool has_partial_failures() const noexcept;
+};
+
+struct PendingPhotoCleanupResult final {
+	core::OperationResultCategory category{
+		core::OperationResultCategory::Success};
+	std::vector<core::Diagnostic> diagnostics;
+	std::uint64_t cleanup_attempt_count{};
+	std::uint64_t removed_count{};
+	std::uint64_t failure_count{};
+
+	[[nodiscard]] bool succeeded() const noexcept;
+	[[nodiscard]] bool failed() const noexcept;
+};
+
 struct CatalogRecoveryUiSummary final {
 	persistence::CatalogLoadStatus load_status{
 		persistence::CatalogLoadStatus::Fatal};
@@ -226,6 +284,7 @@ struct ItemDraft final {
 	domain::AcquisitionData acquisition;
 	domain::FinanceData finance;
 	bool warning_acknowledged{};
+	bool pending_photo_import_planned{};
 };
 
 struct StorageDraft final {
@@ -250,12 +309,51 @@ struct EntityEditRequest final {
 	bool create_previous_copy{true};
 };
 
+struct ItemSaveWithPendingPhotosRequest final {
+	CatalogSessionState current_session;
+	core::IdentifierSource& identifiers;
+	core::Clock& clock;
+	core::OperationGate& operation_gate;
+	platform::ContentStagingService& staging_service;
+	platform::SourceImageDecodeService& decode_service;
+	platform::InternalPhotoCodec& photo_codec;
+	ItemDraft draft;
+	std::vector<PendingPhotoSource> pending_sources;
+	std::optional<std::filesystem::path> active_catalog_root_override;
+	bool create_previous_copy{true};
+};
+
+struct ItemSaveWithPendingPhotosResult final {
+	EntityEditResult save_result;
+	PhotoImportSessionResult import_result;
+	PendingPhotoCleanupResult cleanup_result;
+	CatalogSessionState session;
+	std::vector<PendingPhotoSource> pending_sources;
+	bool import_attempted{};
+	bool cleanup_attempted{};
+
+	[[nodiscard]] bool item_saved() const noexcept;
+	[[nodiscard]] bool warning_acknowledgement_required() const noexcept;
+	[[nodiscard]] bool import_failed() const noexcept;
+};
+
 [[nodiscard]] CatalogSessionState load_catalog_session(
 	const CatalogSessionLoadRequest& request);
 [[nodiscard]] CatalogRecoveryUiSummary make_recovery_ui_summary(
 	const CatalogSessionState& session);
+[[nodiscard]] PendingPhotoStagingResult stage_pending_photos_for_session(
+	const PendingPhotoStagingRequest& request,
+	platform::ProgressSink& progress_sink,
+	platform::CancellationToken& cancellation_token);
+[[nodiscard]] PendingPhotoCleanupResult cleanup_pending_photo_sources(
+	std::vector<PendingPhotoSource>& pending_sources);
 [[nodiscard]] EntityEditResult save_item_draft(const EntityEditRequest& request,
 											   const ItemDraft& draft);
+[[nodiscard]] ItemSaveWithPendingPhotosResult
+save_item_draft_and_import_pending_photos(
+	const ItemSaveWithPendingPhotosRequest& request,
+	platform::ProgressSink& progress_sink,
+	platform::CancellationToken& cancellation_token);
 [[nodiscard]] EntityEditResult save_storage_draft(
 	const EntityEditRequest& request, const StorageDraft& draft);
 [[nodiscard]] EntityEditResult archive_item_in_session(
