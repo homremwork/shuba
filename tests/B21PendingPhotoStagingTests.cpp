@@ -1,6 +1,8 @@
 #include "Persistence/MetadataSchema.hpp"
 #include "Platform/LinuxFakes.hpp"
-#include "UI/CatalogSession.hpp"
+#include "UI/Session/CatalogStartupSession.hpp"
+#include "UI/Session/EntityEditSession.hpp"
+#include "UI/Session/PhotoSession.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 

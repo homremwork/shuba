@@ -3,7 +3,7 @@
 #include "Platform/JpegXlPhotoCodec.hpp"
 #include "Platform/JuceAndroidServices.hpp"
 #include "UI/AppShell.hpp"
-#include "UI/CatalogSession.hpp"
+#include "UI/Session/CatalogStartupSession.hpp"
 
 #include <juce_gui_basics/juce_gui_basics.h>
 

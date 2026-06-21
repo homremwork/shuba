@@ -1,5 +1,5 @@
 #include "Platform/LinuxFakes.hpp"
-#include "UI/CatalogSession.hpp"
+#include "UI/Session/CatalogStartupSession.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 

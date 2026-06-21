@@ -3,7 +3,10 @@
 #include "Catalog/PhotoExport.hpp"
 #include "Platform/JuceAndroidServices.hpp"
 #include "Platform/JuceZipArchive.hpp"
-#include "UI/CatalogSession.hpp"
+#include "UI/Session/BackupRecoveryTypes.hpp"
+#include "UI/Session/CatalogSessionState.hpp"
+#include "UI/Session/EntityEditTypes.hpp"
+#include "UI/Session/PhotoSessionTypes.hpp"
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
@@ -13,6 +16,8 @@
 #include <string>
 
 namespace shuba::ui {
+class AppShellContentComponent;
+
 class ShellIdentifierSource final : public core::IdentifierSource {
 public:
 	[[nodiscard]] core::StableIdentifier next_stable_identifier() override;
@@ -44,8 +49,6 @@ public:
 	void resized() override;
 
 private:
-	struct ContentComponent;
-
 	enum class RootDestination : std::uint8_t {
 		Catalog,
 		Storages,
@@ -191,7 +194,7 @@ private:
 	juce::TextEditor storage_type_editor;
 	juce::TextEditor storage_location_editor;
 	juce::TextEditor storage_notes_editor;
-	std::unique_ptr<ContentComponent> content;
+	std::unique_ptr<AppShellContentComponent> content;
 	juce::TextButton catalog_nav_button{"Catalog"};
 	juce::TextButton storages_nav_button{"Storages"};
 	juce::TextButton add_nav_button{"Add"};

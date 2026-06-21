@@ -60,6 +60,35 @@
         <FILE id="appshellhpp" name="AppShell.hpp" compile="0" resource="0" file="Source/UI/AppShell.hpp"/>
         <FILE id="catalogsessioncpp" name="CatalogSession.cpp" compile="1" resource="0" file="Source/UI/CatalogSession.cpp"/>
         <FILE id="catalogsessionhpp" name="CatalogSession.hpp" compile="0" resource="0" file="Source/UI/CatalogSession.hpp"/>
+
+<GROUP id="uiview01" name="View">
+  <FILE id="appshellcontentcomponentcpp" name="AppShellContentComponent.cpp" compile="1" resource="0" file="Source/UI/View/AppShellContentComponent.cpp"/>
+  <FILE id="appshellcontentcomponenthpp" name="AppShellContentComponent.hpp" compile="0" resource="0" file="Source/UI/View/AppShellContentComponent.hpp"/>
+  <FILE id="uiprimitivescpp" name="UiPrimitives.cpp" compile="1" resource="0" file="Source/UI/View/UiPrimitives.cpp"/>
+  <FILE id="uiprimitiveshpp" name="UiPrimitives.hpp" compile="0" resource="0" file="Source/UI/View/UiPrimitives.hpp"/>
+  <FILE id="screentextcpp" name="ScreenText.cpp" compile="1" resource="0" file="Source/UI/View/ScreenText.cpp"/>
+  <FILE id="screentexthpp" name="ScreenText.hpp" compile="0" resource="0" file="Source/UI/View/ScreenText.hpp"/>
+</GROUP>
+<GROUP id="uiscreens01" name="Screens">
+  <FILE id="catalogscreenscpp" name="CatalogScreens.cpp" compile="1" resource="0" file="Source/UI/Screens/CatalogScreens.cpp"/>
+  <FILE id="formandphotoscreenscpp" name="FormAndPhotoScreens.cpp" compile="1" resource="0" file="Source/UI/Screens/FormAndPhotoScreens.cpp"/>
+  <FILE id="maintenancescreenscpp" name="MaintenanceScreens.cpp" compile="1" resource="0" file="Source/UI/Screens/MaintenanceScreens.cpp"/>
+  <FILE id="storagescreenscpp" name="StorageScreens.cpp" compile="1" resource="0" file="Source/UI/Screens/StorageScreens.cpp"/>
+</GROUP>
+        <GROUP id="uisession01" name="Session">
+          <FILE id="catalogsessionstatehpp" name="CatalogSessionState.hpp" compile="0" resource="0" file="Source/UI/Session/CatalogSessionState.hpp"/>
+          <FILE id="catalogstartupsessioncpp" name="CatalogStartupSession.cpp" compile="1" resource="0" file="Source/UI/Session/CatalogStartupSession.cpp"/>
+          <FILE id="catalogstartupsessionhpp" name="CatalogStartupSession.hpp" compile="0" resource="0" file="Source/UI/Session/CatalogStartupSession.hpp"/>
+          <FILE id="entityeditsessioncpp" name="EntityEditSession.cpp" compile="1" resource="0" file="Source/UI/Session/EntityEditSession.cpp"/>
+          <FILE id="entityeditsessionhpp" name="EntityEditSession.hpp" compile="0" resource="0" file="Source/UI/Session/EntityEditSession.hpp"/>
+          <FILE id="photosessioncpp" name="PhotoSession.cpp" compile="1" resource="0" file="Source/UI/Session/PhotoSession.cpp"/>
+          <FILE id="backuprecoverysessioncpp" name="BackupRecoverySession.cpp" compile="1" resource="0" file="Source/UI/Session/BackupRecoverySession.cpp"/>
+          <FILE id="entityedittypeshpp" name="EntityEditTypes.hpp" compile="0" resource="0" file="Source/UI/Session/EntityEditTypes.hpp"/>
+          <FILE id="photosessionhpp" name="PhotoSession.hpp" compile="0" resource="0" file="Source/UI/Session/PhotoSession.hpp"/>
+          <FILE id="photosessiontypeshpp" name="PhotoSessionTypes.hpp" compile="0" resource="0" file="Source/UI/Session/PhotoSessionTypes.hpp"/>
+          <FILE id="backuprecoverysessionhpp" name="BackupRecoverySession.hpp" compile="0" resource="0" file="Source/UI/Session/BackupRecoverySession.hpp"/>
+          <FILE id="backuprecoverytypeshpp" name="BackupRecoveryTypes.hpp" compile="0" resource="0" file="Source/UI/Session/BackupRecoveryTypes.hpp"/>
+        </GROUP>
       </GROUP>
       <FILE id="maincpp" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
     </GROUP>

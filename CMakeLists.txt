@@ -99,6 +99,10 @@ add_library(shuba_core
 	Source/Persistence/CatalogStorage.cpp
 	Source/Persistence/JsonlCatalog.cpp
 	Source/Persistence/MetadataSchema.cpp
+	Source/UI/Session/CatalogStartupSession.cpp
+	Source/UI/Session/EntityEditSession.cpp
+	Source/UI/Session/PhotoSession.cpp
+	Source/UI/Session/BackupRecoverySession.cpp
 	Source/UI/CatalogSession.cpp)
 target_compile_features(shuba_core PUBLIC cxx_std_23)
 target_include_directories(shuba_core
@@ -111,7 +115,14 @@ add_subdirectory(third_party/JUCE EXCLUDE_FROM_ALL)
 
 add_library(shuba_juce_platform STATIC
 	Source/Platform/JuceJpegExport.cpp
-	Source/Platform/JuceZipArchive.cpp)
+	Source/Platform/JuceZipArchive.cpp
+	Source/UI/Screens/CatalogScreens.cpp
+	Source/UI/Screens/FormAndPhotoScreens.cpp
+	Source/UI/Screens/MaintenanceScreens.cpp
+	Source/UI/Screens/StorageScreens.cpp
+	Source/UI/View/AppShellContentComponent.cpp
+	Source/UI/View/UiPrimitives.cpp
+	Source/UI/View/ScreenText.cpp)
 target_compile_features(shuba_juce_platform PUBLIC cxx_std_23)
 target_include_directories(shuba_juce_platform
 	PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source"
@@ -123,7 +134,7 @@ target_compile_definitions(shuba_juce_platform PUBLIC
 	JUCE_USE_MP3AUDIOFORMAT=0)
 target_link_libraries(shuba_juce_platform
 	PUBLIC shuba_core
-	PRIVATE juce::juce_graphics)
+	PRIVATE juce::juce_graphics juce::juce_gui_basics)
 shuba_apply_common_target_options(shuba_juce_platform)
 
 if(SHUBA_BUILD_HEADLESS_TESTS)
