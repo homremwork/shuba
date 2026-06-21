@@ -1,4 +1,4 @@
-#include "UI/AppShell.hpp"
+#include "UI/Screens/AppShellScreenRenderer.hpp"
 #include "UI/View/AppShellContentComponent.hpp"
 #include "UI/View/ScreenText.hpp"
 
@@ -8,12 +8,12 @@
 #include <vector>
 
 namespace shuba::ui {
-void AppShellComponent::build_storages_content() {
+void AppShellScreenRenderer::build_storages_content() {
 	if (session.demo_catalog_active)
 		content->add_label("Demo catalog is active.", 42,
 						   accent_colour().withAlpha(0.34f), true);
 
-	const std::string query = storage_search_editor.getText().toStdString();
+	const std::string query = storage_query();
 	catalog::StorageSearchFilters filters;
 	catalog::CatalogSearchResultSet results =
 		catalog::search_storages(session.search_index, query, filters);
@@ -36,16 +36,16 @@ void AppShellComponent::build_storages_content() {
 	}
 }
 
-void AppShellComponent::build_item_detail_content() {
-	if (!selected_item_id) {
+void AppShellScreenRenderer::build_item_detail_content() {
+	if (!route.selected_item_id) {
 		content->add_label("No item selected.", 54, panel_colour(), true);
 		return;
 	}
-	const persistence::ItemEnvelope* item =
-		catalog::find_item_envelope(session.repository, *selected_item_id);
+	const persistence::ItemEnvelope* item = catalog::find_item_envelope(
+		session.repository, *route.selected_item_id);
 	const std::map<std::string, catalog::ItemProjection>::const_iterator
-		projection =
-			session.repository.item_projections.find(selected_item_id->value());
+		projection = session.repository.item_projections.find(
+			route.selected_item_id->value());
 	if (item == nullptr
 		|| projection == session.repository.item_projections.end()) {
 		content->add_label(
@@ -130,18 +130,18 @@ void AppShellComponent::build_item_detail_content() {
 	}
 }
 
-void AppShellComponent::build_storage_detail_content() {
-	if (!selected_storage_id) {
+void AppShellScreenRenderer::build_storage_detail_content() {
+	if (!route.selected_storage_id) {
 		content->add_label("No storage selected.", 54, panel_colour(), true);
 		return;
 	}
 
 	const persistence::StorageEnvelope* storage =
 		catalog::find_storage_envelope(session.repository,
-									   *selected_storage_id);
+									   *route.selected_storage_id);
 	const std::map<std::string, catalog::StorageProjection>::const_iterator
 		projection = session.repository.storage_projections.find(
-			selected_storage_id->value());
+			route.selected_storage_id->value());
 	if (storage == nullptr
 		|| projection == session.repository.storage_projections.end()) {
 		content->add_label(
@@ -165,12 +165,12 @@ void AppShellComponent::build_storage_detail_content() {
 	content->add_label(juce_text(header), 84, surface_colour(), true);
 
 	juce::ToggleButton& include_nested = content->add_toggle(
-		"Include nested contents", storage_detail_include_nested, 34);
+		"Include nested contents", storage_detail.include_nested, 34);
 	include_nested.onClick = [this] {
-		storage_detail_include_nested = !storage_detail_include_nested;
+		storage_detail.include_nested = !storage_detail.include_nested;
 		refresh_content();
 	};
-	content->add_label(storage_detail_include_nested
+	content->add_label(storage_detail.include_nested
 						   ? "Showing nested contents by default."
 						   : "Direct contents only mode.",
 					   34, panel_colour());
@@ -178,7 +178,7 @@ void AppShellComponent::build_storage_detail_content() {
 	content->add_label("Child storages", 36, panel_colour(), true);
 	std::vector<core::StableIdentifier> child_ids =
 		projection->second.direct_child_storage_ids;
-	if (storage_detail_include_nested) {
+	if (storage_detail.include_nested) {
 		child_ids.insert(
 			child_ids.end(),
 			projection->second.nested_descendant_storage_ids.begin(),
@@ -200,8 +200,8 @@ void AppShellComponent::build_storage_detail_content() {
 
 	content->add_label("Items inside", 36, panel_colour(), true);
 	const std::set<std::string> accepted_storage_ids =
-		storage_filter_id_set(session.repository, *selected_storage_id,
-							  storage_detail_include_nested);
+		storage_filter_id_set(session.repository, *route.selected_storage_id,
+							  storage_detail.include_nested);
 	std::size_t item_count = 0;
 	for (const persistence::ItemEnvelope& item : session.repository.items) {
 		if (!item.record.storage_id
@@ -230,15 +230,15 @@ void AppShellComponent::build_storage_detail_content() {
 
 	content->add_label("Actions", 36, panel_colour(), true);
 	juce::Button& add_item = content->add_button("Add item here", 42);
-	add_item.onClick	   = [this, storage_id = *selected_storage_id] {
+	add_item.onClick	   = [this, storage_id = *route.selected_storage_id] {
 		open_new_item_form(storage_id);
 	};
 	juce::Button& add_storage = content->add_button("Add nested storage", 42);
-	add_storage.onClick		  = [this, storage_id = *selected_storage_id] {
+	add_storage.onClick = [this, storage_id = *route.selected_storage_id] {
 		open_new_storage_form(storage_id);
 	};
 	domain::PhotoOwner owner{.type = domain::PhotoOwnerType::Storage,
-							 .id   = *selected_storage_id};
+							 .id   = *route.selected_storage_id};
 	juce::Button& add_photo = content->add_button("Add photos", 42);
 	add_photo.onClick		= [this, owner] { request_add_photos(owner); };
 	juce::Button& viewer = content->add_button("Open storage photo viewer", 42);
@@ -248,7 +248,7 @@ void AppShellComponent::build_storage_detail_content() {
 		open_photo_viewer(owner, photo_id);
 	};
 	juce::Button& edit = content->add_button("Edit storage", 42);
-	edit.onClick	   = [this, storage_id = *selected_storage_id] {
+	edit.onClick	   = [this, storage_id = *route.selected_storage_id] {
 		open_existing_storage_form(storage_id);
 	};
 }

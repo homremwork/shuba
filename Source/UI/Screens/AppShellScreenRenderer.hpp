@@ -1,0 +1,200 @@
+#pragma once
+
+#include "Catalog/PhotoExport.hpp"
+#include "Core/Clock.hpp"
+#include "Core/Identifier.hpp"
+#include "Core/OperationGate.hpp"
+#include "Platform/PlatformServices.hpp"
+#include "UI/AppShellState.hpp"
+#include "UI/Session/CatalogSessionState.hpp"
+#include "UI/Session/EntityEditTypes.hpp"
+
+#include <juce_gui_basics/juce_gui_basics.h>
+
+#include <cstddef>
+#include <functional>
+#include <optional>
+#include <string>
+
+namespace shuba::ui {
+class AppShellContentComponent;
+
+class AppShellScreenRenderer final {
+public:
+	struct Editors final {
+		juce::TextEditor& item_name_editor;
+		juce::TextEditor& item_category_editor;
+		juce::TextEditor& item_notes_editor;
+		juce::TextEditor& item_listing_marketplace_editor;
+		juce::TextEditor& item_listing_url_editor;
+		juce::TextEditor& item_listing_note_editor;
+		juce::TextEditor& item_acquisition_source_editor;
+		juce::TextEditor& storage_name_editor;
+		juce::TextEditor& storage_type_editor;
+		juce::TextEditor& storage_location_editor;
+		juce::TextEditor& storage_notes_editor;
+	};
+
+	struct Queries final {
+		std::function<std::string()> catalog_query;
+		std::function<std::string()> storage_query;
+	};
+
+	struct Actions final {
+		std::function<void(RootDestination)> select_root;
+		std::function<void(core::StableIdentifier)> open_item_detail;
+		std::function<void(core::StableIdentifier)> open_storage_detail;
+		std::function<void(domain::PhotoOwner,
+						   std::optional<core::StableIdentifier>)>
+			open_photo_viewer;
+		std::function<void(std::optional<core::StableIdentifier>)>
+			open_new_item_form;
+		std::function<void(core::StableIdentifier)> open_existing_item_form;
+		std::function<void(std::optional<core::StableIdentifier>)>
+			open_new_storage_form;
+		std::function<void(core::StableIdentifier)> open_existing_storage_form;
+		std::function<void(domain::PhotoOwner)> request_add_photos;
+		std::function<void()> request_add_pending_item_photos;
+		std::function<void(core::StableIdentifier)> request_export_photo;
+		std::function<void()> request_export_backup;
+		std::function<void()> request_export_diagnostic_archive;
+		std::function<void()> request_import_backup;
+		std::function<void()> confirm_staged_backup_import;
+		std::function<void()> cleanup_item_pending_photos;
+		std::function<void(std::size_t)> remove_item_pending_photo;
+		std::function<void()> reset_catalog_filters;
+		std::function<void(EntityEditResult)> apply_entity_edit_result;
+		std::function<void(EntityEditResult, core::StableIdentifier)>
+			apply_photo_edit_result;
+		std::function<void()> refresh_all;
+		std::function<void()> refresh_content;
+	};
+
+	struct Dependencies final {
+		CatalogSessionState& session;
+		AppShellRouteState& route;
+		AppShellCatalogFilterState& catalog_filter_state;
+		AppShellItemFormState& item_form;
+		AppShellStorageFormState& storage_form;
+		AppShellFeedbackState& feedback;
+		AppShellBackupState& backup;
+		AppShellPhotoDisplayState& photo_display;
+		AppShellStorageDetailState& storage_detail;
+		core::IdentifierSource& edit_identifiers;
+		core::Clock& edit_clock;
+		core::OperationGate& ui_operation_gate;
+		platform::InternalPhotoCodec& internal_photo_codec;
+		platform::JpegExportService& jpeg_export_service;
+		platform::DocumentExportService& document_export_service;
+		platform::ProgressCollector& last_progress_events;
+		platform::NeverCancelledToken& never_cancelled;
+		AppShellContentComponent& content;
+		Editors editors;
+		Queries queries;
+		Actions actions;
+	};
+
+	explicit AppShellScreenRenderer(Dependencies dependencies);
+
+	void build_catalog_content();
+	void build_filter_panel();
+	void build_storages_content();
+	void build_item_detail_content();
+	void build_storage_detail_content();
+	void build_item_form_content();
+	void build_storage_form_content();
+	void build_photo_viewer_content();
+	void build_backup_recovery_content();
+	void build_add_content();
+	void build_more_content();
+
+private:
+	[[nodiscard]] std::string catalog_query() const;
+	[[nodiscard]] std::string storage_query() const;
+	void select_root(RootDestination destination);
+	void open_item_detail(core::StableIdentifier item_id);
+	void open_storage_detail(core::StableIdentifier storage_id);
+	void open_photo_viewer(
+		domain::PhotoOwner owner,
+		std::optional<core::StableIdentifier> requested_photo_id);
+	void open_new_item_form(std::optional<core::StableIdentifier> storage_id);
+	void open_existing_item_form(core::StableIdentifier item_id);
+	void open_new_storage_form(std::optional<core::StableIdentifier> parent_id);
+	void open_existing_storage_form(core::StableIdentifier storage_id);
+	void request_add_photos(domain::PhotoOwner owner);
+	void request_add_pending_item_photos();
+	void request_export_photo(core::StableIdentifier photo_id);
+	void request_export_backup();
+	void request_export_diagnostic_archive();
+	void request_import_backup();
+	void confirm_staged_backup_import();
+	void cleanup_item_pending_photos();
+	void remove_item_pending_photo(std::size_t pending_photo_index);
+	void reset_catalog_filters();
+	void apply_entity_edit_result(EntityEditResult result);
+	void apply_photo_edit_result(EntityEditResult result,
+								 core::StableIdentifier selected_photo_id);
+	void refresh_all();
+	void refresh_content();
+
+	CatalogSessionState& session;
+	AppShellRouteState& route;
+	AppShellCatalogFilterState& catalog_filter_state;
+	AppShellItemFormState& item_form;
+	AppShellStorageFormState& storage_form;
+	AppShellFeedbackState& feedback;
+	AppShellBackupState& backup;
+	AppShellPhotoDisplayState& photo_display;
+	AppShellStorageDetailState& storage_detail;
+	core::IdentifierSource& edit_identifiers;
+	core::Clock& edit_clock;
+	core::OperationGate& ui_operation_gate;
+	platform::InternalPhotoCodec& internal_photo_codec;
+	platform::JpegExportService& jpeg_export_service;
+	platform::DocumentExportService& document_export_service;
+	platform::ProgressCollector& last_progress_events;
+	platform::NeverCancelledToken& never_cancelled;
+	AppShellContentComponent* content{};
+	juce::TextEditor& item_name_editor;
+	juce::TextEditor& item_category_editor;
+	juce::TextEditor& item_notes_editor;
+	juce::TextEditor& item_listing_marketplace_editor;
+	juce::TextEditor& item_listing_url_editor;
+	juce::TextEditor& item_listing_note_editor;
+	juce::TextEditor& item_acquisition_source_editor;
+	juce::TextEditor& storage_name_editor;
+	juce::TextEditor& storage_type_editor;
+	juce::TextEditor& storage_location_editor;
+	juce::TextEditor& storage_notes_editor;
+	std::function<std::string()> catalog_query_provider;
+	std::function<std::string()> storage_query_provider;
+	std::function<void(RootDestination)> select_root_handler;
+	std::function<void(core::StableIdentifier)> open_item_detail_handler;
+	std::function<void(core::StableIdentifier)> open_storage_detail_handler;
+	std::function<void(domain::PhotoOwner,
+					   std::optional<core::StableIdentifier>)>
+		open_photo_viewer_handler;
+	std::function<void(std::optional<core::StableIdentifier>)>
+		open_new_item_form_handler;
+	std::function<void(core::StableIdentifier)> open_existing_item_form_handler;
+	std::function<void(std::optional<core::StableIdentifier>)>
+		open_new_storage_form_handler;
+	std::function<void(core::StableIdentifier)>
+		open_existing_storage_form_handler;
+	std::function<void(domain::PhotoOwner)> request_add_photos_handler;
+	std::function<void()> request_add_pending_item_photos_handler;
+	std::function<void(core::StableIdentifier)> request_export_photo_handler;
+	std::function<void()> request_export_backup_handler;
+	std::function<void()> request_export_diagnostic_archive_handler;
+	std::function<void()> request_import_backup_handler;
+	std::function<void()> confirm_staged_backup_import_handler;
+	std::function<void()> cleanup_item_pending_photos_handler;
+	std::function<void(std::size_t)> remove_item_pending_photo_handler;
+	std::function<void()> reset_catalog_filters_handler;
+	std::function<void(EntityEditResult)> apply_entity_edit_result_handler;
+	std::function<void(EntityEditResult, core::StableIdentifier)>
+		apply_photo_edit_result_handler;
+	std::function<void()> refresh_all_handler;
+	std::function<void()> refresh_content_handler;
+};
+}	 // namespace shuba::ui

@@ -116,10 +116,13 @@ add_subdirectory(third_party/JUCE EXCLUDE_FROM_ALL)
 add_library(shuba_juce_platform STATIC
 	Source/Platform/JuceJpegExport.cpp
 	Source/Platform/JuceZipArchive.cpp
+	Source/UI/AppShellPhotoCoordinator.cpp
+	Source/UI/Screens/AppShellScreenRenderer.cpp
 	Source/UI/Screens/CatalogScreens.cpp
 	Source/UI/Screens/FormAndPhotoScreens.cpp
 	Source/UI/Screens/MaintenanceScreens.cpp
 	Source/UI/Screens/StorageScreens.cpp
+	Source/UI/View/AppShellChromeComponent.cpp
 	Source/UI/View/AppShellContentComponent.cpp
 	Source/UI/View/UiPrimitives.cpp
 	Source/UI/View/ScreenText.cpp)

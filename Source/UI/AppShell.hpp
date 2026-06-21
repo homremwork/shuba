@@ -3,17 +3,19 @@
 #include "Catalog/PhotoExport.hpp"
 #include "Platform/JuceAndroidServices.hpp"
 #include "Platform/JuceZipArchive.hpp"
+#include "UI/AppShellPhotoCoordinator.hpp"
+#include "UI/AppShellState.hpp"
+#include "UI/Screens/AppShellScreenRenderer.hpp"
 #include "UI/Session/BackupRecoveryTypes.hpp"
 #include "UI/Session/CatalogSessionState.hpp"
 #include "UI/Session/EntityEditTypes.hpp"
 #include "UI/Session/PhotoSessionTypes.hpp"
+#include "UI/View/AppShellChromeComponent.hpp"
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
-#include <cstdint>
 #include <memory>
 #include <optional>
-#include <string>
 
 namespace shuba::ui {
 class AppShellContentComponent;
@@ -49,24 +51,6 @@ public:
 	void resized() override;
 
 private:
-	enum class RootDestination : std::uint8_t {
-		Catalog,
-		Storages,
-		Add,
-		More,
-		ItemDetail,
-		StorageDetail,
-		ItemForm,
-		StorageForm,
-		PhotoViewer,
-		BackupRecovery,
-	};
-
-	enum class FormMode : std::uint8_t {
-		Create,
-		Edit,
-	};
-
 	void refresh_all();
 	void refresh_controls();
 	void refresh_content();
@@ -97,7 +81,6 @@ private:
 	void request_export_backup();
 	void request_export_diagnostic_archive();
 	void request_import_backup();
-	void apply_pending_photo_staging_result(PendingPhotoStagingResult result);
 	void apply_backup_export_result(BackupExportSessionResult result,
 									bool diagnostic_archive);
 	void apply_backup_import_staging_result(
@@ -105,7 +88,6 @@ private:
 	void confirm_staged_backup_import();
 	void apply_backup_import_replacement_result(
 		BackupImportReplacementSessionResult result);
-	void apply_photo_import_result(PhotoImportSessionResult result);
 	void apply_photo_edit_result(EntityEditResult result,
 								 core::StableIdentifier selected_photo_id);
 	void cleanup_item_pending_photos();
@@ -125,20 +107,14 @@ private:
 	void timerCallback() override;
 
 	CatalogSessionState session;
-	RootDestination destination{RootDestination::Catalog};
-	std::optional<core::StableIdentifier> selected_item_id;
-	std::optional<core::StableIdentifier> selected_storage_id;
-	std::optional<domain::PhotoOwner> selected_photo_owner;
-	std::optional<core::StableIdentifier> selected_photo_id;
-	std::optional<RootDestination> form_return_destination;
-	catalog::CatalogSearchFilters catalog_filters;
-	catalog::CatalogSearchFilters catalog_filter_draft;
-	ItemDraft item_form_draft;
-	StorageDraft storage_form_draft;
-	FormMode item_form_mode{FormMode::Create};
-	FormMode storage_form_mode{FormMode::Create};
-	std::string last_edit_message;
-	std::vector<EntityEditDiagnostic> last_edit_diagnostics;
+	AppShellRouteState route;
+	AppShellCatalogFilterState catalog_filter_state;
+	AppShellItemFormState item_form;
+	AppShellStorageFormState storage_form;
+	AppShellFeedbackState feedback;
+	AppShellBackupState backup;
+	AppShellPhotoDisplayState photo_display;
+	AppShellStorageDetailState storage_detail;
 	ShellIdentifierSource edit_identifiers;
 	ShellClock edit_clock;
 	core::OperationGate ui_operation_gate;
@@ -152,36 +128,9 @@ private:
 	platform::InternalPhotoCodec& internal_photo_codec;
 	platform::ProgressCollector last_progress_events;
 	platform::NeverCancelledToken never_cancelled;
-	std::string last_photo_message;
-	std::vector<core::Diagnostic> last_photo_diagnostics;
-	std::vector<PendingPhotoSource> item_form_pending_photos;
-	std::string last_backup_message;
-	std::vector<core::Diagnostic> last_backup_diagnostics;
-	std::optional<catalog::BackupImportStagingResult> pending_import_staging;
-	bool pending_import_degraded_acknowledged{};
-	catalog::PhotoDisplayResult last_photo_display_result;
-	std::optional<core::StableIdentifier> last_display_photo_id;
-	bool catalog_filter_panel_visible{};
-	bool storage_detail_include_nested{true};
-	bool item_storage_candidates_expanded{};
-	bool item_tag_candidates_expanded{};
-	bool item_listing_expanded{};
-	bool item_finance_expanded{};
-	bool storage_parent_candidates_expanded{};
-	bool storage_tag_candidates_expanded{};
-	bool storage_archive_warning_acknowledged{};
-
-	juce::Label title_label;
-	juce::Label status_label;
-	juce::TextEditor catalog_search_editor;
-	juce::TextEditor storage_search_editor;
-	juce::TextButton catalog_clear_button{"Clear"};
-	juce::TextButton catalog_filter_button{"Filters"};
-	juce::TextButton catalog_clear_filters_button{"Clear filters"};
-	juce::TextButton storage_clear_button{"Clear"};
-	juce::TextButton back_button{"Back"};
-	juce::TextButton form_cancel_button{"Cancel"};
-	juce::TextButton form_save_button{"Save"};
+	std::unique_ptr<AppShellPhotoCoordinator> photo_coordinator;
+	std::unique_ptr<AppShellScreenRenderer> screen_renderer;
+	std::unique_ptr<AppShellChromeComponent> chrome;
 	juce::Viewport viewport;
 	juce::TextEditor item_name_editor;
 	juce::TextEditor item_category_editor;
@@ -195,9 +144,5 @@ private:
 	juce::TextEditor storage_location_editor;
 	juce::TextEditor storage_notes_editor;
 	std::unique_ptr<AppShellContentComponent> content;
-	juce::TextButton catalog_nav_button{"Catalog"};
-	juce::TextButton storages_nav_button{"Storages"};
-	juce::TextButton add_nav_button{"Add"};
-	juce::TextButton more_nav_button{"More"};
 };
 }	 // namespace shuba::ui

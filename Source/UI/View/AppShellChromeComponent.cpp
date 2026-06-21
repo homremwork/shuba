@@ -1,0 +1,232 @@
+#include "UI/View/AppShellChromeComponent.hpp"
+
+#include "UI/View/ScreenText.hpp"
+#include "UI/View/UiPrimitives.hpp"
+
+#include <algorithm>
+#include <utility>
+
+namespace shuba::ui {
+AppShellChromeComponent::AppShellChromeComponent(Callbacks callbacks_value)
+	: callbacks(std::move(callbacks_value)) {
+	setOpaque(false);
+
+	title_label.setJustificationType(juce::Justification::centredLeft);
+	title_label.setColour(juce::Label::textColourId, text_colour());
+	title_label.setFont(juce::FontOptions(22.0f, juce::Font::bold));
+	addAndMakeVisible(title_label);
+
+	status_label.setJustificationType(juce::Justification::centredLeft);
+	status_label.setColour(juce::Label::textColourId, muted_text_colour());
+	status_label.setMinimumHorizontalScale(0.70f);
+	status_label.setFont(juce::FontOptions(14.5f, juce::Font::plain));
+	addAndMakeVisible(status_label);
+
+	catalog_search_editor.setTextToShowWhenEmpty("Search catalog",
+												 muted_text_colour());
+	style_text_editor(catalog_search_editor);
+	catalog_search_editor.onTextChange = [this] {
+		if (callbacks.catalog_search_changed)
+			callbacks.catalog_search_changed();
+	};
+	addAndMakeVisible(catalog_search_editor);
+
+	storage_search_editor.setTextToShowWhenEmpty("Search storages",
+												 muted_text_colour());
+	style_text_editor(storage_search_editor);
+	storage_search_editor.onTextChange = [this] {
+		if (callbacks.storage_search_changed)
+			callbacks.storage_search_changed();
+	};
+	addAndMakeVisible(storage_search_editor);
+
+	catalog_clear_button.onClick = [this] {
+		if (callbacks.catalog_clear)
+			callbacks.catalog_clear();
+	};
+	catalog_filter_button.onClick = [this] {
+		if (callbacks.catalog_filter)
+			callbacks.catalog_filter();
+	};
+	catalog_clear_filters_button.onClick = [this] {
+		if (callbacks.catalog_clear_filters)
+			callbacks.catalog_clear_filters();
+	};
+	storage_clear_button.onClick = [this] {
+		if (callbacks.storage_clear)
+			callbacks.storage_clear();
+	};
+	back_button.onClick = [this] {
+		if (callbacks.back)
+			callbacks.back();
+	};
+	form_cancel_button.onClick = [this] {
+		if (callbacks.form_cancel)
+			callbacks.form_cancel();
+	};
+	form_save_button.onClick = [this] {
+		if (callbacks.form_save)
+			callbacks.form_save();
+	};
+
+	for (juce::TextButton* button :
+		 {&catalog_clear_button, &catalog_filter_button,
+		  &catalog_clear_filters_button, &storage_clear_button, &back_button,
+		  &form_cancel_button, &form_save_button}) {
+		style_text_button(*button);
+		addAndMakeVisible(*button);
+	}
+
+	catalog_nav_button.onClick = [this] {
+		if (callbacks.select_catalog)
+			callbacks.select_catalog();
+	};
+	storages_nav_button.onClick = [this] {
+		if (callbacks.select_storages)
+			callbacks.select_storages();
+	};
+	add_nav_button.onClick = [this] {
+		if (callbacks.select_add)
+			callbacks.select_add();
+	};
+	more_nav_button.onClick = [this] {
+		if (callbacks.select_more)
+			callbacks.select_more();
+	};
+	for (juce::TextButton* button : {&catalog_nav_button, &storages_nav_button,
+									 &add_nav_button, &more_nav_button}) {
+		style_text_button(*button);
+		addAndMakeVisible(*button);
+	}
+}
+
+void AppShellChromeComponent::update_model(const Model& model) {
+	current_model = model;
+	title_label.setText(current_model.title, juce::dontSendNotification);
+	status_label.setText(current_model.status, juce::dontSendNotification);
+	form_save_button.setButtonText(
+		current_model.destination == RootDestination::ItemForm ? "Save item"
+		: current_model.destination == RootDestination::StorageForm
+			? "Save storage"
+			: "Save");
+
+	catalog_nav_button.setEnabled(!current_model.session_fatal);
+	storages_nav_button.setEnabled(!current_model.session_fatal);
+	add_nav_button.setEnabled(!current_model.session_fatal);
+	more_nav_button.setEnabled(true);
+
+	const juce::Colour selected_colour = accent_colour().withAlpha(0.65f);
+	const juce::Colour normal_colour   = panel_colour();
+	catalog_nav_button.setColour(
+		juce::TextButton::buttonColourId,
+		current_model.destination == RootDestination::Catalog ? selected_colour
+															  : normal_colour);
+	storages_nav_button.setColour(
+		juce::TextButton::buttonColourId,
+		current_model.destination == RootDestination::Storages
+				|| current_model.destination == RootDestination::StorageDetail
+			? selected_colour
+			: normal_colour);
+	add_nav_button.setColour(
+		juce::TextButton::buttonColourId,
+		current_model.destination == RootDestination::Add
+				|| current_model.destination == RootDestination::ItemForm
+				|| current_model.destination == RootDestination::StorageForm
+			? selected_colour
+			: normal_colour);
+	more_nav_button.setColour(juce::TextButton::buttonColourId,
+							  current_model.destination == RootDestination::More
+								  ? selected_colour
+								  : normal_colour);
+}
+
+juce::Rectangle<int> AppShellChromeComponent::layout_shell(
+	juce::Rectangle<int> bounds) {
+	const bool form_visible =
+		current_model.destination == RootDestination::ItemForm
+		|| current_model.destination == RootDestination::StorageForm;
+	catalog_nav_button.setVisible(!form_visible);
+	storages_nav_button.setVisible(!form_visible);
+	add_nav_button.setVisible(!form_visible);
+	more_nav_button.setVisible(!form_visible);
+	form_cancel_button.setVisible(form_visible);
+	form_save_button.setVisible(form_visible);
+
+	if (form_visible) {
+		juce::Rectangle<int> form_actions = bounds.removeFromBottom(58);
+		const int action_width = std::max(1, form_actions.getWidth() / 2);
+		juce::Rectangle<int> cancel_area =
+			form_actions.removeFromLeft(action_width);
+		form_cancel_button.setBounds(cancel_area.reduced(3));
+		form_save_button.setBounds(form_actions.reduced(3));
+	} else {
+		juce::Rectangle<int> nav = bounds.removeFromBottom(54);
+		const int nav_width		 = nav.getWidth() / 4;
+		catalog_nav_button.setBounds(nav.removeFromLeft(nav_width).reduced(3));
+		storages_nav_button.setBounds(nav.removeFromLeft(nav_width).reduced(3));
+		add_nav_button.setBounds(nav.removeFromLeft(nav_width).reduced(3));
+		more_nav_button.setBounds(nav.reduced(3));
+	}
+
+	title_label.setBounds(bounds.removeFromTop(32));
+	status_label.setBounds(bounds.removeFromTop(26));
+
+	juce::Rectangle<int> controls = bounds.removeFromTop(44);
+	const bool catalog_visible =
+		current_model.destination == RootDestination::Catalog;
+	const bool storages_visible =
+		current_model.destination == RootDestination::Storages;
+	const bool detail_visible =
+		current_model.destination == RootDestination::ItemDetail
+		|| current_model.destination == RootDestination::StorageDetail
+		|| current_model.destination == RootDestination::ItemForm
+		|| current_model.destination == RootDestination::StorageForm
+		|| current_model.destination == RootDestination::PhotoViewer
+		|| current_model.destination == RootDestination::BackupRecovery;
+	catalog_search_editor.setVisible(catalog_visible);
+	catalog_clear_button.setVisible(catalog_visible);
+	catalog_filter_button.setVisible(catalog_visible);
+	catalog_clear_filters_button.setVisible(
+		catalog_visible && current_model.catalog_filters_active);
+	storage_search_editor.setVisible(storages_visible);
+	storage_clear_button.setVisible(storages_visible);
+	back_button.setVisible(detail_visible);
+
+	if (catalog_visible) {
+		catalog_search_editor.setBounds(
+			controls.removeFromLeft(std::max(120, controls.getWidth() - 244))
+				.reduced(2));
+		catalog_clear_button.setBounds(controls.removeFromLeft(64).reduced(2));
+		catalog_filter_button.setBounds(controls.removeFromLeft(78).reduced(2));
+		catalog_clear_filters_button.setBounds(controls.reduced(2));
+	} else if (storages_visible) {
+		storage_search_editor.setBounds(
+			controls.removeFromLeft(std::max(140, controls.getWidth() - 72))
+				.reduced(2));
+		storage_clear_button.setBounds(controls.reduced(2));
+	} else if (detail_visible) {
+		back_button.setBounds(controls.removeFromLeft(92).reduced(2));
+	}
+
+	bounds.removeFromTop(4);
+	return bounds;
+}
+
+std::string AppShellChromeComponent::catalog_query() const {
+	return catalog_search_editor.getText().toStdString();
+}
+
+std::string AppShellChromeComponent::storage_query() const {
+	return storage_search_editor.getText().toStdString();
+}
+
+void AppShellChromeComponent::clear_catalog_query_without_notification() {
+	catalog_search_editor.setText(juce::String{}, juce::dontSendNotification);
+}
+
+void AppShellChromeComponent::clear_storage_query_without_notification() {
+	storage_search_editor.setText(juce::String{}, juce::dontSendNotification);
+}
+
+void AppShellChromeComponent::paint(juce::Graphics&) {}
+}	 // namespace shuba::ui

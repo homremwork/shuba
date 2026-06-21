@@ -58,10 +58,15 @@
       <GROUP id="ui01" name="UI">
         <FILE id="appshellcpp" name="AppShell.cpp" compile="1" resource="0" file="Source/UI/AppShell.cpp"/>
         <FILE id="appshellhpp" name="AppShell.hpp" compile="0" resource="0" file="Source/UI/AppShell.hpp"/>
+        <FILE id="appshellphotocoordinatorcpp" name="AppShellPhotoCoordinator.cpp" compile="1" resource="0" file="Source/UI/AppShellPhotoCoordinator.cpp"/>
+        <FILE id="appshellphotocoordinatorhpp" name="AppShellPhotoCoordinator.hpp" compile="0" resource="0" file="Source/UI/AppShellPhotoCoordinator.hpp"/>
+        <FILE id="appshellstatehpp" name="AppShellState.hpp" compile="0" resource="0" file="Source/UI/AppShellState.hpp"/>
         <FILE id="catalogsessioncpp" name="CatalogSession.cpp" compile="1" resource="0" file="Source/UI/CatalogSession.cpp"/>
         <FILE id="catalogsessionhpp" name="CatalogSession.hpp" compile="0" resource="0" file="Source/UI/CatalogSession.hpp"/>
 
 <GROUP id="uiview01" name="View">
+  <FILE id="appshellchromecomponentcpp" name="AppShellChromeComponent.cpp" compile="1" resource="0" file="Source/UI/View/AppShellChromeComponent.cpp"/>
+  <FILE id="appshellchromecomponenthpp" name="AppShellChromeComponent.hpp" compile="0" resource="0" file="Source/UI/View/AppShellChromeComponent.hpp"/>
   <FILE id="appshellcontentcomponentcpp" name="AppShellContentComponent.cpp" compile="1" resource="0" file="Source/UI/View/AppShellContentComponent.cpp"/>
   <FILE id="appshellcontentcomponenthpp" name="AppShellContentComponent.hpp" compile="0" resource="0" file="Source/UI/View/AppShellContentComponent.hpp"/>
   <FILE id="uiprimitivescpp" name="UiPrimitives.cpp" compile="1" resource="0" file="Source/UI/View/UiPrimitives.cpp"/>
@@ -70,6 +75,8 @@
   <FILE id="screentexthpp" name="ScreenText.hpp" compile="0" resource="0" file="Source/UI/View/ScreenText.hpp"/>
 </GROUP>
 <GROUP id="uiscreens01" name="Screens">
+  <FILE id="appshellscreenrenderercpp" name="AppShellScreenRenderer.cpp" compile="1" resource="0" file="Source/UI/Screens/AppShellScreenRenderer.cpp"/>
+  <FILE id="appshellscreenrendererhpp" name="AppShellScreenRenderer.hpp" compile="0" resource="0" file="Source/UI/Screens/AppShellScreenRenderer.hpp"/>
   <FILE id="catalogscreenscpp" name="CatalogScreens.cpp" compile="1" resource="0" file="Source/UI/Screens/CatalogScreens.cpp"/>
   <FILE id="formandphotoscreenscpp" name="FormAndPhotoScreens.cpp" compile="1" resource="0" file="Source/UI/Screens/FormAndPhotoScreens.cpp"/>
   <FILE id="maintenancescreenscpp" name="MaintenanceScreens.cpp" compile="1" resource="0" file="Source/UI/Screens/MaintenanceScreens.cpp"/>

@@ -1,4 +1,5 @@
 #include "UI/AppShell.hpp"
+#include "UI/Screens/AppShellScreenRenderer.hpp"
 #include "UI/View/AppShellContentComponent.hpp"
 #include "UI/View/ScreenText.hpp"
 
@@ -11,7 +12,7 @@
 namespace shuba::ui {
 void AppShellComponent::request_export_backup() {
 	last_progress_events.clear();
-	last_backup_diagnostics.clear();
+	feedback.backup_diagnostics.clear();
 	const std::string suggested_name =
 		catalog::suggested_backup_file_name(edit_clock.now());
 	core::OperationResult destination_started =
@@ -24,13 +25,13 @@ void AppShellComponent::request_export_backup() {
 				   platform::DocumentDestinationDescriptor>
 					   result) mutable {
 		if (result.was_user_cancelled()) {
-			last_backup_message = "Backup export destination cancelled.";
+			feedback.backup_message = "Backup export destination cancelled.";
 			refresh_all();
 			return;
 		}
 		if (result.failed()) {
-			last_backup_message		= "Backup export destination failed.";
-			last_backup_diagnostics = std::move(result.diagnostics);
+			feedback.backup_message		= "Backup export destination failed.";
+			feedback.backup_diagnostics = std::move(result.diagnostics);
 			refresh_all();
 			return;
 		}
@@ -48,16 +49,16 @@ void AppShellComponent::request_export_backup() {
 		apply_backup_export_result(std::move(exported), false);
 	});
 	if (destination_started.failed()) {
-		last_backup_message =
+		feedback.backup_message =
 			"Backup export destination picker could not be opened.";
-		last_backup_diagnostics = destination_started.diagnostics();
+		feedback.backup_diagnostics = destination_started.diagnostics();
 		refresh_all();
 	}
 }
 
 void AppShellComponent::request_export_diagnostic_archive() {
 	last_progress_events.clear();
-	last_backup_diagnostics.clear();
+	feedback.backup_diagnostics.clear();
 	const std::string suggested_name =
 		catalog::suggested_diagnostic_archive_file_name(edit_clock.now());
 	core::OperationResult destination_started =
@@ -70,13 +71,14 @@ void AppShellComponent::request_export_diagnostic_archive() {
 				   platform::DocumentDestinationDescriptor>
 					   result) mutable {
 		if (result.was_user_cancelled()) {
-			last_backup_message = "Diagnostic archive destination cancelled.";
+			feedback.backup_message =
+				"Diagnostic archive destination cancelled.";
 			refresh_all();
 			return;
 		}
 		if (result.failed()) {
-			last_backup_message		= "Diagnostic archive destination failed.";
-			last_backup_diagnostics = std::move(result.diagnostics);
+			feedback.backup_message = "Diagnostic archive destination failed.";
+			feedback.backup_diagnostics = std::move(result.diagnostics);
 			refresh_all();
 			return;
 		}
@@ -95,18 +97,18 @@ void AppShellComponent::request_export_diagnostic_archive() {
 		apply_backup_export_result(std::move(exported), true);
 	});
 	if (destination_started.failed()) {
-		last_backup_message =
+		feedback.backup_message =
 			"Diagnostic archive destination picker could not be opened.";
-		last_backup_diagnostics = destination_started.diagnostics();
+		feedback.backup_diagnostics = destination_started.diagnostics();
 		refresh_all();
 	}
 }
 
 void AppShellComponent::request_import_backup() {
 	last_progress_events.clear();
-	last_backup_diagnostics.clear();
-	pending_import_staging.reset();
-	pending_import_degraded_acknowledged = false;
+	feedback.backup_diagnostics.clear();
+	backup.pending_import_staging.reset();
+	backup.pending_import_degraded_acknowledged = false;
 	core::OperationResult import_started =
 		document_import_service.request_import_document_selection(
 			platform::DocumentImportRequest{.accepted_mime_types = {std::string{
@@ -116,13 +118,14 @@ void AppShellComponent::request_import_backup() {
 				platform::PlatformValueResult<platform::ContentSourceDescriptor>
 					result) mutable {
 		if (result.was_user_cancelled()) {
-			last_backup_message = "Backup import source selection cancelled.";
+			feedback.backup_message =
+				"Backup import source selection cancelled.";
 			refresh_all();
 			return;
 		}
 		if (result.failed()) {
-			last_backup_message		= "Backup import source selection failed.";
-			last_backup_diagnostics = std::move(result.diagnostics);
+			feedback.backup_message = "Backup import source selection failed.";
+			feedback.backup_diagnostics = std::move(result.diagnostics);
 			refresh_all();
 			return;
 		}
@@ -141,67 +144,71 @@ void AppShellComponent::request_import_backup() {
 		apply_backup_import_staging_result(std::move(staged));
 	});
 	if (import_started.failed()) {
-		last_backup_message		= "Backup import picker could not be opened.";
-		last_backup_diagnostics = import_started.diagnostics();
+		feedback.backup_message = "Backup import picker could not be opened.";
+		feedback.backup_diagnostics = import_started.diagnostics();
 		refresh_all();
 	}
 }
 
 void AppShellComponent::apply_backup_export_result(
 	BackupExportSessionResult result, bool diagnostic_archive) {
-	last_backup_diagnostics = std::move(result.diagnostics);
+	feedback.backup_diagnostics = std::move(result.diagnostics);
 	if (result.succeeded()) {
-		last_backup_message = diagnostic_archive
-								  ? "Diagnostic archive export completed."
-								  : "Backup ZIP export completed.";
+		feedback.backup_message = diagnostic_archive
+									  ? "Diagnostic archive export completed."
+									  : "Backup ZIP export completed.";
 		if (result.degraded_backup_warning_required)
-			last_backup_message +=
+			feedback.backup_message +=
 				" Degraded catalog state was preserved as raw files.";
 	} else if (result.was_user_cancelled()) {
-		last_backup_message = diagnostic_archive
-								  ? "Diagnostic export cancelled."
-								  : "Backup export cancelled.";
+		feedback.backup_message = diagnostic_archive
+									  ? "Diagnostic export cancelled."
+									  : "Backup export cancelled.";
 	} else {
-		last_backup_message = diagnostic_archive ? "Diagnostic export failed."
-												 : "Backup export failed.";
+		feedback.backup_message = diagnostic_archive
+									  ? "Diagnostic export failed."
+									  : "Backup export failed.";
 	}
 	refresh_all();
 }
 
 void AppShellComponent::apply_backup_import_staging_result(
 	BackupImportStagingSessionResult result) {
-	last_backup_diagnostics = std::move(result.diagnostics);
+	feedback.backup_diagnostics = std::move(result.diagnostics);
 	if (result.succeeded()) {
-		pending_import_staging	= std::move(result.staging_result);
-		last_backup_diagnostics = pending_import_staging->diagnostics;
-		pending_import_degraded_acknowledged = false;
-		last_backup_message =
-			pending_import_staging->validation.explicit_warning_required()
+		backup.pending_import_staging = std::move(result.staging_result);
+		feedback.backup_diagnostics =
+			backup.pending_import_staging->diagnostics;
+		backup.pending_import_degraded_acknowledged = false;
+		feedback.backup_message =
+			backup.pending_import_staging->validation
+					.explicit_warning_required()
 				? "Backup ZIP validated as degraded. Review summary and "
 				  "confirm degraded import before replacement."
 				: "Backup ZIP validated. Confirm replacement to import.";
 	} else if (result.was_user_cancelled()) {
-		last_backup_message = "Backup import staging cancelled.";
+		feedback.backup_message = "Backup import staging cancelled.";
 	} else {
-		last_backup_diagnostics = result.staging_result.diagnostics;
-		pending_import_staging.reset();
-		last_backup_message = "Backup import rejected before replacement.";
+		feedback.backup_diagnostics = result.staging_result.diagnostics;
+		backup.pending_import_staging.reset();
+		feedback.backup_message = "Backup import rejected before replacement.";
 	}
 	select_root(RootDestination::BackupRecovery);
 }
 
 void AppShellComponent::confirm_staged_backup_import() {
-	if (!pending_import_staging
-		|| !pending_import_staging->staging_catalog_root.has_value()) {
-		last_backup_message = "No validated staged backup is ready to import.";
+	if (!backup.pending_import_staging
+		|| !backup.pending_import_staging->staging_catalog_root.has_value()) {
+		feedback.backup_message =
+			"No validated staged backup is ready to import.";
 		refresh_all();
 		return;
 	}
 	const bool degraded =
-		pending_import_staging->validation.explicit_warning_required();
-	if (degraded && !pending_import_degraded_acknowledged) {
-		pending_import_degraded_acknowledged = true;
-		last_backup_message =
+		backup.pending_import_staging->validation.explicit_warning_required();
+	if (degraded && !backup.pending_import_degraded_acknowledged) {
+		backup.pending_import_degraded_acknowledged = true;
+		feedback.backup_message =
 			"Degraded import warning acknowledged. Press confirm again to "
 			"replace the current catalog.";
 		refresh_all();
@@ -216,7 +223,7 @@ void AppShellComponent::confirm_staged_backup_import() {
 				.clock			 = edit_clock,
 				.operation_gate	 = ui_operation_gate,
 				.staged_catalog_root =
-					*pending_import_staging->staging_catalog_root,
+					*backup.pending_import_staging->staging_catalog_root,
 				.replacement_confirmed	   = true,
 				.degraded_import_confirmed = degraded},
 			last_progress_events, never_cancelled);
@@ -225,29 +232,30 @@ void AppShellComponent::confirm_staged_backup_import() {
 
 void AppShellComponent::apply_backup_import_replacement_result(
 	BackupImportReplacementSessionResult result) {
-	last_backup_diagnostics = std::move(result.diagnostics);
+	feedback.backup_diagnostics = std::move(result.diagnostics);
 	if (result.succeeded()) {
 		session = std::move(result.session);
-		pending_import_staging.reset();
-		pending_import_degraded_acknowledged = false;
-		last_backup_message = "Backup import completed and catalog reloaded.";
+		backup.pending_import_staging.reset();
+		backup.pending_import_degraded_acknowledged = false;
+		feedback.backup_message =
+			"Backup import completed and catalog reloaded.";
 	} else if (result.was_user_cancelled()) {
-		last_backup_message = "Backup import replacement cancelled.";
+		feedback.backup_message = "Backup import replacement cancelled.";
 	} else if (result.fatal_recovery_required) {
 		session = std::move(result.session);
-		pending_import_staging.reset();
-		last_backup_message =
+		backup.pending_import_staging.reset();
+		feedback.backup_message =
 			"Catalog replacement failed and rollback failed. Fatal recovery "
 			"actions are required.";
 	} else {
-		last_backup_message =
+		feedback.backup_message =
 			"Backup replacement failed; current catalog was not replaced or "
 			"was rolled back.";
 	}
 	select_root(RootDestination::BackupRecovery);
 }
 
-void AppShellComponent::build_add_content() {
+void AppShellScreenRenderer::build_add_content() {
 	content->add_label(
 		"Create metadata first. Photo import and previews are available "
 		"from item or storage details. Backup/import is in More.",
@@ -258,7 +266,7 @@ void AppShellComponent::build_add_content() {
 	storage.onClick		  = [this] { open_new_storage_form(std::nullopt); };
 }
 
-void AppShellComponent::build_backup_recovery_content() {
+void AppShellScreenRenderer::build_backup_recovery_content() {
 	const CatalogRecoveryUiSummary summary = make_recovery_ui_summary(session);
 	content->add_label(juce_text(summary.plain_summary_message), 86,
 					   summary.fatal() || summary.degraded()
@@ -288,22 +296,23 @@ void AppShellComponent::build_backup_recovery_content() {
 			82, warning_panel_colour(), true);
 	}
 
-	if (!last_backup_message.empty()) {
-		content->add_label(juce_text(last_backup_message), 66,
+	if (!feedback.backup_message.empty()) {
+		content->add_label(juce_text(feedback.backup_message), 66,
 						   accent_colour().withAlpha(0.34f), true);
 	}
-	if (has_diagnostics(last_backup_diagnostics)) {
+	if (has_diagnostics(feedback.backup_diagnostics)) {
 		content->add_label(
-			juce_text(core_diagnostic_summary(last_backup_diagnostics)), 86,
+			juce_text(core_diagnostic_summary(feedback.backup_diagnostics)), 86,
 			warning_panel_colour(), true);
 	}
 	content->add_label(
 		juce_text(progress_summary(last_progress_events.events())), 54,
 		panel_colour());
 
-	juce::Button& backup = content->add_button("Export normal backup ZIP", 46);
-	backup.setEnabled(!session.fatal());
-	backup.onClick = [this] { request_export_backup(); };
+	juce::Button& backup_button =
+		content->add_button("Export normal backup ZIP", 46);
+	backup_button.setEnabled(!session.fatal());
+	backup_button.onClick = [this] { request_export_backup(); };
 	juce::Button& diagnostic =
 		content->add_button("Export diagnostic archive ZIP", 46);
 	diagnostic.setEnabled(session.paths.has_value());
@@ -313,13 +322,14 @@ void AppShellComponent::build_backup_recovery_content() {
 	import.setEnabled(session.paths.has_value());
 	import.onClick = [this] { request_import_backup(); };
 
-	if (pending_import_staging) {
+	if (backup.pending_import_staging) {
 		content->add_label(juce_text(import_validation_summary(
-							   pending_import_staging->validation)),
+							   backup.pending_import_staging->validation)),
 						   76, surface_colour(), true);
-		if (pending_import_staging->validation.explicit_warning_required()) {
+		if (backup.pending_import_staging->validation
+				.explicit_warning_required()) {
 			content->add_label(
-				pending_import_degraded_acknowledged
+				backup.pending_import_degraded_acknowledged
 					? "Degraded import warning is acknowledged. Confirming now "
 					  "will replace the active catalog."
 					: "Degraded staged import can replace current data only "
@@ -327,17 +337,18 @@ void AppShellComponent::build_backup_recovery_content() {
 				78, warning_panel_colour(), true);
 		}
 		juce::Button& confirm = content->add_button(
-			pending_import_staging->validation.explicit_warning_required()
-					&& !pending_import_degraded_acknowledged
+			backup.pending_import_staging->validation
+						.explicit_warning_required()
+					&& !backup.pending_import_degraded_acknowledged
 				? "Acknowledge degraded import warning"
 				: "Confirm replacement with validated backup",
 			48);
 		confirm.onClick		= [this] { confirm_staged_backup_import(); };
 		juce::Button& clear = content->add_button("Cancel staged import", 42);
 		clear.onClick		= [this] {
-			pending_import_staging.reset();
-			pending_import_degraded_acknowledged = false;
-			last_backup_message =
+			backup.pending_import_staging.reset();
+			backup.pending_import_degraded_acknowledged = false;
+			feedback.backup_message =
 				"Validated staged import cleared. Active catalog unchanged.";
 			refresh_all();
 		};
@@ -357,7 +368,7 @@ void AppShellComponent::build_backup_recovery_content() {
 	}
 }
 
-void AppShellComponent::build_more_content() {
+void AppShellScreenRenderer::build_more_content() {
 	content->add_label(
 		"Maintenance hub for manual unencrypted ZIP backup, staged import, "
 		"diagnostics, and recovery.",
