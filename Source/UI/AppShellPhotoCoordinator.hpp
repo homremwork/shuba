@@ -76,7 +76,7 @@ private:
 	[[nodiscard]] std::optional<domain::PhotoOwner> owner_for_pending_target(
 		PendingPhotoDraftTarget target) const;
 	void cleanup_pending_photos(std::vector<PendingPhotoSource>& pending_photos,
-						   AppShellManagedPhotoDeckState& photo_deck);
+								AppShellManagedPhotoDeckState& photo_deck);
 	void remove_pending_photo(std::vector<PendingPhotoSource>& pending_photos,
 							  AppShellManagedPhotoDeckState& photo_deck,
 							  std::size_t pending_photo_index);

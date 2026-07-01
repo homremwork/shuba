@@ -428,7 +428,8 @@ void AppShellPhotoCoordinator::cleanup_item_pending_photos() {
 }
 
 void AppShellPhotoCoordinator::cleanup_storage_pending_photos() {
-	cleanup_pending_photos(storage_form.pending_photos, storage_form.photo_deck);
+	cleanup_pending_photos(storage_form.pending_photos,
+						   storage_form.photo_deck);
 }
 
 void AppShellPhotoCoordinator::cleanup_pending_photos(
@@ -450,9 +451,8 @@ void AppShellPhotoCoordinator::cleanup_pending_photos(
 	photo_deck.staged_main_index.reset();
 	if (photo_deck.staged_selected
 		&& photo_deck.selected_index >= pending_photos.size()) {
-		photo_deck.selected_index = pending_photos.empty()
-								   ? 0U
-								   : pending_photos.size() - 1U;
+		photo_deck.selected_index =
+			pending_photos.empty() ? 0U : pending_photos.size() - 1U;
 	}
 	feedback.photo_message =
 		cleanup.failed() ? "Some pending staged photos could not be cleaned."
@@ -513,9 +513,8 @@ void AppShellPhotoCoordinator::remove_pending_photo(
 	}
 	if (photo_deck.staged_selected
 		&& photo_deck.selected_index >= pending_photos.size()) {
-		photo_deck.selected_index = pending_photos.empty()
-								   ? 0U
-								   : pending_photos.size() - 1U;
+		photo_deck.selected_index =
+			pending_photos.empty() ? 0U : pending_photos.size() - 1U;
 	}
 	feedback.photo_message = "Pending photo removed.";
 	refresh_all();

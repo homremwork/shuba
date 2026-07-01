@@ -496,8 +496,7 @@ TEST_CASE("B21 pending item photos survive item save validation failure") {
 	REQUIRE(session.repository.items.empty());
 }
 
-TEST_CASE(
-	"B21 pending item edit save can make selected staged photo main") {
+TEST_CASE("B21 pending item edit save can make selected staged photo main") {
 	TemporaryDirectory temporary{"shuba-b21-item-edit-staged-main"};
 	shuba::platform::LinuxFakePathProvider path_provider{temporary.path()};
 	shuba::platform::ScriptedIdentifierSource identifiers;
@@ -512,13 +511,13 @@ TEST_CASE(
 	identifiers.script_operation_identifier(
 		"operation-b21-create-item-edit-staged-main");
 	shuba::ui::EntityEditResult item_saved = shuba::ui::save_item_draft(
-		shuba::ui::EntityEditRequest{.current_session = session,
-								  .identifiers		= identifiers,
-								  .clock			= clock,
-								  .create_previous_copy = false},
-		shuba::ui::ItemDraft{.display_name		 = "Editable item",
-						 .category		 = "Testing",
-						 .warning_acknowledged = true});
+		shuba::ui::EntityEditRequest{.current_session	   = session,
+									 .identifiers		   = identifiers,
+									 .clock				   = clock,
+									 .create_previous_copy = false},
+		shuba::ui::ItemDraft{.display_name		   = "Editable item",
+							 .category			   = "Testing",
+							 .warning_acknowledged = true});
 	REQUIRE(item_saved.succeeded());
 	session = item_saved.session;
 
@@ -568,14 +567,15 @@ TEST_CASE(
 				.fingerprint_service = fingerprint_service(),
 				.decode_service		 = decoder,
 				.photo_codec		 = codec,
-				.draft = shuba::ui::ItemDraft{
-					.existing_id		  = make_id("item-b21-edit-staged-main"),
-					.display_name	  = "Editable item renamed",
-					.category		  = "Testing",
-					.warning_acknowledged = true},
-				.pending_sources		  = staged.sources,
+				.draft =
+					shuba::ui::ItemDraft{
+						.existing_id  = make_id("item-b21-edit-staged-main"),
+						.display_name = "Editable item renamed",
+						.category	  = "Testing",
+						.warning_acknowledged = true},
+				.pending_sources		   = staged.sources,
 				.main_pending_source_index = 1U,
-				.create_previous_copy	  = false},
+				.create_previous_copy	   = false},
 			progress, cancellation);
 
 	REQUIRE(result.item_saved());
@@ -584,7 +584,8 @@ TEST_CASE(
 	REQUIRE(result.import_result.imported_photo_ids.size() == 2U);
 	REQUIRE(result.main_selection_attempted);
 	REQUIRE(result.main_selection_result.succeeded());
-	REQUIRE(result.main_selected_photo_id == make_id("photo-b21-item-edit-main-b"));
+	REQUIRE(result.main_selected_photo_id
+			== make_id("photo-b21-item-edit-main-b"));
 	REQUIRE(result.session.repository.photos.size() == 2U);
 	REQUIRE_FALSE(result.session.repository.photos[0].record.is_main);
 	REQUIRE(result.session.repository.photos[1].record.is_main);
@@ -596,8 +597,7 @@ TEST_CASE(
 	REQUIRE_FALSE(std::filesystem::exists(pending_b));
 }
 
-TEST_CASE(
-	"B21 pending item edit save ignores cleared staged main selection") {
+TEST_CASE("B21 pending item edit save ignores cleared staged main selection") {
 	TemporaryDirectory temporary{"shuba-b21-item-cleared-staged-main"};
 	shuba::platform::LinuxFakePathProvider path_provider{temporary.path()};
 	shuba::platform::ScriptedIdentifierSource identifiers;
@@ -612,13 +612,13 @@ TEST_CASE(
 	identifiers.script_operation_identifier(
 		"operation-b21-create-cleared-staged-main-item");
 	shuba::ui::EntityEditResult item_saved = shuba::ui::save_item_draft(
-		shuba::ui::EntityEditRequest{.current_session = session,
-								  .identifiers		= identifiers,
-								  .clock			= clock,
-								  .create_previous_copy = false},
-		shuba::ui::ItemDraft{.display_name		 = "Cleared main item",
-						 .category		 = "Testing",
-						 .warning_acknowledged = true});
+		shuba::ui::EntityEditRequest{.current_session	   = session,
+									 .identifiers		   = identifiers,
+									 .clock				   = clock,
+									 .create_previous_copy = false},
+		shuba::ui::ItemDraft{.display_name		   = "Cleared main item",
+							 .category			   = "Testing",
+							 .warning_acknowledged = true});
 	REQUIRE(item_saved.succeeded());
 	session = item_saved.session;
 
@@ -649,25 +649,27 @@ TEST_CASE(
 				.fingerprint_service = fingerprinting,
 				.decode_service		 = decoder,
 				.photo_codec		 = codec,
-				.owner = shuba::domain::PhotoOwner{
-					.type = shuba::domain::PhotoOwnerType::Item,
-					.id	  = make_id("item-b21-cleared-staged-main")},
+				.owner =
+					shuba::domain::PhotoOwner{
+						.type = shuba::domain::PhotoOwnerType::Item,
+						.id	  = make_id("item-b21-cleared-staged-main")},
 				.sources = {shuba::platform::make_local_file_source(
-							 stored_a, "stored-a.jpg"),
-						 shuba::platform::make_local_file_source(
-							 stored_b, "stored-b.jpg")},
+								stored_a, "stored-a.jpg"),
+							shuba::platform::make_local_file_source(
+								stored_b, "stored-b.jpg")},
 				.create_previous_copy = false},
 			progress, cancellation);
 	REQUIRE(imported.succeeded());
 	session = imported.session;
 
-	identifiers.script_operation_identifier("operation-b21-set-cleared-stored-b");
+	identifiers.script_operation_identifier(
+		"operation-b21-set-cleared-stored-b");
 	shuba::ui::EntityEditResult stored_main =
 		shuba::ui::set_main_photo_in_session(
-			shuba::ui::EntityEditRequest{.current_session = session,
-								  .identifiers		= identifiers,
-								  .clock			= clock,
-								  .create_previous_copy = false},
+			shuba::ui::EntityEditRequest{.current_session	   = session,
+										 .identifiers		   = identifiers,
+										 .clock				   = clock,
+										 .create_previous_copy = false},
 			make_id("photo-b21-cleared-stored-b"));
 	REQUIRE(stored_main.succeeded());
 	session = stored_main.session;
@@ -679,13 +681,14 @@ TEST_CASE(
 		shuba::ui::stage_pending_photos_for_session(
 			staging_request(session, identifiers, gate, staging,
 							{shuba::platform::make_local_file_source(
-								 staged_path, "staged.jpg")}),
+								staged_path, "staged.jpg")}),
 			progress, cancellation);
 	REQUIRE(staged.succeeded());
 
 	identifiers.script_stable_identifier("photo-b21-cleared-staged-imported");
 	identifiers.script_operation_identifier("operation-b21-save-cleared-main");
-	identifiers.script_operation_identifier("operation-b21-import-cleared-main");
+	identifiers.script_operation_identifier(
+		"operation-b21-import-cleared-main");
 	shuba::ui::ItemSaveWithPendingPhotosResult result =
 		shuba::ui::save_item_draft_and_import_pending_photos(
 			shuba::ui::ItemSaveWithPendingPhotosRequest{
@@ -697,14 +700,15 @@ TEST_CASE(
 				.fingerprint_service = fingerprint_service(),
 				.decode_service		 = decoder,
 				.photo_codec		 = codec,
-				.draft = shuba::ui::ItemDraft{
-					.existing_id		  = make_id("item-b21-cleared-staged-main"),
-					.display_name	  = "Cleared main item renamed",
-					.category		  = "Testing",
-					.warning_acknowledged = true},
-				.pending_sources		  = staged.sources,
+				.draft =
+					shuba::ui::ItemDraft{
+						.existing_id  = make_id("item-b21-cleared-staged-main"),
+						.display_name = "Cleared main item renamed",
+						.category	  = "Testing",
+						.warning_acknowledged = true},
+				.pending_sources		   = staged.sources,
 				.main_pending_source_index = std::nullopt,
-				.create_previous_copy	  = false},
+				.create_previous_copy	   = false},
 			progress, cancellation);
 
 	REQUIRE(result.item_saved());
@@ -937,8 +941,7 @@ TEST_CASE("B21 pending storage save imports photos to storage owner") {
 	REQUIRE_FALSE(std::filesystem::exists(pending_path));
 }
 
-TEST_CASE(
-	"B21 pending storage edit save can make selected staged photo main") {
+TEST_CASE("B21 pending storage edit save can make selected staged photo main") {
 	TemporaryDirectory temporary{"shuba-b21-storage-edit-staged-main"};
 	shuba::platform::LinuxFakePathProvider path_provider{temporary.path()};
 	shuba::platform::ScriptedIdentifierSource identifiers;
@@ -953,14 +956,13 @@ TEST_CASE(
 	identifiers.script_stable_identifier("storage-b21-edit-staged-main");
 	identifiers.script_operation_identifier(
 		"operation-b21-create-storage-edit-staged-main");
-	shuba::ui::EntityEditResult storage_saved =
-		shuba::ui::save_storage_draft(
-			shuba::ui::EntityEditRequest{.current_session = session,
-								  .identifiers		= identifiers,
-								  .clock			= clock,
-								  .create_previous_copy = false},
-			shuba::ui::StorageDraft{.display_name = "Editable storage",
-							  .storage_type = "Shelf"});
+	shuba::ui::EntityEditResult storage_saved = shuba::ui::save_storage_draft(
+		shuba::ui::EntityEditRequest{.current_session	   = session,
+									 .identifiers		   = identifiers,
+									 .clock				   = clock,
+									 .create_previous_copy = false},
+		shuba::ui::StorageDraft{.display_name = "Editable storage",
+								.storage_type = "Shelf"});
 	REQUIRE(storage_saved.succeeded());
 	session = storage_saved.session;
 
@@ -1012,13 +1014,14 @@ TEST_CASE(
 				.fingerprint_service = fingerprint_service(),
 				.decode_service		 = decoder,
 				.photo_codec		 = codec,
-				.draft = shuba::ui::StorageDraft{
-					.existing_id  = make_id("storage-b21-edit-staged-main"),
-					.display_name = "Editable storage renamed",
-					.storage_type = "Shelf"},
-				.pending_sources		  = staged.sources,
+				.draft =
+					shuba::ui::StorageDraft{
+						.existing_id  = make_id("storage-b21-edit-staged-main"),
+						.display_name = "Editable storage renamed",
+						.storage_type = "Shelf"},
+				.pending_sources		   = staged.sources,
 				.main_pending_source_index = 1U,
-				.create_previous_copy	  = false},
+				.create_previous_copy	   = false},
 			progress, cancellation);
 
 	REQUIRE(result.storage_saved());

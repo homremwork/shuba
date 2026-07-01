@@ -471,12 +471,12 @@ void apply_pending_main_photo_selection(
 
 	result.main_selection_attempted = true;
 	const PendingMainPhotoSelection selection =
-		find_imported_pending_main_photo(
-			result.import_result.summary, pending_source_indexes,
-			main_pending_source_index);
+		find_imported_pending_main_photo(result.import_result.summary,
+										 pending_source_indexes,
+										 main_pending_source_index);
 	if (selection.imported_photo_id.has_value()) {
-		result.main_selection_result =
-			set_main_photo_in_session(edit_request, *selection.imported_photo_id);
+		result.main_selection_result = set_main_photo_in_session(
+			edit_request, *selection.imported_photo_id);
 		result.session = result.main_selection_result.session;
 		if (result.main_selection_result.succeeded())
 			result.main_selected_photo_id = selection.imported_photo_id;
@@ -541,7 +541,7 @@ void mark_pending_photo_sources_consumed(
 			continue;
 		if (photo.status == catalog::PhotoImportPhotoStatus::Imported
 			&& photo.photo_id.has_value()) {
-			selection.imported_photo_id = *photo.photo_id;
+			selection.imported_photo_id					 = *photo.photo_id;
 			selection.selected_ready_source_was_imported = true;
 		}
 		break;
@@ -986,12 +986,11 @@ ItemSaveWithPendingPhotosResult save_item_draft_and_import_pending_photos(
 	apply_pending_main_photo_selection(
 		result,
 		EntityEditRequest{.current_session = result.session,
-					  .identifiers		= request.identifiers,
-					  .clock			= request.clock,
-					  .active_catalog_root_override =
-						  request.active_catalog_root_override,
-					  .create_previous_copy =
-						  request.create_previous_copy},
+						  .identifiers	   = request.identifiers,
+						  .clock		   = request.clock,
+						  .active_catalog_root_override =
+							  request.active_catalog_root_override,
+						  .create_previous_copy = request.create_previous_copy},
 		pending_import_sources.pending_source_indexes,
 		request.main_pending_source_index);
 
@@ -1056,12 +1055,11 @@ StorageSaveWithPendingPhotosResult save_storage_draft_and_import_pending_photos(
 	apply_pending_main_photo_selection(
 		result,
 		EntityEditRequest{.current_session = result.session,
-					  .identifiers		= request.identifiers,
-					  .clock			= request.clock,
-					  .active_catalog_root_override =
-						  request.active_catalog_root_override,
-					  .create_previous_copy =
-						  request.create_previous_copy},
+						  .identifiers	   = request.identifiers,
+						  .clock		   = request.clock,
+						  .active_catalog_root_override =
+							  request.active_catalog_root_override,
+						  .create_previous_copy = request.create_previous_copy},
 		pending_import_sources.pending_source_indexes,
 		request.main_pending_source_index);
 

@@ -1145,13 +1145,13 @@ void AppShellComponent::request_add_pending_storage_photos() {
 void AppShellComponent::set_item_pending_photo_as_main(
 	std::size_t pending_photo_index) {
 	set_pending_photo_as_main(item_form.photo_deck, item_form.pending_photos,
-						  pending_photo_index);
+							  pending_photo_index);
 }
 
 void AppShellComponent::set_storage_pending_photo_as_main(
 	std::size_t pending_photo_index) {
 	set_pending_photo_as_main(storage_form.photo_deck,
-						  storage_form.pending_photos, pending_photo_index);
+							  storage_form.pending_photos, pending_photo_index);
 }
 
 void AppShellComponent::request_export_photo(core::StableIdentifier photo_id) {
@@ -1220,8 +1220,8 @@ void AppShellComponent::set_pending_photo_as_main(
 	}
 
 	photo_deck.staged_main_index = pending_photo_index;
-	photo_deck.staged_selected	= true;
-	photo_deck.selected_index	= pending_photo_index;
+	photo_deck.staged_selected	 = true;
+	photo_deck.selected_index	 = pending_photo_index;
 	feedback.photo_message =
 		"Staged photo will become main after the edit is saved.";
 	refresh_content();
@@ -1464,14 +1464,15 @@ void AppShellComponent::apply_item_save_with_pending_photos_result(
 			for (const EntityEditDiagnostic& diagnostic :
 				 result.main_selection_result.diagnostics) {
 				feedback.photo_diagnostics.push_back(core::Diagnostic{
-					.severity		 = diagnostic.severity,
-					.code			 = diagnostic.code,
-					.message		 = diagnostic.message,
+					.severity		   = diagnostic.severity,
+					.code			   = diagnostic.code,
+					.message		   = diagnostic.message,
 					.technical_details = diagnostic.technical_details});
 			}
-			feedback.photo_message += result.main_selected_photo_id.has_value()
-									  ? " Main staged photo applied."
-									  : " Main staged photo was not applied.";
+			feedback.photo_message +=
+				result.main_selected_photo_id.has_value()
+					? " Main staged photo applied."
+					: " Main staged photo was not applied.";
 		}
 	} else if (!item_form.pending_photos.empty()) {
 		feedback.photo_message =
@@ -1553,14 +1554,15 @@ void AppShellComponent::apply_storage_save_with_pending_photos_result(
 			for (const EntityEditDiagnostic& diagnostic :
 				 result.main_selection_result.diagnostics) {
 				feedback.photo_diagnostics.push_back(core::Diagnostic{
-					.severity		 = diagnostic.severity,
-					.code			 = diagnostic.code,
-					.message		 = diagnostic.message,
+					.severity		   = diagnostic.severity,
+					.code			   = diagnostic.code,
+					.message		   = diagnostic.message,
 					.technical_details = diagnostic.technical_details});
 			}
-			feedback.photo_message += result.main_selected_photo_id.has_value()
-									  ? " Main staged photo applied."
-									  : " Main staged photo was not applied.";
+			feedback.photo_message +=
+				result.main_selected_photo_id.has_value()
+					? " Main staged photo applied."
+					: " Main staged photo was not applied.";
 		}
 	} else if (!storage_form.pending_photos.empty()) {
 		feedback.photo_message =

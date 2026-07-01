@@ -97,14 +97,13 @@ public:
 		if (total_count == 0U)
 			return;
 
-		juce::Rectangle<int> area	   = getLocalBounds().reduced(8, 6);
-		juce::Rectangle<int> text_area = area.removeFromTop(22);
+		juce::Rectangle<int> text_area = selector_text_bounds();
 		graphics.setColour(text_colour());
 		graphics.setFont(juce::FontOptions(13.0f, juce::Font::bold));
 		graphics.drawFittedText(summary_text(), text_area,
 								juce::Justification::centredLeft, 1, 0.90f);
 
-		juce::Rectangle<int> rail = area.removeFromTop(18).reduced(0, 6);
+		juce::Rectangle<int> rail = visual_rail_bounds();
 		graphics.setColour(outline_colour().withAlpha(0.52f));
 		graphics.fillRoundedRectangle(rail.toFloat(), 4.0f);
 		const int segment_width =
@@ -140,10 +139,8 @@ public:
 		const std::size_t total_count = current_count + staged_count;
 		if (total_count == 0U)
 			return;
-		juce::Rectangle<int> area = getLocalBounds().reduced(8, 6);
-		area.removeFromTop(22);
-		juce::Rectangle<int> rail = area.removeFromTop(18).reduced(0, 6);
-		if (!rail.contains(event.getPosition()))
+		const juce::Rectangle<int> rail = visual_rail_bounds();
+		if (!rail_hit_bounds(rail).contains(event.getPosition()))
 			return;
 		const int relative_x = std::clamp(event.x - rail.getX(), 0,
 										  std::max(0, rail.getWidth() - 1));
@@ -155,6 +152,28 @@ public:
 	}
 
 private:
+	[[nodiscard]] juce::Rectangle<int> selector_text_bounds() const {
+		juce::Rectangle<int> area = getLocalBounds().reduced(8, 6);
+		return area.removeFromTop(22);
+	}
+
+	[[nodiscard]] juce::Rectangle<int> visual_rail_bounds() const {
+		juce::Rectangle<int> area = getLocalBounds().reduced(8, 6);
+		area.removeFromTop(22);
+		return area.removeFromTop(18).reduced(0, 6);
+	}
+
+	[[nodiscard]] juce::Rectangle<int> rail_hit_bounds(
+		const juce::Rectangle<int>& rail) const {
+		const int minimum_touch_height	  = 36;
+		const juce::Rectangle<int> bounds = getLocalBounds().reduced(8, 0);
+		return rail
+			.withSizeKeepingCentre(
+				rail.getWidth(),
+				std::max(minimum_touch_height, rail.getHeight()))
+			.getIntersection(bounds);
+	}
+
 	[[nodiscard]] juce::String summary_text() const {
 		juce::String text;
 		if (selected_flat_index < current_count) {
@@ -350,9 +369,9 @@ void ManagedPhotoDeckComponent::refresh_button_state() {
 
 	const CurrentPhotoCardEntry* current = selected_current_entry();
 	const StagedPhotoCardEntry* staged	 = selected_staged_entry();
-	set_main_button.setVisible(current != nullptr
-							   || (staged != nullptr
-								   && staged->can_set_main_after_save));
+	set_main_button.setVisible(
+		current != nullptr
+		|| (staged != nullptr && staged->can_set_main_after_save));
 	delete_button.setVisible(current != nullptr);
 	cancel_delete_button.setVisible(current != nullptr
 									&& current->delete_confirmation_requested);
@@ -370,12 +389,11 @@ void ManagedPhotoDeckComponent::refresh_button_state() {
 				: static_cast<bool>(handlers.request_delete_current));
 	} else {
 		if (staged != nullptr && staged->can_set_main_after_save) {
-			set_main_button.setButtonText(staged->main_after_save
-										  ? "Main after save"
-										  : "Set main");
-			set_main_button.setEnabled(!staged->main_after_save
-									  && static_cast<bool>(
-										  handlers.set_main_staged));
+			set_main_button.setButtonText(
+				staged->main_after_save ? "Main after save" : "Set main");
+			set_main_button.setEnabled(
+				!staged->main_after_save
+				&& static_cast<bool>(handlers.set_main_staged));
 		} else {
 			set_main_button.setEnabled(false);
 		}

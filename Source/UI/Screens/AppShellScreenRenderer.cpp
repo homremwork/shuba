@@ -517,7 +517,7 @@ void AppShellScreenRenderer::add_photo_management_deck(
 					.ready_for_import())) {
 		deck_state.staged_main_index.reset();
 	}
-	bool staged_selected			= deck_state.staged_selected;
+	bool staged_selected = deck_state.staged_selected;
 	if (!staged_selected && current_count == 0U && staged_count > 0U)
 		staged_selected = true;
 	if (staged_selected && staged_count == 0U && current_count > 0U)
@@ -549,10 +549,10 @@ void AppShellScreenRenderer::add_photo_management_deck(
 			false);
 	for (std::size_t index = 0; index < staged_entries.size(); ++index) {
 		StagedPhotoCardEntry& entry = staged_entries[index];
-		entry.main_after_save = deck_state.staged_main_index.has_value()
-								&& *deck_state.staged_main_index == index;
-		entry.can_set_main_after_save = owner.has_value()
-									   && entry.source.ready_for_import();
+		entry.main_after_save		= deck_state.staged_main_index.has_value()
+									  && *deck_state.staged_main_index == index;
+		entry.can_set_main_after_save =
+			owner.has_value() && entry.source.ready_for_import();
 	}
 
 	ManagedPhotoDeckModel model{.current_entries = std::move(current_entries),

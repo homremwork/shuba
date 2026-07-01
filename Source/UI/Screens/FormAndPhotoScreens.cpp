@@ -110,8 +110,9 @@ void AppShellScreenRenderer::build_item_form_content() {
 		[this] { request_add_pending_item_photos(); }, [this] {
 		cleanup_item_pending_photos();
 		refresh_all();
-	}, [this](std::size_t index) { remove_item_pending_photo(index); },
-		[this](std::size_t index) { set_item_pending_photo_as_main(index); });
+	}, [this](std::size_t index) {
+		remove_item_pending_photo(index);
+	}, [this](std::size_t index) { set_item_pending_photo_as_main(index); });
 
 	content->add_editor_pair(item_name_editor, "Display name (required)",
 							 item_category_editor, "Category (required)", 54);
@@ -354,8 +355,9 @@ void AppShellScreenRenderer::build_storage_form_content() {
 		[this] { request_add_pending_storage_photos(); }, [this] {
 		cleanup_storage_pending_photos();
 		refresh_all();
-	}, [this](std::size_t index) { remove_storage_pending_photo(index); },
-		[this](std::size_t index) { set_storage_pending_photo_as_main(index); });
+	}, [this](std::size_t index) {
+		remove_storage_pending_photo(index);
+	}, [this](std::size_t index) { set_storage_pending_photo_as_main(index); });
 
 	content->add_editor_pair(storage_name_editor, "Display name (required)",
 							 storage_type_editor, "Storage type (required)",

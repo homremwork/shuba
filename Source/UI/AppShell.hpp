@@ -104,9 +104,10 @@ private:
 	void cleanup_storage_pending_photos();
 	void remove_item_pending_photo(std::size_t pending_photo_index);
 	void remove_storage_pending_photo(std::size_t pending_photo_index);
-	void set_pending_photo_as_main(AppShellManagedPhotoDeckState& photo_deck,
-								std::vector<PendingPhotoSource>& pending_photos,
-								std::size_t pending_photo_index);
+	void set_pending_photo_as_main(
+		AppShellManagedPhotoDeckState& photo_deck,
+		std::vector<PendingPhotoSource>& pending_photos,
+		std::size_t pending_photo_index);
 	void reset_catalog_filters();
 	void reset_item_form();
 	void reset_storage_form();
