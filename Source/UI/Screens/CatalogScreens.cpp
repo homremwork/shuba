@@ -2,9 +2,21 @@
 #include "UI/View/AppShellContentComponent.hpp"
 #include "UI/View/ScreenText.hpp"
 
+#include <cstddef>
 #include <string>
+#include <utility>
 
 namespace shuba::ui {
+namespace {
+constexpr int preview_result_row_height = 104;
+
+[[nodiscard]] ImagePreviewRequestPriority list_preview_priority(
+	std::size_t preview_candidate_index) noexcept {
+	return preview_candidate_index < 8U ? ImagePreviewRequestPriority::Normal
+										: ImagePreviewRequestPriority::Low;
+}
+}	 // namespace
+
 void AppShellScreenRenderer::build_catalog_content() {
 	if (session.degraded()) {
 		content->add_label(
@@ -52,9 +64,16 @@ void AppShellScreenRenderer::build_catalog_content() {
 	}
 
 	content->add_label("Items", 36, panel_colour(), true);
+	std::size_t preview_candidate_count{};
 	for (const catalog::SearchResult& result : results.item_results) {
-		juce::Button& button =
-			content->add_button(item_result_text(result, session), 78);
+		const ImagePreviewRequestPriority preview_priority =
+			list_preview_priority(preview_candidate_count);
+		if (result.representative_usable_photo_id.has_value())
+			++preview_candidate_count;
+		PreviewCardBuildResult card =
+			build_item_result_preview_card(result, preview_priority);
+		PreviewCardButtonComponent& button = content->add_preview_card(
+			std::move(card.content), preview_result_row_height);
 		core::StableIdentifier item_id = result.record_id;
 		button.onClick = [this, item_id] { open_item_detail(item_id); };
 	}
@@ -62,8 +81,14 @@ void AppShellScreenRenderer::build_catalog_content() {
 	if (!results.storage_results.empty()) {
 		content->add_label("Storages", 36, panel_colour(), true);
 		for (const catalog::SearchResult& result : results.storage_results) {
-			juce::Button& button =
-				content->add_button(storage_result_text(result, session), 78);
+			const ImagePreviewRequestPriority preview_priority =
+				list_preview_priority(preview_candidate_count);
+			if (result.representative_usable_photo_id.has_value())
+				++preview_candidate_count;
+			PreviewCardBuildResult card =
+				build_storage_result_preview_card(result, preview_priority);
+			PreviewCardButtonComponent& button = content->add_preview_card(
+				std::move(card.content), preview_result_row_height);
 			core::StableIdentifier storage_id = result.record_id;
 			button.onClick					  = [this, storage_id] {
 				open_storage_detail(storage_id);

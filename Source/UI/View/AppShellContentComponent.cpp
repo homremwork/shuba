@@ -65,6 +65,40 @@ ImagePanelComponent& AppShellContentComponent::add_image_panel(
 	return reference;
 }
 
+PhotoCarouselComponent& AppShellContentComponent::add_photo_carousel(
+	std::vector<PhotoCarouselSlide> slides, std::size_t selected_index,
+	std::function<void(std::size_t)> select_handler,
+	std::function<void()> activate_handler, int height) {
+	std::unique_ptr<PhotoCarouselComponent> carousel =
+		std::make_unique<PhotoCarouselComponent>(
+			std::move(slides), selected_index, std::move(select_handler),
+			std::move(activate_handler));
+	PhotoCarouselComponent& reference = *carousel;
+	add_row(std::move(carousel), height);
+	return reference;
+}
+
+PhotoViewerImageComponent& AppShellContentComponent::add_photo_viewer_image(
+	PhotoViewerImageModel model, PhotoViewerImageHandlers handlers,
+	int height) {
+	std::unique_ptr<PhotoViewerImageComponent> viewer =
+		std::make_unique<PhotoViewerImageComponent>(std::move(model),
+													std::move(handlers));
+	PhotoViewerImageComponent& reference = *viewer;
+	add_row(std::move(viewer), height);
+	return reference;
+}
+
+PreviewCardButtonComponent& AppShellContentComponent::add_preview_card(
+	PreviewCardContent content, int height) {
+	std::unique_ptr<PreviewCardButtonComponent> card =
+		std::make_unique<PreviewCardButtonComponent>(std::move(content),
+													 elevated_surface_colour());
+	PreviewCardButtonComponent& reference = *card;
+	add_row(std::move(card), height);
+	return reference;
+}
+
 InlineButtonRowComponent& AppShellContentComponent::add_inline_buttons(
 	juce::String title, std::vector<InlineButtonRowComponent::Action> actions,
 	int height) {
@@ -100,16 +134,14 @@ EditorPairComponent& AppShellContentComponent::add_editor_pair(
 	return reference;
 }
 
-PendingPhotoStripComponent& AppShellContentComponent::add_pending_photo_strip(
-	std::vector<PendingPhotoSource> sources, std::function<void()> add_handler,
-	std::function<void()> clear_handler,
-	std::function<void(std::size_t)> remove_handler, int height) {
-	std::unique_ptr<PendingPhotoStripComponent> strip =
-		std::make_unique<PendingPhotoStripComponent>(
-			std::move(sources), std::move(add_handler),
-			std::move(clear_handler), std::move(remove_handler));
-	PendingPhotoStripComponent& reference = *strip;
-	add_row(std::move(strip), height);
+ManagedPhotoDeckComponent& AppShellContentComponent::add_managed_photo_deck(
+	ManagedPhotoDeckModel model, ManagedPhotoDeckHandlers handlers,
+	int height) {
+	std::unique_ptr<ManagedPhotoDeckComponent> deck =
+		std::make_unique<ManagedPhotoDeckComponent>(std::move(model),
+													std::move(handlers));
+	ManagedPhotoDeckComponent& reference = *deck;
+	add_row(std::move(deck), height);
 	return reference;
 }
 
@@ -166,6 +198,14 @@ void AppShellContentComponent::resized() {
 
 void AppShellContentComponent::paint(juce::Graphics& graphics) {
 	graphics.fillAll(background_colour());
+}
+
+void AppShellContentComponent::set_viewport_height_hint(int height) noexcept {
+	viewport_height_hint_value = std::max(1, height);
+}
+
+int AppShellContentComponent::viewport_height_hint() const noexcept {
+	return viewport_height_hint_value;
 }
 
 void AppShellContentComponent::add_row(

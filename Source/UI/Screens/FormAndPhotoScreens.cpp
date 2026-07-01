@@ -13,6 +13,9 @@
 
 namespace shuba::ui {
 namespace {
+constexpr ImagePreviewSize viewer_preview_target_size{.max_width  = 640U,
+													  .max_height = 420U};
+
 template<typename Content>
 void add_status_rows(Content& content, domain::ItemStatus selected_status,
 					 std::function<void(domain::ItemStatus)> choose_status) {
@@ -97,12 +100,18 @@ void add_tag_rows(Content& content, std::vector<domain::TagRow>& tags,
 }	 // namespace
 
 void AppShellScreenRenderer::build_item_form_content() {
-	content->add_pending_photo_strip(item_form.pending_photos, [this] {
-		request_add_pending_item_photos();
-	}, [this] {
+	std::optional<domain::PhotoOwner> owner;
+	if (item_form.mode == FormMode::Edit && item_form.draft.existing_id) {
+		owner = domain::PhotoOwner{.type = domain::PhotoOwnerType::Item,
+								   .id	 = *item_form.draft.existing_id};
+	}
+	add_photo_management_deck(
+		owner, item_form.pending_photos, item_form.photo_deck,
+		[this] { request_add_pending_item_photos(); }, [this] {
 		cleanup_item_pending_photos();
 		refresh_all();
-	}, [this](std::size_t index) { remove_item_pending_photo(index); }, 104);
+	}, [this](std::size_t index) { remove_item_pending_photo(index); },
+		[this](std::size_t index) { set_item_pending_photo_as_main(index); });
 
 	content->add_editor_pair(item_name_editor, "Display name (required)",
 							 item_category_editor, "Category (required)", 54);
@@ -335,6 +344,19 @@ void AppShellScreenRenderer::build_item_form_content() {
 	}
 }
 void AppShellScreenRenderer::build_storage_form_content() {
+	std::optional<domain::PhotoOwner> owner;
+	if (storage_form.mode == FormMode::Edit && storage_form.draft.existing_id) {
+		owner = domain::PhotoOwner{.type = domain::PhotoOwnerType::Storage,
+								   .id	 = *storage_form.draft.existing_id};
+	}
+	add_photo_management_deck(
+		owner, storage_form.pending_photos, storage_form.photo_deck,
+		[this] { request_add_pending_storage_photos(); }, [this] {
+		cleanup_storage_pending_photos();
+		refresh_all();
+	}, [this](std::size_t index) { remove_storage_pending_photo(index); },
+		[this](std::size_t index) { set_storage_pending_photo_as_main(index); });
+
 	content->add_editor_pair(storage_name_editor, "Display name (required)",
 							 storage_type_editor, "Storage type (required)",
 							 54);
@@ -578,39 +600,146 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 	const std::size_t total	   = projection->ordered_photo_ids.size();
 	content->add_label(juce_text(owner_caption(session.repository, owner)), 48,
 					   surface_colour(), true);
+	if (photo_display.viewer_transform_photo_id != route.selected_photo_id) {
+		photo_display.viewer_transform_photo_id		= route.selected_photo_id;
+		photo_display.viewer_rotation_quarter_turns = 0;
+	}
 
 	if (photo_display.displayed_photo_id != route.selected_photo_id) {
-		catalog::PhotoExportUseCase export_use_case{
-			edit_identifiers, ui_operation_gate, internal_photo_codec,
-			jpeg_export_service, document_export_service};
-		platform::ProgressCollector display_progress;
-		photo_display.result = export_use_case.load_photo_for_display(
-			catalog::PhotoDisplayRequest{.current_state = session.repository,
-										 .paths			= *session.paths,
-										 .photo_id = *route.selected_photo_id},
-			display_progress, never_cancelled);
-		photo_display.displayed_photo_id = route.selected_photo_id;
+		if (photo_display.requested_display_photo_id
+			!= route.selected_photo_id) {
+			photo_display.result = catalog::PhotoDisplayResult{};
+			if (request_photo_display_handler)
+				request_photo_display_handler(*route.selected_photo_id);
+		}
 	}
 
 	juce::Image image;
-	juce::String placeholder{"Loading preview placeholder"};
+	juce::String placeholder{"Loading full photo in background."};
+	PreviewImageVisualState viewer_state{PreviewImageVisualState::Loading};
 	if (photo_display.result.succeeded()
 		&& photo_display.result.pixels.has_value()) {
 		image = juce_image_from_pixels(*photo_display.result.pixels);
-		placeholder =
-			image.isValid() ? "" : "Decoded image cannot be displayed.";
+		if (image.isValid()) {
+			placeholder	 = "";
+			viewer_state = PreviewImageVisualState::Loaded;
+		} else {
+			placeholder	 = "Decoded image cannot be displayed.";
+			viewer_state = PreviewImageVisualState::Broken;
+		}
+	} else {
+		const ImagePreviewRenderState preview = load_internal_preview_image(
+			*route.selected_photo_id, viewer_preview_target_size,
+			ImagePreviewRequestPriority::High);
+		image = preview.image;
+		if (!preview.placeholder.isEmpty())
+			placeholder = preview.placeholder;
+		viewer_state = preview.state;
+		if (image.isValid()) {
+			placeholder	 = "";
+			viewer_state = PreviewImageVisualState::Loaded;
+		} else if (viewer_state == PreviewImageVisualState::Broken) {
+			placeholder = preview.placeholder.isEmpty()
+							  ? "Cached preview cannot be displayed."
+							  : preview.placeholder;
+		}
+
+		if (total > 1U) {
+			const std::optional<core::StableIdentifier> previous_id =
+				adjacent_photo_id(session.repository, owner,
+								  *route.selected_photo_id, -1);
+			const std::optional<core::StableIdentifier> next_id =
+				adjacent_photo_id(session.repository, owner,
+								  *route.selected_photo_id, 1);
+			if (previous_id.has_value()) {
+				(void)load_internal_preview_image(
+					*previous_id, viewer_preview_target_size,
+					ImagePreviewRequestPriority::Normal);
+			}
+			if (next_id.has_value() && next_id != previous_id) {
+				(void)load_internal_preview_image(
+					*next_id, viewer_preview_target_size,
+					ImagePreviewRequestPriority::Normal);
+			}
+		}
+	}
+	if (image.isValid()) {
+		placeholder = "";
 	} else if (photo_display.result.placeholder.has_value()) {
-		placeholder = juce_text(photo_display.result.placeholder->message);
+		placeholder	 = juce_text(photo_display.result.placeholder->message);
+		viewer_state = PreviewImageVisualState::Broken;
 	} else if (photo_display.result.was_user_cancelled()) {
-		placeholder = "Photo display was cancelled.";
+		placeholder	 = "Photo display was cancelled.";
+		viewer_state = PreviewImageVisualState::Broken;
 	} else {
 		placeholder =
 			"Photo preview placeholder. Full decode is only attempted "
 			"for this viewer, not for result lists.";
 	}
-	content->add_image_panel(image,
-							 juce_text(photo_summary(*photo, position, total)),
-							 placeholder, 260);
+
+	std::function<void(int)> select_adjacent = [this, owner](int direction) {
+		if (!route.selected_photo_id)
+			return;
+		const std::optional<core::StableIdentifier> adjacent_id =
+			adjacent_photo_id(session.repository, owner,
+							  *route.selected_photo_id, direction);
+		if (!adjacent_id.has_value())
+			return;
+		route.selected_photo_id = adjacent_id;
+		photo_display.displayed_photo_id.reset();
+		photo_display.viewer_transform_photo_id.reset();
+		photo_display.viewer_rotation_quarter_turns = 0;
+		refresh_all();
+	};
+	std::function<void(int)> rotate_viewer = [this](int direction) {
+		int rotation = photo_display.viewer_rotation_quarter_turns + direction;
+		rotation %= 4;
+		if (rotation < 0)
+			rotation += 4;
+		photo_display.viewer_rotation_quarter_turns = rotation;
+		refresh_content();
+	};
+
+	PhotoViewerImageModel viewer_model;
+	viewer_model.image	 = image;
+	viewer_model.title	 = juce_text(photo_summary(*photo, position, total));
+	viewer_model.caption = juce_text(
+		owner_caption(session.repository, owner)
+		+ " · double-tap to zoom, drag when zoomed, swipe when fitted");
+	viewer_model.placeholder = placeholder;
+	viewer_model.state		 = viewer_state;
+	viewer_model.rotation_quarter_turns =
+		photo_display.viewer_rotation_quarter_turns;
+	viewer_model.multiple_photos = total > 1U;
+	PhotoViewerImageHandlers viewer_handlers{
+		.select_previous = [select_adjacent] { select_adjacent(-1); },
+		.select_next	 = [select_adjacent] { select_adjacent(1); }};
+	const int viewer_height =
+		std::max(360, content->viewport_height_hint() - 12);
+	content->add_photo_viewer_image(std::move(viewer_model),
+									std::move(viewer_handlers), viewer_height);
+
+	const bool multiple_photos = total > 1U;
+	const bool rotate_enabled  = image.isValid();
+	std::vector<ButtonGridComponent::Action> viewer_actions;
+	viewer_actions.push_back(ButtonGridComponent::Action{
+		.label = "Previous", .handler = [select_adjacent] {
+		select_adjacent(-1);
+	}, .enabled = multiple_photos});
+	viewer_actions.push_back(ButtonGridComponent::Action{
+		.label = "Next", .handler = [select_adjacent] {
+		select_adjacent(1);
+	}, .enabled = multiple_photos});
+	viewer_actions.push_back(ButtonGridComponent::Action{
+		.label = "Rotate left", .handler = [rotate_viewer] {
+		rotate_viewer(-1);
+	}, .enabled = rotate_enabled});
+	viewer_actions.push_back(ButtonGridComponent::Action{
+		.label = "Rotate right", .handler = [rotate_viewer] {
+		rotate_viewer(1);
+	}, .enabled = rotate_enabled});
+	content->add_button_grid("Viewer controls", std::move(viewer_actions), 2,
+							 ButtonGridComponent::preferred_height(4, 2));
 
 	if (!feedback.photo_message.empty()) {
 		content->add_label(juce_text(feedback.photo_message), 54,
@@ -630,22 +759,6 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 		juce_text(progress_summary(last_progress_events.events())), 50,
 		panel_colour());
 
-	juce::Button& previous = content->add_button("Previous photo", 40);
-	previous.setEnabled(total > 1U);
-	previous.onClick = [this, owner, photo_id = *route.selected_photo_id] {
-		route.selected_photo_id =
-			adjacent_photo_id(session.repository, owner, photo_id, -1);
-		photo_display.displayed_photo_id.reset();
-		refresh_all();
-	};
-	juce::Button& next = content->add_button("Next photo", 40);
-	next.setEnabled(total > 1U);
-	next.onClick = [this, owner, photo_id = *route.selected_photo_id] {
-		route.selected_photo_id =
-			adjacent_photo_id(session.repository, owner, photo_id, 1);
-		photo_display.displayed_photo_id.reset();
-		refresh_all();
-	};
 	juce::Button& set_main = content->add_button(
 		photo->record.is_main ? "Already main photo" : "Set as main", 42);
 	set_main.setEnabled(!photo->record.is_main);
@@ -663,6 +776,27 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 	export_button.onClick = [this, photo_id = *route.selected_photo_id] {
 		request_export_photo(photo_id);
 	};
+	if (photo_display.pending_delete_photo_id.has_value()
+		&& *photo_display.pending_delete_photo_id == *route.selected_photo_id) {
+		content->add_inline_buttons(
+			"Delete selected photo? Metadata is removed first.",
+			{InlineButtonRowComponent::Action{
+				 .label = "Confirm delete",
+				 .handler =
+					 [this, photo_id = *route.selected_photo_id] {
+			confirm_delete_photo(photo_id);
+		}},
+			 InlineButtonRowComponent::Action{
+				 .label	  = "Cancel",
+				 .handler = [this] { cancel_delete_photo(); }}},
+			44);
+	} else {
+		juce::Button& delete_button =
+			content->add_button("Delete current photo", 42);
+		delete_button.onClick = [this, photo_id = *route.selected_photo_id] {
+			request_delete_photo(photo_id);
+		};
+	}
 	juce::Button& add_photo = content->add_button("Add more photos", 42);
 	add_photo.onClick		= [this, owner] { request_add_photos(owner); };
 }

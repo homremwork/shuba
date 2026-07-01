@@ -101,6 +101,7 @@ add_library(shuba_core
 	Source/Persistence/MetadataSchema.cpp
 	Source/UI/Session/CatalogStartupSession.cpp
 	Source/UI/Session/EntityEditSession.cpp
+	Source/UI/Session/ImagePreviewSession.cpp
 	Source/UI/Session/PhotoSession.cpp
 	Source/UI/Session/BackupRecoverySession.cpp
 	Source/UI/CatalogSession.cpp)
@@ -114,6 +115,7 @@ set(JUCE_MODULES_ONLY ON CACHE BOOL "Only configure JUCE modules for Shuba host 
 add_subdirectory(third_party/JUCE EXCLUDE_FROM_ALL)
 
 add_library(shuba_juce_platform STATIC
+	Source/Platform/JuceHashing.cpp
 	Source/Platform/JuceJpegExport.cpp
 	Source/Platform/JuceZipArchive.cpp
 	Source/UI/AppShellPhotoCoordinator.cpp
@@ -124,20 +126,26 @@ add_library(shuba_juce_platform STATIC
 	Source/UI/Screens/StorageScreens.cpp
 	Source/UI/View/AppShellChromeComponent.cpp
 	Source/UI/View/AppShellContentComponent.cpp
-	Source/UI/View/UiPrimitives.cpp
+	Source/UI/View/Primitives/Palette.cpp
+	Source/UI/View/Primitives/TouchGuards.cpp
+	Source/UI/View/Primitives/Rows.cpp
+	Source/UI/View/Primitives/Previews.cpp
+	Source/UI/View/Primitives/Forms.cpp
+	Source/UI/View/Primitives/PhotoManagement.cpp
 	Source/UI/View/ScreenText.cpp)
 target_compile_features(shuba_juce_platform PUBLIC cxx_std_23)
 target_include_directories(shuba_juce_platform
-	PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Source"
-	PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/JuceLibraryCode")
+	PUBLIC
+		"${CMAKE_CURRENT_SOURCE_DIR}/Source"
+		"${CMAKE_CURRENT_SOURCE_DIR}/JuceLibraryCode")
 target_compile_definitions(shuba_juce_platform PUBLIC
 	JUCE_USE_CURL=0
 	JUCE_WEB_BROWSER=0
 	JUCE_USE_CAMERA=0
 	JUCE_USE_MP3AUDIOFORMAT=0)
 target_link_libraries(shuba_juce_platform
-	PUBLIC shuba_core
-	PRIVATE juce::juce_graphics juce::juce_gui_basics)
+	PUBLIC shuba_core juce::juce_graphics juce::juce_gui_basics
+		juce::juce_cryptography)
 shuba_apply_common_target_options(shuba_juce_platform)
 
 if(SHUBA_BUILD_HEADLESS_TESTS)

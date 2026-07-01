@@ -47,6 +47,8 @@
 	  <GROUP id="platform01" name="Platform">
 		<FILE id="jxlcodeccpp" name="JpegXlPhotoCodec.cpp" compile="1" resource="0" file="Source/Platform/JpegXlPhotoCodec.cpp"/>
 		<FILE id="jxlcodechpp" name="JpegXlPhotoCodec.hpp" compile="0" resource="0" file="Source/Platform/JpegXlPhotoCodec.hpp"/>
+		<FILE id="jucehashingcpp" name="JuceHashing.cpp" compile="1" resource="0" file="Source/Platform/JuceHashing.cpp"/>
+		<FILE id="jucehashinghpp" name="JuceHashing.hpp" compile="0" resource="0" file="Source/Platform/JuceHashing.hpp"/>
 		<FILE id="jucejpegexportcpp" name="JuceJpegExport.cpp" compile="1" resource="0" file="Source/Platform/JuceJpegExport.cpp"/>
 		<FILE id="juceziparchivecpp" name="JuceZipArchive.cpp" compile="1" resource="0" file="Source/Platform/JuceZipArchive.cpp"/>
 		<FILE id="juceziparchivehpp" name="JuceZipArchive.hpp" compile="0" resource="0" file="Source/Platform/JuceZipArchive.hpp"/>
@@ -69,8 +71,20 @@
   <FILE id="appshellchromecomponenthpp" name="AppShellChromeComponent.hpp" compile="0" resource="0" file="Source/UI/View/AppShellChromeComponent.hpp"/>
   <FILE id="appshellcontentcomponentcpp" name="AppShellContentComponent.cpp" compile="1" resource="0" file="Source/UI/View/AppShellContentComponent.cpp"/>
   <FILE id="appshellcontentcomponenthpp" name="AppShellContentComponent.hpp" compile="0" resource="0" file="Source/UI/View/AppShellContentComponent.hpp"/>
-  <FILE id="uiprimitivescpp" name="UiPrimitives.cpp" compile="1" resource="0" file="Source/UI/View/UiPrimitives.cpp"/>
-  <FILE id="uiprimitiveshpp" name="UiPrimitives.hpp" compile="0" resource="0" file="Source/UI/View/UiPrimitives.hpp"/>
+  <GROUP id="uiviewprimitives01" name="Primitives">
+    <FILE id="palettecpp" name="Palette.cpp" compile="1" resource="0" file="Source/UI/View/Primitives/Palette.cpp"/>
+    <FILE id="palettehpp" name="Palette.hpp" compile="0" resource="0" file="Source/UI/View/Primitives/Palette.hpp"/>
+    <FILE id="touchguardscpp" name="TouchGuards.cpp" compile="1" resource="0" file="Source/UI/View/Primitives/TouchGuards.cpp"/>
+    <FILE id="touchguardshpp" name="TouchGuards.hpp" compile="0" resource="0" file="Source/UI/View/Primitives/TouchGuards.hpp"/>
+    <FILE id="rowscpp" name="Rows.cpp" compile="1" resource="0" file="Source/UI/View/Primitives/Rows.cpp"/>
+    <FILE id="rowshpp" name="Rows.hpp" compile="0" resource="0" file="Source/UI/View/Primitives/Rows.hpp"/>
+    <FILE id="previewscpp" name="Previews.cpp" compile="1" resource="0" file="Source/UI/View/Primitives/Previews.cpp"/>
+    <FILE id="previewshpp" name="Previews.hpp" compile="0" resource="0" file="Source/UI/View/Primitives/Previews.hpp"/>
+    <FILE id="formscpp" name="Forms.cpp" compile="1" resource="0" file="Source/UI/View/Primitives/Forms.cpp"/>
+    <FILE id="formshpp" name="Forms.hpp" compile="0" resource="0" file="Source/UI/View/Primitives/Forms.hpp"/>
+    <FILE id="photomanagementcpp" name="PhotoManagement.cpp" compile="1" resource="0" file="Source/UI/View/Primitives/PhotoManagement.cpp"/>
+    <FILE id="photomanagementhpp" name="PhotoManagement.hpp" compile="0" resource="0" file="Source/UI/View/Primitives/PhotoManagement.hpp"/>
+  </GROUP>
   <FILE id="screentextcpp" name="ScreenText.cpp" compile="1" resource="0" file="Source/UI/View/ScreenText.cpp"/>
   <FILE id="screentexthpp" name="ScreenText.hpp" compile="0" resource="0" file="Source/UI/View/ScreenText.hpp"/>
 </GROUP>
@@ -124,12 +138,14 @@
         <MODULEPATH id="juce_events" path="third_party/JUCE/modules"/>
         <MODULEPATH id="juce_graphics" path="third_party/JUCE/modules"/>
         <MODULEPATH id="juce_data_structures" path="third_party/JUCE/modules"/>
+        <MODULEPATH id="juce_cryptography" path="third_party/JUCE/modules"/>
         <MODULEPATH id="juce_gui_basics" path="third_party/JUCE/modules"/>
       </MODULEPATHS>
     </ANDROIDSTUDIO>
   </EXPORTFORMATS>
   <MODULES>
     <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="juce_cryptography" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
     <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
     <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
     <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>

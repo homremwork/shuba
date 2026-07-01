@@ -128,6 +128,7 @@ struct PhotoDto final {
 	std::optional<std::int32_t> height;
 	std::optional<std::uint64_t> encoded_bytes;
 	std::optional<std::string> source_mime_type;
+	std::optional<std::string> source_md5;
 	std::optional<std::int64_t> created_at;
 	std::optional<std::int64_t> updated_at;
 	std::map<std::string, glz::raw_json> unknown_fields;
@@ -246,14 +247,15 @@ struct glz::meta<shuba::persistence::schema_detail::StorageDto> {
 
 template<>
 struct glz::meta<shuba::persistence::schema_detail::PhotoDto> {
-	using T						= shuba::persistence::schema_detail::PhotoDto;
-	static constexpr auto value = object(
-		"id", &T::id, "schemaVersion", &T::schema_version, "ownerType",
-		&T::owner_type, "ownerId", &T::owner_id, "mediaFormat",
-		&T::media_format, "sortOrder", &T::sort_order, "isMain", &T::is_main,
-		"width", &T::width, "height", &T::height, "encodedBytes",
-		&T::encoded_bytes, "sourceMimeType", &T::source_mime_type, "createdAt",
-		&T::created_at, "updatedAt", &T::updated_at);
+	using T = shuba::persistence::schema_detail::PhotoDto;
+	static constexpr auto value =
+		object("id", &T::id, "schemaVersion", &T::schema_version, "ownerType",
+			   &T::owner_type, "ownerId", &T::owner_id, "mediaFormat",
+			   &T::media_format, "sortOrder", &T::sort_order, "isMain",
+			   &T::is_main, "width", &T::width, "height", &T::height,
+			   "encodedBytes", &T::encoded_bytes, "sourceMimeType",
+			   &T::source_mime_type, "sourceMd5", &T::source_md5, "createdAt",
+			   &T::created_at, "updatedAt", &T::updated_at);
 	static constexpr auto unknown_write{&T::unknown_fields};
 	static constexpr auto unknown_read{&T::unknown_fields};
 };
@@ -296,6 +298,7 @@ constexpr auto photo_known_fields =
 			   std::string_view{"height"},
 			   std::string_view{"encodedBytes"},
 			   std::string_view{"sourceMimeType"},
+			   std::string_view{"sourceMd5"},
 			   std::string_view{"createdAt"},
 			   std::string_view{"updatedAt"}};
 
@@ -810,6 +813,7 @@ template<class Dto>
 		.height			  = photo.height,
 		.encoded_bytes	  = photo.encoded_bytes,
 		.source_mime_type = optional_non_empty(photo.source_mime_type),
+		.source_md5		  = optional_non_empty(photo.source_md5),
 		.created_at		  = photo.timestamps.created_at.count(),
 		.updated_at		  = photo.timestamps.updated_at.count(),
 		.unknown_fields =
@@ -1338,20 +1342,22 @@ SchemaReadResult<PhotoEnvelope> parse_photo_record_json(std::string_view json) {
 		return read_failure<PhotoEnvelope>(std::move(diagnostic));
 
 	return read_success(PhotoEnvelope{
-		.record = domain::PhotoRecord{.id			  = std::move(*id),
-									  .schema_version = *schema_version,
-									  .owner_type	  = *owner_type,
-									  .owner_id		  = std::move(*owner_id),
-									  .media_format	  = *media_format,
-									  .sort_order	  = *dto.sort_order,
-									  .is_main = dto.is_main.value_or(false),
-									  .width   = dto.width,
-									  .height  = dto.height,
-									  .encoded_bytes = dto.encoded_bytes,
-									  .source_mime_type =
-										  dto.source_mime_type.value_or(
-											  std::string{}),
-									  .timestamps = *timestamps},
+		.record =
+			domain::PhotoRecord{
+				.id				= std::move(*id),
+				.schema_version = *schema_version,
+				.owner_type		= *owner_type,
+				.owner_id		= std::move(*owner_id),
+				.media_format	= *media_format,
+				.sort_order		= *dto.sort_order,
+				.is_main		= dto.is_main.value_or(false),
+				.width			= dto.width,
+				.height			= dto.height,
+				.encoded_bytes	= dto.encoded_bytes,
+				.source_mime_type =
+					dto.source_mime_type.value_or(std::string{}),
+				.source_md5 = dto.source_md5.value_or(std::string{}),
+				.timestamps = *timestamps},
 		.unknown_fields = public_unknown_fields(dto.unknown_fields)});
 }
 

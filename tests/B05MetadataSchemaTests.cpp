@@ -85,12 +85,14 @@ TEST_CASE("B05 storage and photo rows round-trip unknown top-level values",
 					 R"("futureStorage":{"levels":["a","b"]})"));
 
 	const auto photo_input = std::string{
-		R"({"id":"photo-unknown","schemaVersion":1,"ownerType":"storage","ownerId":"storage-unknown","mediaFormat":"jxl","sortOrder":1000,"isMain":true,"width":4032,"height":3024,"encodedBytes":823451,"sourceMimeType":"image/jpeg","createdAt":30,"updatedAt":40,"futurePhoto":[{"codec":"next"}]})"};
+		R"({"id":"photo-unknown","schemaVersion":1,"ownerType":"storage","ownerId":"storage-unknown","mediaFormat":"jxl","sortOrder":1000,"isMain":true,"width":4032,"height":3024,"encodedBytes":823451,"sourceMimeType":"image/jpeg","sourceMd5":"be897b804568f7c80a0d999d836657bb","createdAt":30,"updatedAt":40,"futurePhoto":[{"codec":"next"}]})"};
 	const auto parsed_photo = parse_photo_record_json(photo_input);
 	REQUIRE(parsed_photo.succeeded());
 	REQUIRE(parsed_photo.value->record.owner_type
 			== shuba::domain::PhotoOwnerType::Storage);
 	REQUIRE(parsed_photo.value->record.is_main);
+	REQUIRE(parsed_photo.value->record.source_md5
+			== "be897b804568f7c80a0d999d836657bb");
 	REQUIRE(parsed_photo.value->unknown_fields.at("futurePhoto")
 			== R"([{"codec":"next"}])");
 
@@ -99,6 +101,8 @@ TEST_CASE("B05 storage and photo rows round-trip unknown top-level values",
 	const auto written_photo	  = serialize_photo_record_json(photo_envelope);
 	REQUIRE(written_photo.succeeded());
 	REQUIRE_FALSE(contains(written_photo.json, "isMain"));
+	REQUIRE(contains(written_photo.json,
+					 R"("sourceMd5":"be897b804568f7c80a0d999d836657bb")"));
 	REQUIRE(
 		contains(written_photo.json, R"("futurePhoto":[{"codec":"next"}])"));
 }
@@ -249,4 +253,16 @@ TEST_CASE(
 	REQUIRE(photo_write.diagnostic.has_value());
 	REQUIRE(photo_write.diagnostic->issue == SchemaIssue::InvalidKnownValue);
 	REQUIRE(photo_write.diagnostic->field == "ownerId");
+
+	PhotoEnvelope photo_source_md5_conflict = photo;
+	photo_source_md5_conflict.unknown_fields.clear();
+	photo_source_md5_conflict.unknown_fields.emplace("sourceMd5",
+													 R"("raw-md5")");
+	const SchemaWriteResult photo_source_md5_write =
+		serialize_photo_record_json(photo_source_md5_conflict);
+	REQUIRE_FALSE(photo_source_md5_write.succeeded());
+	REQUIRE(photo_source_md5_write.diagnostic.has_value());
+	REQUIRE(photo_source_md5_write.diagnostic->issue
+			== SchemaIssue::InvalidKnownValue);
+	REQUIRE(photo_source_md5_write.diagnostic->field == "sourceMd5");
 }

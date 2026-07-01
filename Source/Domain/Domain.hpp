@@ -206,6 +206,7 @@ struct PhotoRecord final {
 	std::optional<std::int32_t> height;
 	std::optional<std::uint64_t> encoded_bytes;
 	std::string source_mime_type;
+	std::string source_md5;
 	RecordTimestamps timestamps;
 
 	friend bool operator==(const PhotoRecord&, const PhotoRecord&) = default;

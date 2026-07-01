@@ -14,10 +14,17 @@ save_item_draft_and_import_pending_photos(
 	const ItemSaveWithPendingPhotosRequest& request,
 	platform::ProgressSink& progress_sink,
 	platform::CancellationToken& cancellation_token);
+[[nodiscard]] StorageSaveWithPendingPhotosResult
+save_storage_draft_and_import_pending_photos(
+	const StorageSaveWithPendingPhotosRequest& request,
+	platform::ProgressSink& progress_sink,
+	platform::CancellationToken& cancellation_token);
 [[nodiscard]] PhotoImportSessionResult import_photos_into_session(
 	const PhotoImportSessionRequest& request,
 	platform::ProgressSink& progress_sink,
 	platform::CancellationToken& cancellation_token);
 [[nodiscard]] EntityEditResult set_main_photo_in_session(
+	const EntityEditRequest& request, const core::StableIdentifier& photo_id);
+[[nodiscard]] EntityEditResult delete_photo_in_session(
 	const EntityEditRequest& request, const core::StableIdentifier& photo_id);
 }	 // namespace shuba::ui

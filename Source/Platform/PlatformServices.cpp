@@ -192,6 +192,8 @@ std::string_view to_string(ProgressOperationType operation_type) noexcept {
 			return "metadata write";
 		case ProgressOperationType::PhotoImport:
 			return "photo import";
+		case ProgressOperationType::ImagePreview:
+			return "image preview";
 		case ProgressOperationType::JpegExport:
 			return "JPEG export";
 		case ProgressOperationType::BackupExport:

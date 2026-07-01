@@ -128,6 +128,7 @@ template<class Value>
 enum class ProgressOperationType : std::uint8_t {
 	MetadataWrite,
 	PhotoImport,
+	ImagePreview,
 	JpegExport,
 	BackupExport,
 	BackupImport,
@@ -451,6 +452,20 @@ struct StagedContent final {
 						   const StagedContent&) = default;
 };
 
+struct SourceByteFingerprint final {
+	std::string source_md5;
+
+	friend bool operator==(const SourceByteFingerprint&,
+						   const SourceByteFingerprint&) = default;
+};
+
+struct SourceByteFingerprintRequest final {
+	std::filesystem::path source_path;
+
+	friend bool operator==(const SourceByteFingerprintRequest&,
+						   const SourceByteFingerprintRequest&) = default;
+};
+
 enum class PixelFormat : std::uint8_t {
 	Rgba8,
 };
@@ -472,6 +487,9 @@ struct ImagePixels final {
 	std::uint32_t width{};
 	std::uint32_t height{};
 	PixelFormat format{PixelFormat::Rgba8};
+	// Rgba8 bytes are stored as straight, non-premultiplied red, green,
+	// blue, alpha channels. Display conversion treats ordinary photo pixels as
+	// opaque RGB and must not receive premultiplied/dimmed colour channels.
 	std::vector<std::uint8_t> bytes;
 	std::string source_description;
 	std::string orientation_description;
@@ -647,6 +665,25 @@ public:
 		const ContentStagingRequest& request,
 		const PlatformOperationContext& context, ProgressSink& progress_sink,
 		CancellationToken& cancellation_token) = 0;
+};
+
+class SourceByteFingerprintService {
+public:
+	SourceByteFingerprintService()									  = default;
+	SourceByteFingerprintService(const SourceByteFingerprintService&) = default;
+	SourceByteFingerprintService& operator=(
+		const SourceByteFingerprintService&) = default;
+	SourceByteFingerprintService(SourceByteFingerprintService&&) noexcept =
+		default;
+	SourceByteFingerprintService& operator=(
+		SourceByteFingerprintService&&) noexcept = default;
+	virtual ~SourceByteFingerprintService()		 = default;
+
+	[[nodiscard]] virtual PlatformValueResult<SourceByteFingerprint>
+	fingerprint_source_bytes(const SourceByteFingerprintRequest& request,
+							 const PlatformOperationContext& context,
+							 ProgressSink& progress_sink,
+							 CancellationToken& cancellation_token) = 0;
 };
 
 class SourceImageDecodeService {

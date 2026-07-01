@@ -22,6 +22,7 @@ struct PhotoImportSessionRequest final {
 	core::Clock& clock;
 	core::OperationGate& operation_gate;
 	platform::ContentStagingService& staging_service;
+	platform::SourceByteFingerprintService& fingerprint_service;
 	platform::SourceImageDecodeService& decode_service;
 	platform::InternalPhotoCodec& photo_codec;
 	domain::PhotoOwner owner;
@@ -63,6 +64,7 @@ struct PendingPhotoSource final {
 	PendingPhotoStatus status{PendingPhotoStatus::Selected};
 	std::optional<platform::ContentSourceDescriptor> staged_source;
 	std::optional<std::filesystem::path> staged_path;
+	std::string source_md5;
 	std::vector<core::Diagnostic> diagnostics;
 
 	[[nodiscard]] bool ready_for_import() const noexcept;
@@ -73,7 +75,10 @@ struct PendingPhotoStagingRequest final {
 	core::IdentifierSource& identifiers;
 	core::OperationGate& operation_gate;
 	platform::ContentStagingService& staging_service;
+	platform::SourceByteFingerprintService& fingerprint_service;
 	std::vector<platform::ContentSourceDescriptor> sources;
+	std::vector<PendingPhotoSource> existing_pending_sources;
+	std::optional<domain::PhotoOwner> existing_owner;
 };
 
 struct PendingPhotoStagingResult final {
@@ -109,10 +114,12 @@ struct ItemSaveWithPendingPhotosRequest final {
 	core::Clock& clock;
 	core::OperationGate& operation_gate;
 	platform::ContentStagingService& staging_service;
+	platform::SourceByteFingerprintService& fingerprint_service;
 	platform::SourceImageDecodeService& decode_service;
 	platform::InternalPhotoCodec& photo_codec;
 	ItemDraft draft;
 	std::vector<PendingPhotoSource> pending_sources;
+	std::optional<std::size_t> main_pending_source_index;
 	std::optional<std::filesystem::path> active_catalog_root_override;
 	bool create_previous_copy{true};
 };
@@ -123,10 +130,46 @@ struct ItemSaveWithPendingPhotosResult final {
 	PendingPhotoCleanupResult cleanup_result;
 	CatalogSessionState session;
 	std::vector<PendingPhotoSource> pending_sources;
+	EntityEditResult main_selection_result;
+	std::optional<core::StableIdentifier> main_selected_photo_id;
 	bool import_attempted{};
 	bool cleanup_attempted{};
+	bool main_selection_attempted{};
 
 	[[nodiscard]] bool item_saved() const noexcept;
+	[[nodiscard]] bool warning_acknowledgement_required() const noexcept;
+	[[nodiscard]] bool import_failed() const noexcept;
+};
+
+struct StorageSaveWithPendingPhotosRequest final {
+	CatalogSessionState current_session;
+	core::IdentifierSource& identifiers;
+	core::Clock& clock;
+	core::OperationGate& operation_gate;
+	platform::ContentStagingService& staging_service;
+	platform::SourceByteFingerprintService& fingerprint_service;
+	platform::SourceImageDecodeService& decode_service;
+	platform::InternalPhotoCodec& photo_codec;
+	StorageDraft draft;
+	std::vector<PendingPhotoSource> pending_sources;
+	std::optional<std::size_t> main_pending_source_index;
+	std::optional<std::filesystem::path> active_catalog_root_override;
+	bool create_previous_copy{true};
+};
+
+struct StorageSaveWithPendingPhotosResult final {
+	EntityEditResult save_result;
+	PhotoImportSessionResult import_result;
+	PendingPhotoCleanupResult cleanup_result;
+	CatalogSessionState session;
+	std::vector<PendingPhotoSource> pending_sources;
+	EntityEditResult main_selection_result;
+	std::optional<core::StableIdentifier> main_selected_photo_id;
+	bool import_attempted{};
+	bool cleanup_attempted{};
+	bool main_selection_attempted{};
+
+	[[nodiscard]] bool storage_saved() const noexcept;
 	[[nodiscard]] bool warning_acknowledgement_required() const noexcept;
 	[[nodiscard]] bool import_failed() const noexcept;
 };

@@ -8,6 +8,7 @@
 #include "UI/Session/EntityEditTypes.hpp"
 #include "UI/Session/PhotoSessionTypes.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -32,6 +33,12 @@ enum class FormMode : std::uint8_t {
 	Edit,
 };
 
+struct AppShellManagedPhotoDeckState final {
+	bool staged_selected{};
+	std::size_t selected_index{};
+	std::optional<std::size_t> staged_main_index;
+};
+
 struct AppShellRouteState final {
 	RootDestination destination{RootDestination::Catalog};
 	std::optional<core::StableIdentifier> selected_item_id;
@@ -51,6 +58,7 @@ struct AppShellItemFormState final {
 	ItemDraft draft;
 	FormMode mode{FormMode::Create};
 	std::vector<PendingPhotoSource> pending_photos;
+	AppShellManagedPhotoDeckState photo_deck;
 	bool storage_candidates_expanded{};
 	bool tag_candidates_expanded{};
 	bool listing_expanded{};
@@ -60,6 +68,8 @@ struct AppShellItemFormState final {
 struct AppShellStorageFormState final {
 	StorageDraft draft;
 	FormMode mode{FormMode::Create};
+	std::vector<PendingPhotoSource> pending_photos;
+	AppShellManagedPhotoDeckState photo_deck;
 	bool parent_candidates_expanded{};
 	bool tag_candidates_expanded{};
 	bool archive_warning_acknowledged{};
@@ -82,6 +92,11 @@ struct AppShellBackupState final {
 struct AppShellPhotoDisplayState final {
 	catalog::PhotoDisplayResult result;
 	std::optional<core::StableIdentifier> displayed_photo_id;
+	std::optional<core::StableIdentifier> requested_display_photo_id;
+	std::optional<core::StableIdentifier> pending_delete_photo_id;
+	std::optional<core::StableIdentifier> viewer_transform_photo_id;
+	std::uint64_t display_request_generation{};
+	int viewer_rotation_quarter_turns{};
 };
 
 struct AppShellStorageDetailState final {

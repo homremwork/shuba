@@ -2,6 +2,7 @@
 
 #include "Catalog/PhotoExport.hpp"
 #include "Platform/JuceAndroidServices.hpp"
+#include "Platform/JuceHashing.hpp"
 #include "Platform/JuceZipArchive.hpp"
 #include "UI/AppShellPhotoCoordinator.hpp"
 #include "UI/AppShellState.hpp"
@@ -9,16 +10,19 @@
 #include "UI/Session/BackupRecoveryTypes.hpp"
 #include "UI/Session/CatalogSessionState.hpp"
 #include "UI/Session/EntityEditTypes.hpp"
+#include "UI/Session/ImagePreviewSession.hpp"
 #include "UI/Session/PhotoSessionTypes.hpp"
 #include "UI/View/AppShellChromeComponent.hpp"
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <filesystem>
 #include <memory>
 #include <optional>
 
 namespace shuba::ui {
 class AppShellContentComponent;
+class AsyncImagePreviewScheduler;
 
 class ShellIdentifierSource final : public core::IdentifierSource {
 public:
@@ -77,7 +81,13 @@ private:
 	void open_existing_storage_form(core::StableIdentifier storage_id);
 	void request_add_photos(domain::PhotoOwner owner);
 	void request_add_pending_item_photos();
+	void request_add_pending_storage_photos();
+	void set_item_pending_photo_as_main(std::size_t pending_photo_index);
+	void set_storage_pending_photo_as_main(std::size_t pending_photo_index);
 	void request_export_photo(core::StableIdentifier photo_id);
+	void request_delete_photo_confirmation(core::StableIdentifier photo_id);
+	void confirm_delete_photo(core::StableIdentifier photo_id);
+	void cancel_delete_photo_confirmation();
 	void request_export_backup();
 	void request_export_diagnostic_archive();
 	void request_import_backup();
@@ -91,7 +101,12 @@ private:
 	void apply_photo_edit_result(EntityEditResult result,
 								 core::StableIdentifier selected_photo_id);
 	void cleanup_item_pending_photos();
+	void cleanup_storage_pending_photos();
 	void remove_item_pending_photo(std::size_t pending_photo_index);
+	void remove_storage_pending_photo(std::size_t pending_photo_index);
+	void set_pending_photo_as_main(AppShellManagedPhotoDeckState& photo_deck,
+								std::vector<PendingPhotoSource>& pending_photos,
+								std::size_t pending_photo_index);
 	void reset_catalog_filters();
 	void reset_item_form();
 	void reset_storage_form();
@@ -102,7 +117,25 @@ private:
 	void save_storage_form();
 	void apply_item_save_with_pending_photos_result(
 		ItemSaveWithPendingPhotosResult result);
+	void apply_storage_save_with_pending_photos_result(
+		StorageSaveWithPendingPhotosResult result);
 	void apply_entity_edit_result(EntityEditResult result);
+	void request_internal_preview_async(core::StableIdentifier photo_id,
+										ImagePreviewSize target_size,
+										ImagePreviewRequestPriority priority);
+	void request_staged_preview_async(PendingPhotoSource source,
+									  ImagePreviewSize target_size,
+									  ImagePreviewRequestPriority priority);
+	[[nodiscard]] std::optional<juce::String> preview_failure_message(
+		const ImagePreviewRequestIdentity& identity) const;
+	void request_photo_display_async(core::StableIdentifier photo_id);
+	void invalidate_preview_failure(
+		const ImagePreviewRequestIdentity& identity);
+	void invalidate_all_previews();
+	void invalidate_internal_photo_preview(
+		const core::StableIdentifier& photo_id);
+	void invalidate_staged_photo_preview(
+		const std::filesystem::path& staged_path);
 	void schedule_content_refresh();
 	void timerCallback() override;
 
@@ -115,12 +148,15 @@ private:
 	AppShellBackupState backup;
 	AppShellPhotoDisplayState photo_display;
 	AppShellStorageDetailState storage_detail;
+	ImagePreviewCache preview_cache;
+	std::unique_ptr<AsyncImagePreviewScheduler> preview_scheduler;
 	ShellIdentifierSource edit_identifiers;
 	ShellClock edit_clock;
 	core::OperationGate ui_operation_gate;
 	platform::JuceAndroidPhotoSelectionService photo_selection_service;
 	platform::JuceAndroidDocumentExportService document_export_service;
 	platform::JuceAndroidContentStagingService content_staging_service;
+	platform::JuceMd5SourceByteFingerprintService source_fingerprint_service;
 	platform::JuceAndroidSourceImageDecodeService source_decode_service;
 	platform::JuceJpegExportService jpeg_export_service;
 	platform::JuceZipArchiveService zip_archive_service;

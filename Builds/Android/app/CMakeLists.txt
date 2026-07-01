@@ -28,7 +28,7 @@ if(JUCE_BUILD_CONFIGURATION MATCHES "DEBUG")
         "../../../build/libjxl-android-arm64/third_party/highway"
     )
 
-    add_definitions([[-DJUCE_PROJUCER_VERSION=0x8000d]] [[-DJUCE_MODULE_AVAILABLE_juce_core=1]] [[-DJUCE_MODULE_AVAILABLE_juce_data_structures=1]] [[-DJUCE_MODULE_AVAILABLE_juce_events=1]] [[-DJUCE_MODULE_AVAILABLE_juce_graphics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_gui_basics=1]] [[-DJUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1]] [[-DJUCE_USE_CURL=0]] [[-DJUCE_STRICT_REFCOUNTEDPOINTER=1]] [[-DJUCE_STANDALONE_APPLICATION=1]] [[-DJXL_STATIC_DEFINE=1]] [[-DJXL_THREADS_STATIC_DEFINE=1]] [[-DJXL_CMS_STATIC_DEFINE=1]] [[-DHWY_STATIC_DEFINE=1]] [[-DJUCER_ANDROIDSTUDIO_7F0E4A25=1]] [[-DJUCE_APP_VERSION=0.1.0]] [[-DJUCE_APP_VERSION_HEX=0x100]] [[-DDEBUG=1]] [[-D_DEBUG=1]])
+    add_definitions([[-DJUCE_PROJUCER_VERSION=0x8000d]] [[-DJUCE_MODULE_AVAILABLE_juce_core=1]] [[-DJUCE_MODULE_AVAILABLE_juce_data_structures=1]] [[-DJUCE_MODULE_AVAILABLE_juce_events=1]] [[-DJUCE_MODULE_AVAILABLE_juce_graphics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_gui_basics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_cryptography=1]] [[-DJUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1]] [[-DJUCE_USE_CURL=0]] [[-DJUCE_STRICT_REFCOUNTEDPOINTER=1]] [[-DJUCE_STANDALONE_APPLICATION=1]] [[-DJXL_STATIC_DEFINE=1]] [[-DJXL_THREADS_STATIC_DEFINE=1]] [[-DJXL_CMS_STATIC_DEFINE=1]] [[-DHWY_STATIC_DEFINE=1]] [[-DJUCER_ANDROIDSTUDIO_7F0E4A25=1]] [[-DJUCE_APP_VERSION=0.1.0]] [[-DJUCE_APP_VERSION_HEX=0x100]] [[-DDEBUG=1]] [[-D_DEBUG=1]])
     include_directories( AFTER
         "../../../third_party/glaze/include"
         "../../../build/libjxl-android-arm64/lib/include"
@@ -96,7 +96,7 @@ elseif(JUCE_BUILD_CONFIGURATION MATCHES "RELEASE")
         "../../../build/libjxl-android-arm64/third_party/highway"
     )
 
-    add_definitions([[-DJUCE_PROJUCER_VERSION=0x8000d]] [[-DJUCE_MODULE_AVAILABLE_juce_core=1]] [[-DJUCE_MODULE_AVAILABLE_juce_data_structures=1]] [[-DJUCE_MODULE_AVAILABLE_juce_events=1]] [[-DJUCE_MODULE_AVAILABLE_juce_graphics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_gui_basics=1]] [[-DJUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1]] [[-DJUCE_USE_CURL=0]] [[-DJUCE_STRICT_REFCOUNTEDPOINTER=1]] [[-DJUCE_STANDALONE_APPLICATION=1]] [[-DJXL_STATIC_DEFINE=1]] [[-DJXL_THREADS_STATIC_DEFINE=1]] [[-DJXL_CMS_STATIC_DEFINE=1]] [[-DHWY_STATIC_DEFINE=1]] [[-DJUCER_ANDROIDSTUDIO_7F0E4A25=1]] [[-DJUCE_APP_VERSION=0.1.0]] [[-DJUCE_APP_VERSION_HEX=0x100]] [[-DNDEBUG=1]])
+    add_definitions([[-DJUCE_PROJUCER_VERSION=0x8000d]] [[-DJUCE_MODULE_AVAILABLE_juce_core=1]] [[-DJUCE_MODULE_AVAILABLE_juce_data_structures=1]] [[-DJUCE_MODULE_AVAILABLE_juce_events=1]] [[-DJUCE_MODULE_AVAILABLE_juce_graphics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_gui_basics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_cryptography=1]] [[-DJUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1]] [[-DJUCE_USE_CURL=0]] [[-DJUCE_STRICT_REFCOUNTEDPOINTER=1]] [[-DJUCE_STANDALONE_APPLICATION=1]] [[-DJXL_STATIC_DEFINE=1]] [[-DJXL_THREADS_STATIC_DEFINE=1]] [[-DJXL_CMS_STATIC_DEFINE=1]] [[-DHWY_STATIC_DEFINE=1]] [[-DJUCER_ANDROIDSTUDIO_7F0E4A25=1]] [[-DJUCE_APP_VERSION=0.1.0]] [[-DJUCE_APP_VERSION_HEX=0x100]] [[-DNDEBUG=1]])
     include_directories( AFTER
         "../../../third_party/glaze/include"
         "../../../build/libjxl-android-arm64/lib/include"
@@ -172,6 +172,7 @@ add_library( ${BINARY_NAME}
     "../../../Source/Catalog/PhotoExport.cpp"
     "../../../Source/Catalog/PhotoImport.cpp"
     "../../../Source/Catalog/Search.cpp"
+    "../../../Source/Platform/JuceHashing.cpp"
     "../../../Source/Core/Clock.cpp"
     "../../../Source/Core/Identifier.cpp"
     "../../../Source/Core/OperationGate.cpp"
@@ -189,11 +190,17 @@ add_library( ${BINARY_NAME}
     "../../../Source/UI/Screens/StorageScreens.cpp"
     "../../../Source/UI/Session/CatalogStartupSession.cpp"
     "../../../Source/UI/Session/EntityEditSession.cpp"
+    "../../../Source/UI/Session/ImagePreviewSession.cpp"
     "../../../Source/UI/Session/PhotoSession.cpp"
     "../../../Source/UI/Session/BackupRecoverySession.cpp"
     "../../../Source/UI/View/AppShellChromeComponent.cpp"
     "../../../Source/UI/View/AppShellContentComponent.cpp"
-    "../../../Source/UI/View/UiPrimitives.cpp"
+    "../../../Source/UI/View/Primitives/Palette.cpp"
+    "../../../Source/UI/View/Primitives/TouchGuards.cpp"
+    "../../../Source/UI/View/Primitives/Rows.cpp"
+    "../../../Source/UI/View/Primitives/Previews.cpp"
+    "../../../Source/UI/View/Primitives/Forms.cpp"
+    "../../../Source/UI/View/Primitives/PhotoManagement.cpp"
     "../../../Source/UI/View/ScreenText.cpp"
     "../../../Source/UI/CatalogSession.cpp"
     "../../../Source/Platform/JpegXlPhotoCodec.cpp"
@@ -202,6 +209,7 @@ add_library( ${BINARY_NAME}
     "../../../Source/Platform/JuceAndroidServices.cpp"
     "../../../Source/Platform/PlatformServices.cpp"
     "../../../third_party/JUCE/modules/juce_core/containers/juce_AbstractFifo.cpp"
+    "../../../third_party/JUCE/modules/juce_cryptography/juce_cryptography.cpp"
     "../../../third_party/JUCE/modules/juce_core/containers/juce_AbstractFifo.h"
     "../../../third_party/JUCE/modules/juce_core/containers/juce_Array.h"
     "../../../third_party/JUCE/modules/juce_core/containers/juce_ArrayAllocationBase.h"

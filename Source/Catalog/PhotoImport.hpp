@@ -71,12 +71,13 @@ struct PhotoImportRequest final {
 
 class PhotoImportUseCase final {
 public:
-	PhotoImportUseCase(core::IdentifierSource& identifier_source,
-					   const core::Clock& clock,
-					   core::OperationGate& operation_gate,
-					   platform::ContentStagingService& staging_service,
-					   platform::SourceImageDecodeService& decode_service,
-					   platform::InternalPhotoCodec& photo_codec);
+	PhotoImportUseCase(
+		core::IdentifierSource& identifier_source, const core::Clock& clock,
+		core::OperationGate& operation_gate,
+		platform::ContentStagingService& staging_service,
+		platform::SourceByteFingerprintService& fingerprint_service,
+		platform::SourceImageDecodeService& decode_service,
+		platform::InternalPhotoCodec& photo_codec);
 
 	[[nodiscard]] PhotoImportSummary import_photos(
 		const PhotoImportRequest& request,
@@ -88,6 +89,7 @@ private:
 	const core::Clock& import_clock;
 	core::OperationGate& gate;
 	platform::ContentStagingService& staging;
+	platform::SourceByteFingerprintService& fingerprinting;
 	platform::SourceImageDecodeService& decoder;
 	platform::InternalPhotoCodec& codec;
 };

@@ -1,4 +1,5 @@
 #include "Catalog/PhotoImport.hpp"
+#include "Platform/JuceHashing.hpp"
 #include "Platform/LinuxFakes.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -99,6 +100,15 @@ private:
 	return *identifier;
 }
 
+[[nodiscard]] bool has_diagnostic_code(
+	const std::vector<shuba::core::Diagnostic>& diagnostics,
+	std::string_view code) {
+	for (const shuba::core::Diagnostic& diagnostic : diagnostics)
+		if (diagnostic.code == code)
+			return true;
+	return false;
+}
+
 [[nodiscard]] shuba::domain::RecordTimestamps make_timestamps(
 	std::int64_t created_at, std::int64_t updated_at) {
 	return shuba::domain::RecordTimestamps{
@@ -117,7 +127,7 @@ private:
 
 [[nodiscard]] shuba::persistence::PhotoEnvelope make_photo(
 	std::string id, const shuba::core::StableIdentifier& owner_id,
-	std::int64_t sort_order, bool is_main) {
+	std::int64_t sort_order, bool is_main, std::string source_md5 = {}) {
 	return shuba::persistence::PhotoEnvelope{
 		.record = shuba::domain::PhotoRecord{
 			.id			= make_id(std::move(id)),
@@ -125,6 +135,7 @@ private:
 			.owner_id	= owner_id,
 			.sort_order = sort_order,
 			.is_main	= is_main,
+			.source_md5 = std::move(source_md5),
 			.timestamps = make_timestamps(10, 10)}};
 }
 
@@ -158,6 +169,7 @@ struct ImportHarness final {
 	shuba::platform::AppPrivatePaths paths{
 		*path_provider.resolve_app_private_paths().value};
 	shuba::platform::LinuxFakeContentStagingService staging;
+	shuba::platform::JuceMd5SourceByteFingerprintService fingerprinting;
 	shuba::platform::SyntheticSourceImageDecodeService decoder;
 	shuba::platform::MarkerInternalPhotoCodec codec;
 	shuba::core::ManualClock clock{shuba::core::EpochMilliseconds{1000}};
@@ -169,8 +181,8 @@ struct ImportHarness final {
 	ImportHarness() { decoder.set_decoded_pixels(test_pixels()); }
 
 	[[nodiscard]] shuba::catalog::PhotoImportUseCase use_case() {
-		return shuba::catalog::PhotoImportUseCase{identifiers, clock,	gate,
-												  staging,	   decoder, codec};
+		return shuba::catalog::PhotoImportUseCase{
+			identifiers, clock, gate, staging, fingerprinting, decoder, codec};
 	}
 };
 
@@ -238,6 +250,9 @@ TEST_CASE("B13 imports media before metadata and marks first owner photo main",
 	REQUIRE(photos_text.find(R"("isMain":true)") != std::string::npos);
 	REQUIRE(photos_text.find(R"("sourceMimeType":"image/jpeg")")
 			!= std::string::npos);
+	REQUIRE(
+		photos_text.find(R"("sourceMd5":"be897b804568f7c80a0d999d836657bb")")
+		!= std::string::npos);
 
 	const shuba::persistence::PhotoEnvelope* photo =
 		shuba::catalog::find_photo_envelope(summary.updated_state,
@@ -249,6 +264,7 @@ TEST_CASE("B13 imports media before metadata and marks first owner photo main",
 	REQUIRE(photo->record.height == 1);
 	REQUIRE(photo->record.encoded_bytes == std::uint64_t{15});
 	REQUIRE(photo->record.source_mime_type == "image/jpeg");
+	REQUIRE(photo->record.source_md5 == "be897b804568f7c80a0d999d836657bb");
 	const shuba::catalog::ItemProjection& projection =
 		summary.updated_state.item_projections.at("item-001");
 	REQUIRE(projection.representative_usable_photo_id->value() == "photo-001");
@@ -343,6 +359,51 @@ TEST_CASE("B13 later imports keep existing main photo and append sort order",
 			== "photo-main");
 }
 
+TEST_CASE("B13 duplicate source fingerprint warns without blocking import",
+		  "[b13][photo-import][duplicate-warning]") {
+	using shuba::catalog::PhotoImportRequest;
+	using shuba::domain::PhotoOwner;
+	using shuba::domain::PhotoOwnerType;
+	using shuba::platform::make_local_file_source;
+
+	ImportHarness harness;
+	const std::filesystem::path source_path =
+		harness.temporary.path() / "duplicate.jpg";
+	write_text(source_path, "duplicate-source");
+	const shuba::persistence::ItemEnvelope item = make_item("item-duplicate");
+	write_text(harness.paths.active_catalog_root
+				   / "media/photos/photo-duplicate-main.jxl",
+			   "existing");
+	const shuba::catalog::CatalogRepositoryState state = state_with_item(
+		item,
+		{make_photo("photo-duplicate-main", item.record.id, 1000, true,
+					"130ba648e96879a999e2bb3c79c0fa29")},
+		{"media/photos/photo-duplicate-main.jxl"});
+	harness.identifiers.script_operation_identifier("operation-b13-duplicate");
+	harness.identifiers.script_stable_identifier("photo-duplicate-imported");
+
+	shuba::catalog::PhotoImportUseCase use_case = harness.use_case();
+	shuba::catalog::PhotoImportSummary summary	= use_case.import_photos(
+		PhotoImportRequest{
+			.current_state = state,
+			.paths		   = harness.paths,
+			.owner =
+				PhotoOwner{.type = PhotoOwnerType::Item, .id = item.record.id},
+			.sources = {make_local_file_source(source_path, "duplicate.jpg")},
+			.create_previous_copy = false},
+		harness.progress, harness.cancellation);
+
+	REQUIRE(summary.succeeded());
+	REQUIRE(summary.success_count == 1U);
+	REQUIRE(has_diagnostic_code(summary.diagnostics,
+								"photo_import_duplicate_source_warning"));
+	const shuba::persistence::PhotoEnvelope* imported =
+		shuba::catalog::find_photo_envelope(
+			summary.updated_state, make_id("photo-duplicate-imported"));
+	REQUIRE(imported != nullptr);
+	REQUIRE(imported->record.source_md5 == "130ba648e96879a999e2bb3c79c0fa29");
+}
+
 TEST_CASE("B13 metadata commit failure removes newly written media",
 		  "[b13][photo-import][metadata-failure]") {
 	using shuba::catalog::PhotoImportPhotoStatus;
@@ -409,8 +470,9 @@ TEST_CASE(
 	harness.identifiers.script_operation_identifier("operation-b13-004");
 	harness.identifiers.script_stable_identifier("photo-cancelled");
 	shuba::catalog::PhotoImportUseCase use_case{
-		harness.identifiers, harness.clock,	  harness.gate,
-		harness.staging,	 harness.decoder, cancelling_codec};
+		harness.identifiers, harness.clock,			 harness.gate,
+		harness.staging,	 harness.fingerprinting, harness.decoder,
+		cancelling_codec};
 
 	shuba::catalog::PhotoImportSummary summary = use_case.import_photos(
 		PhotoImportRequest{

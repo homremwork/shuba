@@ -6,7 +6,7 @@
 #include "UI/Session/CatalogStartupSession.hpp"
 #include "UI/Session/EntityEditTypes.hpp"
 #include "UI/Session/PhotoSessionTypes.hpp"
-#include "UI/View/UiPrimitives.hpp"
+#include "UI/View/Primitives/Palette.hpp"
 
 #include <cstddef>
 #include <limits>

@@ -2,12 +2,24 @@
 #include "UI/View/AppShellContentComponent.hpp"
 #include "UI/View/ScreenText.hpp"
 
+#include <cstddef>
 #include <map>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace shuba::ui {
+namespace {
+constexpr int preview_result_row_height = 104;
+
+[[nodiscard]] ImagePreviewRequestPriority list_preview_priority(
+	std::size_t preview_candidate_index) noexcept {
+	return preview_candidate_index < 8U ? ImagePreviewRequestPriority::Normal
+										: ImagePreviewRequestPriority::Low;
+}
+}	 // namespace
+
 void AppShellScreenRenderer::build_storages_content() {
 	if (session.demo_catalog_active)
 		content->add_label("Demo catalog is active.", 42,
@@ -26,9 +38,16 @@ void AppShellScreenRenderer::build_storages_content() {
 		add_storage.onClick = [this] { open_new_storage_form(std::nullopt); };
 		return;
 	}
+	std::size_t preview_candidate_count{};
 	for (const catalog::SearchResult& result : results.storage_results) {
-		juce::Button& button =
-			content->add_button(storage_result_text(result, session), 78);
+		const ImagePreviewRequestPriority preview_priority =
+			list_preview_priority(preview_candidate_count);
+		if (result.representative_usable_photo_id.has_value())
+			++preview_candidate_count;
+		PreviewCardBuildResult card =
+			build_storage_result_preview_card(result, preview_priority);
+		PreviewCardButtonComponent& button = content->add_preview_card(
+			std::move(card.content), preview_result_row_height);
 		core::StableIdentifier storage_id = result.record_id;
 		button.onClick					  = [this, storage_id] {
 			open_storage_detail(storage_id);
@@ -53,6 +72,11 @@ void AppShellScreenRenderer::build_item_detail_content() {
 			warning_panel_colour(), true);
 		return;
 	}
+	domain::PhotoOwner owner{.type = domain::PhotoOwnerType::Item,
+							 .id   = item->record.id};
+	add_owner_photo_carousel(owner, projection->second.photo_presence,
+							 "No item photos",
+							 "Add photos to make this item image-centric.");
 
 	std::string header = photo_presence_label(projection->second.photo_presence)
 						 + " " + item->record.display_name + " · "
@@ -77,22 +101,22 @@ void AppShellScreenRenderer::build_item_detail_content() {
 	change_storage.onClick = [this, item_id = item->record.id] {
 		open_existing_item_form(item_id);
 	};
-	domain::PhotoOwner owner{.type = domain::PhotoOwnerType::Item,
-							 .id   = item->record.id};
 	juce::Button& add_photo = content->add_button("Add photos", 42);
 	add_photo.onClick		= [this, owner] { request_add_photos(owner); };
 	juce::Button& viewer = content->add_button("Open photo viewer/export", 42);
 	viewer.setEnabled(projection->second.representative_photo_id.has_value());
-	viewer.onClick = [this, owner,
-					  photo_id = projection->second.representative_photo_id] {
+	viewer.onClick = [this, owner] {
+		const std::optional<core::StableIdentifier> photo_id =
+			selected_photo_id_for_owner(owner);
 		open_photo_viewer(owner, photo_id);
 	};
 	juce::Button& export_current =
-		content->add_button("Export representative photo as JPEG", 42);
+		content->add_button("Export selected photo as JPEG", 42);
 	export_current.setEnabled(
-		projection->second.representative_usable_photo_id.has_value());
-	export_current.onClick =
-		[this, photo_id = projection->second.representative_usable_photo_id] {
+		selected_usable_photo_id_for_owner(owner).has_value());
+	export_current.onClick = [this, owner] {
+		const std::optional<core::StableIdentifier> photo_id =
+			selected_usable_photo_id_for_owner(owner);
 		if (photo_id)
 			request_export_photo(*photo_id);
 	};
@@ -149,6 +173,11 @@ void AppShellScreenRenderer::build_storage_detail_content() {
 			warning_panel_colour(), true);
 		return;
 	}
+	domain::PhotoOwner owner{.type = domain::PhotoOwnerType::Storage,
+							 .id   = *route.selected_storage_id};
+	add_owner_photo_carousel(owner, projection->second.photo_presence,
+							 "No storage photos",
+							 "Add photos to make this storage image-centric.");
 
 	std::string header =
 		storage->record.display_name + " · " + storage->record.storage_type;
@@ -186,15 +215,25 @@ void AppShellScreenRenderer::build_storage_detail_content() {
 	}
 	if (child_ids.empty())
 		content->add_label("No child storages.", 34);
+	std::size_t preview_candidate_count{};
 	for (const core::StableIdentifier& child_id : child_ids) {
 		const persistence::StorageEnvelope* child =
 			catalog::find_storage_envelope(session.repository, child_id);
 		if (child == nullptr)
 			continue;
-		juce::Button& button = content->add_button(
-			juce_text("[storage] " + child->record.display_name + " · "
-					  + child->record.storage_type),
-			54);
+		const std::map<std::string, catalog::StorageProjection>::const_iterator
+			child_projection =
+				session.repository.storage_projections.find(child_id.value());
+		if (child_projection == session.repository.storage_projections.end())
+			continue;
+		const ImagePreviewRequestPriority preview_priority =
+			list_preview_priority(preview_candidate_count);
+		if (child_projection->second.representative_usable_photo_id.has_value())
+			++preview_candidate_count;
+		PreviewCardBuildResult card = build_storage_preview_card(
+			*child, child_projection->second, preview_priority);
+		PreviewCardButtonComponent& button = content->add_preview_card(
+			std::move(card.content), preview_result_row_height);
 		button.onClick = [this, child_id] { open_storage_detail(child_id); };
 	}
 
@@ -215,13 +254,14 @@ void AppShellScreenRenderer::build_storage_detail_content() {
 		if (found == session.repository.item_projections.end())
 			continue;
 		++item_count;
-		std::string row = photo_presence_label(found->second.photo_presence)
-						  + " " + item.record.display_name + " · "
-						  + item.record.category + " · "
-						  + status_text(item.record.status);
-		if (!item.record.notes.empty())
-			row += " · " + item.record.notes;
-		juce::Button& button = content->add_button(juce_text(row), 62);
+		const ImagePreviewRequestPriority preview_priority =
+			list_preview_priority(preview_candidate_count);
+		if (found->second.representative_usable_photo_id.has_value())
+			++preview_candidate_count;
+		PreviewCardBuildResult card =
+			build_item_preview_card(item, found->second, preview_priority);
+		PreviewCardButtonComponent& button = content->add_preview_card(
+			std::move(card.content), preview_result_row_height);
 		core::StableIdentifier item_id = item.record.id;
 		button.onClick = [this, item_id] { open_item_detail(item_id); };
 	}
@@ -237,15 +277,24 @@ void AppShellScreenRenderer::build_storage_detail_content() {
 	add_storage.onClick = [this, storage_id = *route.selected_storage_id] {
 		open_new_storage_form(storage_id);
 	};
-	domain::PhotoOwner owner{.type = domain::PhotoOwnerType::Storage,
-							 .id   = *route.selected_storage_id};
 	juce::Button& add_photo = content->add_button("Add photos", 42);
 	add_photo.onClick		= [this, owner] { request_add_photos(owner); };
 	juce::Button& viewer = content->add_button("Open storage photo viewer", 42);
 	viewer.setEnabled(projection->second.representative_photo_id.has_value());
-	viewer.onClick = [this, owner,
-					  photo_id = projection->second.representative_photo_id] {
+	viewer.onClick = [this, owner] {
+		const std::optional<core::StableIdentifier> photo_id =
+			selected_photo_id_for_owner(owner);
 		open_photo_viewer(owner, photo_id);
+	};
+	juce::Button& export_current =
+		content->add_button("Export selected storage photo as JPEG", 42);
+	export_current.setEnabled(
+		selected_usable_photo_id_for_owner(owner).has_value());
+	export_current.onClick = [this, owner] {
+		const std::optional<core::StableIdentifier> photo_id =
+			selected_usable_photo_id_for_owner(owner);
+		if (photo_id)
+			request_export_photo(*photo_id);
 	};
 	juce::Button& edit = content->add_button("Edit storage", 42);
 	edit.onClick	   = [this, storage_id = *route.selected_storage_id] {

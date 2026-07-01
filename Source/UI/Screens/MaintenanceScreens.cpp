@@ -235,6 +235,7 @@ void AppShellComponent::apply_backup_import_replacement_result(
 	feedback.backup_diagnostics = std::move(result.diagnostics);
 	if (result.succeeded()) {
 		session = std::move(result.session);
+		preview_cache.clear();
 		backup.pending_import_staging.reset();
 		backup.pending_import_degraded_acknowledged = false;
 		feedback.backup_message =
@@ -243,6 +244,7 @@ void AppShellComponent::apply_backup_import_replacement_result(
 		feedback.backup_message = "Backup import replacement cancelled.";
 	} else if (result.fatal_recovery_required) {
 		session = std::move(result.session);
+		preview_cache.clear();
 		backup.pending_import_staging.reset();
 		feedback.backup_message =
 			"Catalog replacement failed and rollback failed. Fatal recovery "

@@ -119,6 +119,34 @@ void append_diagnostics(PhotoImportSummary& summary,
 	return domain::next_photo_sort_order(records, owner);
 }
 
+[[nodiscard]] bool same_owner(const domain::PhotoRecord& photo,
+							  const domain::PhotoOwner& owner) noexcept {
+	return photo.owner_type == owner.type && photo.owner_id == owner.id;
+}
+
+[[nodiscard]] std::optional<core::Diagnostic> duplicate_source_warning(
+	std::span<const persistence::PhotoEnvelope> photos,
+	const domain::PhotoOwner& owner, std::string_view source_md5,
+	std::string_view source_display_name) {
+	if (source_md5.empty())
+		return std::nullopt;
+
+	for (const persistence::PhotoEnvelope& photo : photos) {
+		if (same_owner(photo.record, owner)
+			&& photo.record.source_md5 == source_md5) {
+			return make_diagnostic(
+				core::DiagnosticSeverity::RecoverableWarning,
+				"photo_import_duplicate_source_warning",
+				"Imported photo source appears to duplicate an existing owner "
+				"photo. Import is allowed.",
+				std::string{source_display_name} + " matches photo "
+					+ photo.record.id.value());
+		}
+	}
+
+	return std::nullopt;
+}
+
 [[nodiscard]] std::optional<core::Diagnostic> validate_photos_jsonl_text(
 	std::string_view text) {
 	const persistence::PhotoTableLoadResult loaded =
@@ -303,7 +331,7 @@ void finalize_summary(PhotoImportSummary& summary) {
 	core::StableIdentifier photo_id, const domain::PhotoOwner& owner,
 	std::int64_t sort_order, bool is_main, const platform::ImagePixels& pixels,
 	const platform::MediaWriteResult& media_write, std::string source_mime_type,
-	core::EpochMilliseconds timestamp) {
+	std::string source_md5, core::EpochMilliseconds timestamp) {
 	std::optional<std::uint64_t> encoded_bytes;
 	if (media_write.bytes_written > 0U)
 		encoded_bytes = media_write.bytes_written;
@@ -322,6 +350,7 @@ void finalize_summary(PhotoImportSummary& summary) {
 				media_write.height == 0U ? pixels.height : media_write.height),
 			.encoded_bytes	  = encoded_bytes,
 			.source_mime_type = std::move(source_mime_type),
+			.source_md5		  = std::move(source_md5),
 			.timestamps = domain::RecordTimestamps{.created_at = timestamp,
 												   .updated_at = timestamp}}};
 }
@@ -360,12 +389,14 @@ PhotoImportUseCase::PhotoImportUseCase(
 	core::IdentifierSource& identifier_source, const core::Clock& clock,
 	core::OperationGate& operation_gate,
 	platform::ContentStagingService& staging_service,
+	platform::SourceByteFingerprintService& fingerprint_service,
 	platform::SourceImageDecodeService& decode_service,
 	platform::InternalPhotoCodec& photo_codec)
 	: identifiers(identifier_source)
 	, import_clock(clock)
 	, gate(operation_gate)
 	, staging(staging_service)
+	, fingerprinting(fingerprint_service)
 	, decoder(decode_service)
 	, codec(photo_codec) {}
 
@@ -461,6 +492,39 @@ PhotoImportSummary PhotoImportUseCase::import_photos(
 		}
 
 		photo_result.staged_source_path = staged.value->staged_path;
+		std::string source_md5;
+		platform::PlatformValueResult<platform::SourceByteFingerprint>
+			fingerprint = fingerprinting.fingerprint_source_bytes(
+				platform::SourceByteFingerprintRequest{
+					.source_path = staged.value->staged_path},
+				operation.context(), progress_sink, cancellation_token);
+		if (fingerprint.was_user_cancelled()) {
+			cleanup_staged_source(summary, photo_result);
+			mark_cancelled(photo_result);
+			summary.photos.push_back(std::move(photo_result));
+			break;
+		}
+		if (fingerprint.succeeded()) {
+			source_md5 = std::move(fingerprint.value->source_md5);
+			if (std::optional<core::Diagnostic> warning =
+					duplicate_source_warning(
+						committed_photos, request.owner, source_md5,
+						photo_result.source_display_name)) {
+				append_diagnostic(summary, photo_result, std::move(*warning));
+			}
+		} else {
+			append_diagnostics(summary, photo_result, fingerprint.diagnostics);
+			if (fingerprint.diagnostics.empty()) {
+				append_diagnostic(
+					summary, photo_result,
+					make_diagnostic(
+						core::DiagnosticSeverity::RecoverableWarning,
+						"photo_import_source_fingerprint_failed",
+						"Source-byte duplicate fingerprint could not be "
+						"computed; import will continue without a duplicate "
+						"warning fingerprint."));
+			}
+		}
 		platform::PlatformValueResult<platform::ImagePixels> decoded =
 			decoder.decode_source_image(
 				platform::SourceImageDecodeRequest{.content = *staged.value},
@@ -544,7 +608,7 @@ PhotoImportSummary PhotoImportUseCase::import_photos(
 			owner_has_no_photos(committed_photos, request.owner),
 			*decoded.value, *encoded.value,
 			infer_source_mime_type(photo_result.source_display_name),
-			import_clock.now()));
+			std::move(source_md5), import_clock.now()));
 		persistence::JsonTextWriteResult photos_jsonl =
 			persistence::write_photo_jsonl(candidate_photos);
 		if (!photos_jsonl.succeeded()) {

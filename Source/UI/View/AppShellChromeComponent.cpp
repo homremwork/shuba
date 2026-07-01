@@ -1,7 +1,7 @@
 #include "UI/View/AppShellChromeComponent.hpp"
 
+#include "UI/View/Primitives/Palette.hpp"
 #include "UI/View/ScreenText.hpp"
-#include "UI/View/UiPrimitives.hpp"
 
 #include <algorithm>
 #include <utility>
@@ -145,10 +145,13 @@ juce::Rectangle<int> AppShellChromeComponent::layout_shell(
 	const bool form_visible =
 		current_model.destination == RootDestination::ItemForm
 		|| current_model.destination == RootDestination::StorageForm;
-	catalog_nav_button.setVisible(!form_visible);
-	storages_nav_button.setVisible(!form_visible);
-	add_nav_button.setVisible(!form_visible);
-	more_nav_button.setVisible(!form_visible);
+	const bool photo_viewer_visible =
+		current_model.destination == RootDestination::PhotoViewer;
+	const bool bottom_nav_visible = !form_visible && !photo_viewer_visible;
+	catalog_nav_button.setVisible(bottom_nav_visible);
+	storages_nav_button.setVisible(bottom_nav_visible);
+	add_nav_button.setVisible(bottom_nav_visible);
+	more_nav_button.setVisible(bottom_nav_visible);
 	form_cancel_button.setVisible(form_visible);
 	form_save_button.setVisible(form_visible);
 
@@ -159,13 +162,18 @@ juce::Rectangle<int> AppShellChromeComponent::layout_shell(
 			form_actions.removeFromLeft(action_width);
 		form_cancel_button.setBounds(cancel_area.reduced(3));
 		form_save_button.setBounds(form_actions.reduced(3));
-	} else {
+	} else if (bottom_nav_visible) {
 		juce::Rectangle<int> nav = bounds.removeFromBottom(54);
 		const int nav_width		 = nav.getWidth() / 4;
 		catalog_nav_button.setBounds(nav.removeFromLeft(nav_width).reduced(3));
 		storages_nav_button.setBounds(nav.removeFromLeft(nav_width).reduced(3));
 		add_nav_button.setBounds(nav.removeFromLeft(nav_width).reduced(3));
 		more_nav_button.setBounds(nav.reduced(3));
+	} else {
+		catalog_nav_button.setBounds(0, 0, 0, 0);
+		storages_nav_button.setBounds(0, 0, 0, 0);
+		add_nav_button.setBounds(0, 0, 0, 0);
+		more_nav_button.setBounds(0, 0, 0, 0);
 	}
 
 	title_label.setBounds(bounds.removeFromTop(32));

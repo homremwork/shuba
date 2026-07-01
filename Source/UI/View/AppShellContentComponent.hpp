@@ -1,8 +1,11 @@
 #pragma once
 
 #include "Domain/Domain.hpp"
-#include "UI/Session/PhotoSessionTypes.hpp"
-#include "UI/View/UiPrimitives.hpp"
+#include "UI/View/Primitives/Forms.hpp"
+#include "UI/View/Primitives/Palette.hpp"
+#include "UI/View/Primitives/PhotoManagement.hpp"
+#include "UI/View/Primitives/Previews.hpp"
+#include "UI/View/Primitives/Rows.hpp"
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
@@ -28,6 +31,15 @@ public:
 	ImagePanelComponent& add_image_panel(juce::Image image,
 										 juce::String caption,
 										 juce::String placeholder, int height);
+	PhotoCarouselComponent& add_photo_carousel(
+		std::vector<PhotoCarouselSlide> slides, std::size_t selected_index,
+		std::function<void(std::size_t)> select_handler,
+		std::function<void()> activate_handler, int height);
+	PhotoViewerImageComponent& add_photo_viewer_image(
+		PhotoViewerImageModel model, PhotoViewerImageHandlers handlers,
+		int height);
+	PreviewCardButtonComponent& add_preview_card(PreviewCardContent content,
+												 int height);
 	InlineButtonRowComponent& add_inline_buttons(
 		juce::String title,
 		std::vector<InlineButtonRowComponent::Action> actions, int height);
@@ -39,10 +51,9 @@ public:
 										 juce::TextEditor& second_editor,
 										 juce::String second_placeholder,
 										 int height);
-	PendingPhotoStripComponent& add_pending_photo_strip(
-		std::vector<PendingPhotoSource> sources,
-		std::function<void()> add_handler, std::function<void()> clear_handler,
-		std::function<void(std::size_t)> remove_handler, int height);
+	ManagedPhotoDeckComponent& add_managed_photo_deck(
+		ManagedPhotoDeckModel model, ManagedPhotoDeckHandlers handlers,
+		int height);
 	TagRowEditorComponent& add_tag_editor_row(
 		std::size_t row_index, domain::TagRow tag,
 		std::function<void(std::size_t, domain::TagRow)> change_handler,
@@ -54,6 +65,8 @@ public:
 
 	void resized() override;
 	void paint(juce::Graphics& graphics) override;
+	void set_viewport_height_hint(int height) noexcept;
+	[[nodiscard]] int viewport_height_hint() const noexcept;
 
 private:
 	struct Row final {
@@ -67,5 +80,6 @@ private:
 
 	std::vector<Row> rows;
 	bool rebuilding{};
+	int viewport_height_hint_value{620};
 };
 }	 // namespace shuba::ui

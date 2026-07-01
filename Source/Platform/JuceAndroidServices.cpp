@@ -735,6 +735,17 @@ JuceAndroidSourceImageDecodeService::decode_source_image(
 							image_decoder_result_text(result)));
 	}
 
+	result = AImageDecoder_setUnpremultipliedRequired(decoder.get(), true);
+	if (result != ANDROID_IMAGE_DECODER_SUCCESS) {
+		return platform_value_failure<ImagePixels>(
+			core::OperationResultCategory::CodecFailure,
+			make_diagnostic(core::DiagnosticSeverity::WriteBlockingError,
+							"source-decoder-unpremultiplied-failed",
+							"Android source image decoder could not select "
+							"unpremultiplied RGBA8888 output.",
+							image_decoder_result_text(result)));
+	}
+
 	const AImageDecoderHeaderInfo* header =
 		AImageDecoder_getHeaderInfo(decoder.get());
 	const int32_t width	 = AImageDecoderHeaderInfo_getWidth(header);
@@ -824,7 +835,8 @@ JuceAndroidSourceImageDecodeService::decode_source_image(
 		.bytes				= std::move(compact_pixels),
 		.source_description = std::move(source_description),
 		.orientation_description =
-			"Android NDK ImageDecoder RGBA8888 output; "
+			"Android NDK ImageDecoder straight unpremultiplied RGBA8888 "
+			"output; "
 			"representative EXIF orientation remains manual B12 validation.",
 		.elapsed_milliseconds = elapsed_milliseconds_since(started_at)};
 	ImagePixelsValidation validation = validate_image_pixels(decoded);
