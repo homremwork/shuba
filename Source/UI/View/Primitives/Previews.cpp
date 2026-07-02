@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <memory>
 #include <utility>
 
 namespace shuba::ui {
@@ -703,5 +704,115 @@ void PreviewCardButtonComponent::mouseUp(const juce::MouseEvent& event) {
 	}
 
 	juce::Button::mouseUp(event);
+}
+
+CompactStorageCardButtonComponent::CompactStorageCardButtonComponent(
+	CompactStorageCardContent content_value, juce::Colour background_value)
+	: juce::Button(content_value.name)
+	, content(std::move(content_value))
+	, background(background_value) {
+	setOpaque(true);
+	setBufferedToImage(true);
+	setEnabled(content.enabled);
+	onClick = [this] {
+		if (content.on_activate)
+			content.on_activate();
+	};
+}
+
+void CompactStorageCardButtonComponent::paintButton(juce::Graphics& graphics,
+													bool highlighted,
+													bool down) {
+	graphics.fillAll(background_colour());
+	juce::Colour fill = background;
+	if (down)
+		fill = fill.brighter(0.14f);
+	draw_card_background(graphics, getLocalBounds(), fill, highlighted);
+
+	juce::Rectangle<int> area = getLocalBounds().reduced(8, 8);
+	const int preview_height = std::min(88, std::max(1, area.getHeight() - 48));
+	juce::Rectangle<int> preview_area = area.removeFromTop(preview_height);
+	area.removeFromTop(6);
+	juce::Rectangle<int> item_count_area = area.removeFromBottom(20);
+
+	draw_preview_image_slot(graphics, preview_area, content.image,
+							content.placeholder, content.state, true);
+
+	graphics.setColour(isEnabled() ? text_colour()
+								   : muted_text_colour().withAlpha(0.58f));
+	graphics.setFont(juce::FontOptions(13.8f, juce::Font::bold));
+	graphics.drawFittedText(
+		content.name, area, juce::Justification::centredLeft,
+		fitted_line_count(area.getHeight(), 0, 14.8f), 0.88f);
+	graphics.setColour(isEnabled() ? muted_text_colour()
+								   : muted_text_colour().withAlpha(0.52f));
+	graphics.setFont(juce::FontOptions(12.8f, juce::Font::plain));
+	graphics.drawFittedText(content.item_count, item_count_area,
+							juce::Justification::centredLeft, 1, 0.86f);
+}
+
+void CompactStorageCardButtonComponent::mouseDown(
+	const juce::MouseEvent& event) {
+	touch_activation_guard.begin(event);
+	juce::Button::mouseDown(event);
+}
+
+void CompactStorageCardButtonComponent::mouseDrag(
+	const juce::MouseEvent& event) {
+	touch_activation_guard.update(event);
+	juce::Button::mouseDrag(event);
+}
+
+void CompactStorageCardButtonComponent::mouseUp(const juce::MouseEvent& event) {
+	if (touch_activation_guard.consume_suppressed_release(event)) {
+		setState(juce::Button::buttonNormal);
+		return;
+	}
+
+	juce::Button::mouseUp(event);
+}
+
+CompactStorageStripComponent::CompactStorageStripComponent(
+	std::vector<CompactStorageCardContent> cards_value)
+	: card_row(std::make_unique<juce::Component>()) {
+	setOpaque(true);
+	setBufferedToImage(true);
+	viewport.setViewedComponent(card_row.get(), false);
+	viewport.setScrollBarsShown(false, true, false, true);
+	viewport.setScrollBarThickness(5);
+	viewport.setScrollOnDragMode(juce::Viewport::ScrollOnDragMode::nonHover);
+	addAndMakeVisible(viewport);
+	cards.reserve(cards_value.size());
+	for (CompactStorageCardContent& card_content : cards_value) {
+		std::unique_ptr<CompactStorageCardButtonComponent> card =
+			std::make_unique<CompactStorageCardButtonComponent>(
+				std::move(card_content), elevated_surface_colour());
+		card_row->addAndMakeVisible(*card);
+		cards.push_back(std::move(card));
+	}
+}
+
+int CompactStorageStripComponent::preferred_height() noexcept {
+	return 164;
+}
+
+void CompactStorageStripComponent::resized() {
+	viewport.setBounds(getLocalBounds());
+	const int card_count	= static_cast<int>(cards.size());
+	const int natural_width = horizontal_padding * 2 + card_count * card_width
+							  + std::max(0, card_count - 1) * card_gap;
+	card_row->setSize(std::max(viewport.getWidth(), natural_width),
+					  std::max(1, getHeight()));
+
+	int x				  = horizontal_padding;
+	const int card_height = std::max(1, getHeight() - vertical_padding * 2 - 4);
+	for (std::unique_ptr<CompactStorageCardButtonComponent>& card : cards) {
+		card->setBounds(x, vertical_padding, card_width, card_height);
+		x += card_width + card_gap;
+	}
+}
+
+void CompactStorageStripComponent::paint(juce::Graphics& graphics) {
+	graphics.fillAll(background_colour());
 }
 }	 // namespace shuba::ui

@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <vector>
 
 namespace shuba::ui {
@@ -165,5 +166,54 @@ private:
 	PreviewCardContent content;
 	juce::Colour background;
 	TouchScrollActivationGuard touch_activation_guard;
+};
+
+struct CompactStorageCardContent final {
+	juce::Image image;
+	juce::String name;
+	juce::String item_count;
+	juce::String placeholder;
+	PreviewImageVisualState state{PreviewImageVisualState::Loading};
+	std::function<void()> on_activate;
+	bool enabled{true};
+};
+
+class CompactStorageCardButtonComponent final : public juce::Button {
+public:
+	CompactStorageCardButtonComponent(CompactStorageCardContent content_value,
+									  juce::Colour background_value);
+
+	void paintButton(juce::Graphics& graphics, bool highlighted,
+					 bool down) override;
+
+private:
+	void mouseDown(const juce::MouseEvent& event) override;
+	void mouseDrag(const juce::MouseEvent& event) override;
+	void mouseUp(const juce::MouseEvent& event) override;
+
+	CompactStorageCardContent content;
+	juce::Colour background;
+	TouchScrollActivationGuard touch_activation_guard;
+};
+
+class CompactStorageStripComponent final : public juce::Component {
+public:
+	explicit CompactStorageStripComponent(
+		std::vector<CompactStorageCardContent> cards_value);
+
+	[[nodiscard]] static int preferred_height() noexcept;
+
+	void resized() override;
+	void paint(juce::Graphics& graphics) override;
+
+private:
+	static constexpr int horizontal_padding = 12;
+	static constexpr int vertical_padding	= 4;
+	static constexpr int card_width			= 148;
+	static constexpr int card_gap			= 8;
+
+	std::unique_ptr<juce::Component> card_row;
+	std::vector<std::unique_ptr<CompactStorageCardButtonComponent>> cards;
+	juce::Viewport viewport{"storage-strip-viewport"};
 };
 }	 // namespace shuba::ui

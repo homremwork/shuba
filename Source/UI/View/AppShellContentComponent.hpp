@@ -40,6 +40,8 @@ public:
 		int height);
 	PreviewCardButtonComponent& add_preview_card(PreviewCardContent content,
 												 int height);
+	CompactStorageStripComponent& add_compact_storage_strip(
+		std::vector<CompactStorageCardContent> cards, int height);
 	InlineButtonRowComponent& add_inline_buttons(
 		juce::String title,
 		std::vector<InlineButtonRowComponent::Action> actions, int height);

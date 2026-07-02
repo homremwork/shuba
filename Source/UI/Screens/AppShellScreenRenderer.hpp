@@ -151,6 +151,9 @@ private:
 	[[nodiscard]] PreviewCardBuildResult build_storage_result_preview_card(
 		const catalog::SearchResult& result,
 		ImagePreviewRequestPriority preview_priority);
+	[[nodiscard]] CompactStorageCardContent build_storage_result_compact_card(
+		const catalog::SearchResult& result,
+		ImagePreviewRequestPriority preview_priority);
 	[[nodiscard]] PreviewCardBuildResult build_item_preview_card(
 		const persistence::ItemEnvelope& item,
 		const catalog::ItemProjection& projection,
@@ -159,8 +162,23 @@ private:
 		const persistence::StorageEnvelope& storage,
 		const catalog::StorageProjection& projection,
 		ImagePreviewRequestPriority preview_priority);
+	[[nodiscard]] CompactStorageCardContent build_storage_compact_card(
+		const persistence::StorageEnvelope& storage,
+		const catalog::StorageProjection& projection,
+		ImagePreviewRequestPriority preview_priority);
 	void apply_representative_preview(
 		const catalog::SearchResult& result,
+		ImagePreviewRequestPriority preview_priority,
+		PreviewCardBuildResult& card);
+	void apply_representative_preview(
+		const catalog::SearchResult& result,
+		ImagePreviewRequestPriority preview_priority,
+		CompactStorageCardContent& card);
+	void apply_representative_preview(
+		catalog::PhotoPresenceState photo_presence,
+		const std::optional<core::StableIdentifier>& representative_photo_id,
+		const std::optional<core::StableIdentifier>&
+			representative_usable_photo_id,
 		ImagePreviewRequestPriority preview_priority,
 		PreviewCardBuildResult& card);
 	void apply_representative_preview(
@@ -169,7 +187,7 @@ private:
 		const std::optional<core::StableIdentifier>&
 			representative_usable_photo_id,
 		ImagePreviewRequestPriority preview_priority,
-		PreviewCardBuildResult& card);
+		CompactStorageCardContent& card);
 	[[nodiscard]] ImagePreviewRenderState load_internal_preview_image(
 		const core::StableIdentifier& photo_id, ImagePreviewSize target_size,
 		ImagePreviewRequestPriority priority);

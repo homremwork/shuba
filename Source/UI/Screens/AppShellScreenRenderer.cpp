@@ -13,6 +13,8 @@ namespace shuba::ui {
 namespace {
 constexpr ImagePreviewSize list_preview_target_size{.max_width	= 96U,
 													.max_height = 96U};
+constexpr ImagePreviewSize compact_storage_preview_target_size{
+	.max_width = 128U, .max_height = 128U};
 constexpr ImagePreviewSize detail_preview_target_size{.max_width  = 640U,
 													  .max_height = 420U};
 constexpr ImagePreviewSize edit_photo_deck_preview_target_size{
@@ -21,7 +23,6 @@ constexpr int detail_carousel_height						   = 312;
 constexpr int compact_photo_deck_height						   = 86;
 constexpr int populated_photo_deck_height					   = 410;
 constexpr std::size_t maximum_immediate_current_photo_previews = 3U;
-
 void append_summary_part(std::string& text, std::string_view part) {
 	if (part.empty())
 		return;
@@ -38,8 +39,11 @@ void append_summary_part(std::string& text, std::string_view part) {
 		return "Representative photo needs attention.";
 	return "Photo preview is unavailable.";
 }
-}	 // namespace
 
+[[nodiscard]] std::string item_count_text(std::uint64_t count) {
+	return std::to_string(count) + (count == 1U ? " item" : " items");
+}
+}	 // namespace
 AppShellScreenRenderer::AppShellScreenRenderer(Dependencies dependencies)
 	: session(dependencies.session)
 	, route(dependencies.route)
@@ -218,6 +222,18 @@ AppShellScreenRenderer::build_storage_result_preview_card(
 	return card;
 }
 
+CompactStorageCardContent
+AppShellScreenRenderer::build_storage_result_compact_card(
+	const catalog::SearchResult& result,
+	ImagePreviewRequestPriority preview_priority) {
+	CompactStorageCardContent card;
+	card.name = result.display_title.empty() ? "Storage"
+											 : juce_text(result.display_title);
+	card.item_count = juce_text(item_count_text(result.nested_item_count));
+	apply_representative_preview(result, preview_priority, card);
+	return card;
+}
+
 AppShellScreenRenderer::PreviewCardBuildResult
 AppShellScreenRenderer::build_item_preview_card(
 	const persistence::ItemEnvelope& item,
@@ -285,10 +301,34 @@ AppShellScreenRenderer::build_storage_preview_card(
 	return card;
 }
 
+CompactStorageCardContent AppShellScreenRenderer::build_storage_compact_card(
+	const persistence::StorageEnvelope& storage,
+	const catalog::StorageProjection& projection,
+	ImagePreviewRequestPriority preview_priority) {
+	CompactStorageCardContent card;
+	card.name		= storage.record.display_name.empty()
+						  ? "Storage"
+						  : juce_text(storage.record.display_name);
+	card.item_count = juce_text(item_count_text(projection.nested_item_count));
+	apply_representative_preview(
+		projection.photo_presence, projection.representative_photo_id,
+		projection.representative_usable_photo_id, preview_priority, card);
+	return card;
+}
+
 void AppShellScreenRenderer::apply_representative_preview(
 	const catalog::SearchResult& result,
 	ImagePreviewRequestPriority preview_priority,
 	PreviewCardBuildResult& card) {
+	apply_representative_preview(
+		result.photo_presence, result.representative_photo_id,
+		result.representative_usable_photo_id, preview_priority, card);
+}
+
+void AppShellScreenRenderer::apply_representative_preview(
+	const catalog::SearchResult& result,
+	ImagePreviewRequestPriority preview_priority,
+	CompactStorageCardContent& card) {
 	apply_representative_preview(
 		result.photo_presence, result.representative_photo_id,
 		result.representative_usable_photo_id, preview_priority, card);
@@ -319,6 +359,32 @@ void AppShellScreenRenderer::apply_representative_preview(
 	card.content.image		 = preview.image;
 	card.content.state		 = preview.state;
 	card.content.placeholder = preview.placeholder;
+}
+
+void AppShellScreenRenderer::apply_representative_preview(
+	catalog::PhotoPresenceState photo_presence,
+	const std::optional<core::StableIdentifier>& representative_photo_id,
+	const std::optional<core::StableIdentifier>& representative_usable_photo_id,
+	ImagePreviewRequestPriority preview_priority,
+	CompactStorageCardContent& card) {
+	if (!representative_photo_id.has_value()) {
+		card.state		 = PreviewImageVisualState::Empty;
+		card.placeholder = "No photos yet.";
+		return;
+	}
+
+	if (!representative_usable_photo_id.has_value()) {
+		card.state		 = PreviewImageVisualState::Broken;
+		card.placeholder = representative_broken_placeholder(photo_presence);
+		return;
+	}
+
+	const core::StableIdentifier photo_id = *representative_usable_photo_id;
+	const ImagePreviewRenderState preview = load_internal_preview_image(
+		photo_id, compact_storage_preview_target_size, preview_priority);
+	card.image		 = preview.image;
+	card.state		 = preview.state;
+	card.placeholder = preview.placeholder;
 }
 
 AppShellScreenRenderer::ImagePreviewRenderState

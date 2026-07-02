@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace shuba::ui {
 namespace {
@@ -63,8 +64,31 @@ void AppShellScreenRenderer::build_catalog_content() {
 		return;
 	}
 
-	content->add_label("Items", 36, panel_colour(), true);
 	std::size_t preview_candidate_count{};
+	if (!results.storage_results.empty()) {
+		content->add_label("Storages", 36, panel_colour(), true);
+		std::vector<CompactStorageCardContent> storage_cards;
+		storage_cards.reserve(results.storage_results.size());
+		for (const catalog::SearchResult& result : results.storage_results) {
+			const ImagePreviewRequestPriority preview_priority =
+				list_preview_priority(preview_candidate_count);
+			if (result.representative_usable_photo_id.has_value())
+				++preview_candidate_count;
+			CompactStorageCardContent card =
+				build_storage_result_compact_card(result, preview_priority);
+			core::StableIdentifier storage_id = result.record_id;
+			card.on_activate				  = [this, storage_id] {
+				open_storage_detail(storage_id);
+			};
+			storage_cards.push_back(std::move(card));
+		}
+		content->add_compact_storage_strip(
+			std::move(storage_cards),
+			CompactStorageStripComponent::preferred_height());
+	}
+
+	if (!results.item_results.empty())
+		content->add_label("Items", 36, panel_colour(), true);
 	for (const catalog::SearchResult& result : results.item_results) {
 		const ImagePreviewRequestPriority preview_priority =
 			list_preview_priority(preview_candidate_count);
@@ -76,24 +100,6 @@ void AppShellScreenRenderer::build_catalog_content() {
 			std::move(card.content), preview_result_row_height);
 		core::StableIdentifier item_id = result.record_id;
 		button.onClick = [this, item_id] { open_item_detail(item_id); };
-	}
-
-	if (!results.storage_results.empty()) {
-		content->add_label("Storages", 36, panel_colour(), true);
-		for (const catalog::SearchResult& result : results.storage_results) {
-			const ImagePreviewRequestPriority preview_priority =
-				list_preview_priority(preview_candidate_count);
-			if (result.representative_usable_photo_id.has_value())
-				++preview_candidate_count;
-			PreviewCardBuildResult card =
-				build_storage_result_preview_card(result, preview_priority);
-			PreviewCardButtonComponent& button = content->add_preview_card(
-				std::move(card.content), preview_result_row_height);
-			core::StableIdentifier storage_id = result.record_id;
-			button.onClick					  = [this, storage_id] {
-				open_storage_detail(storage_id);
-			};
-		}
 	}
 }
 

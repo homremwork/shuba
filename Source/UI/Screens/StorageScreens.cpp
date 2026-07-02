@@ -206,16 +206,12 @@ void AppShellScreenRenderer::build_storage_detail_content() {
 
 	content->add_label("Child storages", 36, panel_colour(), true);
 	std::vector<core::StableIdentifier> child_ids =
-		projection->second.direct_child_storage_ids;
-	if (storage_detail.include_nested) {
-		child_ids.insert(
-			child_ids.end(),
-			projection->second.nested_descendant_storage_ids.begin(),
-			projection->second.nested_descendant_storage_ids.end());
-	}
-	if (child_ids.empty())
-		content->add_label("No child storages.", 34);
+		storage_detail.include_nested
+			? projection->second.nested_descendant_storage_ids
+			: projection->second.direct_child_storage_ids;
 	std::size_t preview_candidate_count{};
+	std::vector<CompactStorageCardContent> storage_cards;
+	storage_cards.reserve(child_ids.size());
 	for (const core::StableIdentifier& child_id : child_ids) {
 		const persistence::StorageEnvelope* child =
 			catalog::find_storage_envelope(session.repository, child_id);
@@ -230,11 +226,17 @@ void AppShellScreenRenderer::build_storage_detail_content() {
 			list_preview_priority(preview_candidate_count);
 		if (child_projection->second.representative_usable_photo_id.has_value())
 			++preview_candidate_count;
-		PreviewCardBuildResult card = build_storage_preview_card(
+		CompactStorageCardContent card = build_storage_compact_card(
 			*child, child_projection->second, preview_priority);
-		PreviewCardButtonComponent& button = content->add_preview_card(
-			std::move(card.content), preview_result_row_height);
-		button.onClick = [this, child_id] { open_storage_detail(child_id); };
+		card.on_activate = [this, child_id] { open_storage_detail(child_id); };
+		storage_cards.push_back(std::move(card));
+	}
+	if (storage_cards.empty()) {
+		content->add_label("No child storages.", 34);
+	} else {
+		content->add_compact_storage_strip(
+			std::move(storage_cards),
+			CompactStorageStripComponent::preferred_height());
 	}
 
 	content->add_label("Items inside", 36, panel_colour(), true);

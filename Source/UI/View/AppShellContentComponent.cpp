@@ -99,6 +99,16 @@ PreviewCardButtonComponent& AppShellContentComponent::add_preview_card(
 	return reference;
 }
 
+CompactStorageStripComponent&
+AppShellContentComponent::add_compact_storage_strip(
+	std::vector<CompactStorageCardContent> cards, int height) {
+	std::unique_ptr<CompactStorageStripComponent> strip =
+		std::make_unique<CompactStorageStripComponent>(std::move(cards));
+	CompactStorageStripComponent& reference = *strip;
+	add_row(std::move(strip), height);
+	return reference;
+}
+
 InlineButtonRowComponent& AppShellContentComponent::add_inline_buttons(
 	juce::String title, std::vector<InlineButtonRowComponent::Action> actions,
 	int height) {
