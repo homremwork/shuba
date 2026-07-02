@@ -1,6 +1,7 @@
 #include "UI/AppShell.hpp"
 #include "UI/View/AppShellContentComponent.hpp"
 #include "UI/View/Primitives/Palette.hpp"
+#include "UI/View/SafeArea.hpp"
 #include "UI/View/ScreenText.hpp"
 
 #include "UI/Session/BackupRecoverySession.hpp"
@@ -919,7 +920,8 @@ void AppShellComponent::paint(juce::Graphics& graphics) {
 }
 
 void AppShellComponent::resized() {
-	juce::Rectangle<int> bounds = getLocalBounds().reduced(10);
+	juce::Rectangle<int> bounds =
+		fullscreen_safe_content_bounds(*this).reduced(10);
 	if (chrome != nullptr) {
 		chrome->setBounds(getLocalBounds());
 		bounds = chrome->layout_shell(bounds);

@@ -58,6 +58,14 @@ public:
 		juce::JUCEApplication::getInstance()->systemRequestedQuit();
 	}
 
+#if JUCE_IOS || JUCE_ANDROID
+	void parentSizeChanged() override {
+		juce::Component* content_component = getContentComponent();
+		if (content_component != nullptr)
+			content_component->resized();
+	}
+#endif
+
 private:
 	std::unique_ptr<shuba::platform::JpegXlInternalPhotoCodec>
 		internal_photo_codec;
