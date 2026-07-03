@@ -131,6 +131,17 @@ ButtonGridComponent& AppShellContentComponent::add_button_grid(
 	return reference;
 }
 
+ChipGridComponent& AppShellContentComponent::add_chip_grid(
+	juce::String title, std::vector<ChipGridComponent::Action> actions,
+	int column_count, int height) {
+	std::unique_ptr<ChipGridComponent> grid =
+		std::make_unique<ChipGridComponent>(std::move(title),
+											std::move(actions), column_count);
+	ChipGridComponent& reference = *grid;
+	add_row(std::move(grid), height);
+	return reference;
+}
+
 EditorPairComponent& AppShellContentComponent::add_editor_pair(
 	juce::TextEditor& first_editor, juce::String first_placeholder,
 	juce::TextEditor& second_editor, juce::String second_placeholder,

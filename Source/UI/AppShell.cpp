@@ -636,6 +636,7 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 	, internal_photo_codec(platform_services.internal_photo_codec)
 	, content(std::make_unique<AppShellContentComponent>()) {
 	setOpaque(true);
+	setWantsKeyboardFocus(true);
 	setSize(480, 720);
 
 	chrome = std::make_unique<AppShellChromeComponent>(
@@ -647,13 +648,15 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 		chrome->clear_catalog_query_without_notification();
 		refresh_content();
 	}, .catalog_filter = [this] {
-		catalog_filter_state.draft = catalog_filter_state.applied;
-		catalog_filter_state.panel_visible =
-			!catalog_filter_state.panel_visible;
-		refresh_all();
+		toggle_catalog_filters();
+	}, .catalog_apply_filters = [this] {
+		apply_catalog_filters();
 	}, .catalog_clear_filters = [this] {
 		reset_catalog_filters();
 		refresh_all();
+		schedule_catalog_search_focus_release();
+	}, .catalog_close_filters = [this] {
+		close_catalog_filters();
 	}, .storage_clear = [this] {
 		chrome->clear_storage_query_without_notification();
 		refresh_content();
@@ -868,6 +871,7 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 				.cancel_delete_photo = [this] {
 					cancel_delete_photo_confirmation();
 				},
+				.apply_catalog_filters = [this] { apply_catalog_filters(); },
 				.reset_catalog_filters = [this] { reset_catalog_filters(); },
 				.apply_entity_edit_result = [this](EntityEditResult result) {
 					apply_entity_edit_result(std::move(result));
@@ -1233,6 +1237,57 @@ void AppShellComponent::reset_catalog_filters() {
 	catalog_filter_state.applied	   = catalog::CatalogSearchFilters{};
 	catalog_filter_state.draft		   = catalog_filter_state.applied;
 	catalog_filter_state.panel_visible = false;
+}
+
+void AppShellComponent::toggle_catalog_filters() {
+	const bool opening_filters = !catalog_filter_state.panel_visible;
+	if (opening_filters) {
+		schedule_catalog_search_focus_release();
+		catalog_filter_state.draft = catalog_filter_state.applied;
+	}
+	catalog_filter_state.panel_visible = !catalog_filter_state.panel_visible;
+	refresh_all();
+	if (!catalog_filter_state.panel_visible)
+		schedule_catalog_search_focus_release();
+}
+
+void AppShellComponent::apply_catalog_filters() {
+	catalog_filter_state.applied	   = catalog_filter_state.draft;
+	catalog_filter_state.panel_visible = false;
+	refresh_all();
+	schedule_catalog_search_focus_release();
+}
+
+void AppShellComponent::close_catalog_filters() {
+	catalog_filter_state.draft		   = catalog_filter_state.applied;
+	catalog_filter_state.panel_visible = false;
+	refresh_all();
+	schedule_catalog_search_focus_release();
+}
+
+void AppShellComponent::release_catalog_search_focus() {
+	if (chrome != nullptr)
+		chrome->release_catalog_search_focus();
+	grabKeyboardFocus();
+}
+
+void AppShellComponent::schedule_catalog_search_focus_release() {
+	release_catalog_search_focus();
+	juce::Component::SafePointer<AppShellComponent> safe_this{this};
+	juce::MessageManager::callAsync([safe_this] {
+		if (safe_this != nullptr)
+			safe_this->release_catalog_search_focus();
+	});
+}
+
+juce::String AppShellComponent::catalog_draft_result_count_text() const {
+	catalog::CatalogSearchOptions options{
+		.include_storage_results_for_empty_query = true};
+	const catalog::CatalogSearchResultSet results = catalog::search_catalog(
+		session.search_index,
+		chrome != nullptr ? chrome->catalog_query() : std::string{},
+		catalog_filter_state.draft, options);
+	return juce_text("Draft results: " + std::to_string(results.total_count));
 }
 
 void AppShellComponent::reset_item_form() {
@@ -1686,6 +1741,7 @@ void AppShellComponent::schedule_content_refresh() {
 
 void AppShellComponent::timerCallback() {
 	stopTimer();
+	refresh_controls();
 	refresh_content();
 	resized();
 	repaint();
@@ -1749,15 +1805,22 @@ void AppShellComponent::refresh_controls() {
 	if (session.demo_catalog_active)
 		status += " · demo catalog";
 	if (chrome != nullptr) {
+		const juce::String draft_result_count =
+			catalog_filter_state.panel_visible
+				? catalog_draft_result_count_text()
+				: juce::String{};
 		chrome->update_model(AppShellChromeComponent::Model{
-			.destination	   = route.destination,
-			.item_form_mode	   = item_form.mode,
-			.storage_form_mode = storage_form.mode,
-			.title			   = title,
-			.status			   = juce_text(status),
-			.session_fatal	   = session.fatal(),
+			.destination				= route.destination,
+			.item_form_mode				= item_form.mode,
+			.storage_form_mode			= storage_form.mode,
+			.title						= title,
+			.status						= juce_text(status),
+			.catalog_draft_result_count = draft_result_count,
+			.session_fatal				= session.fatal(),
 			.catalog_filters_active =
-				has_catalog_filters(catalog_filter_state.applied)});
+				has_catalog_filters(catalog_filter_state.applied),
+			.catalog_filter_panel_visible =
+				catalog_filter_state.panel_visible});
 	}
 }
 

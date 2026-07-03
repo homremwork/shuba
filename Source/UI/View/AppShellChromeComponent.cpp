@@ -21,6 +21,14 @@ AppShellChromeComponent::AppShellChromeComponent(Callbacks callbacks_value)
 	status_label.setMinimumHorizontalScale(0.70f);
 	status_label.setFont(juce::FontOptions(14.5f, juce::Font::plain));
 	addAndMakeVisible(status_label);
+	catalog_draft_count_label.setJustificationType(
+		juce::Justification::centredLeft);
+	catalog_draft_count_label.setColour(juce::Label::textColourId,
+										muted_text_colour());
+	catalog_draft_count_label.setMinimumHorizontalScale(0.70f);
+	catalog_draft_count_label.setFont(
+		juce::FontOptions(14.5f, juce::Font::plain));
+	addAndMakeVisible(catalog_draft_count_label);
 
 	catalog_search_editor.setTextToShowWhenEmpty("Search catalog",
 												 muted_text_colour());
@@ -48,9 +56,17 @@ AppShellChromeComponent::AppShellChromeComponent(Callbacks callbacks_value)
 		if (callbacks.catalog_filter)
 			callbacks.catalog_filter();
 	};
+	catalog_apply_filters_button.onClick = [this] {
+		if (callbacks.catalog_apply_filters)
+			callbacks.catalog_apply_filters();
+	};
 	catalog_clear_filters_button.onClick = [this] {
 		if (callbacks.catalog_clear_filters)
 			callbacks.catalog_clear_filters();
+	};
+	catalog_close_filters_button.onClick = [this] {
+		if (callbacks.catalog_close_filters)
+			callbacks.catalog_close_filters();
 	};
 	storage_clear_button.onClick = [this] {
 		if (callbacks.storage_clear)
@@ -71,7 +87,8 @@ AppShellChromeComponent::AppShellChromeComponent(Callbacks callbacks_value)
 
 	for (juce::TextButton* button :
 		 {&catalog_clear_button, &catalog_filter_button,
-		  &catalog_clear_filters_button, &storage_clear_button, &back_button,
+		  &catalog_apply_filters_button, &catalog_clear_filters_button,
+		  &catalog_close_filters_button, &storage_clear_button, &back_button,
 		  &form_cancel_button, &form_save_button}) {
 		style_text_button(*button);
 		addAndMakeVisible(*button);
@@ -104,6 +121,8 @@ void AppShellChromeComponent::update_model(const Model& model) {
 	current_model = model;
 	title_label.setText(current_model.title, juce::dontSendNotification);
 	status_label.setText(current_model.status, juce::dontSendNotification);
+	catalog_draft_count_label.setText(current_model.catalog_draft_result_count,
+									  juce::dontSendNotification);
 	form_save_button.setButtonText(
 		current_model.destination == RootDestination::ItemForm ? "Save item"
 		: current_model.destination == RootDestination::StorageForm
@@ -121,6 +140,11 @@ void AppShellChromeComponent::update_model(const Model& model) {
 		juce::TextButton::buttonColourId,
 		current_model.destination == RootDestination::Catalog ? selected_colour
 															  : normal_colour);
+	catalog_filter_button.setColour(
+		juce::TextButton::buttonColourId,
+		current_model.catalog_filters_active ? selected_colour : normal_colour);
+	catalog_apply_filters_button.setColour(juce::TextButton::buttonColourId,
+										   accent_colour().withAlpha(0.82f));
 	storages_nav_button.setColour(
 		juce::TextButton::buttonColourId,
 		current_model.destination == RootDestination::Storages
@@ -175,13 +199,46 @@ juce::Rectangle<int> AppShellChromeComponent::layout_shell(
 		add_nav_button.setBounds(0, 0, 0, 0);
 		more_nav_button.setBounds(0, 0, 0, 0);
 	}
+	catalog_apply_filters_button.setBounds(0, 0, 0, 0);
+	catalog_close_filters_button.setBounds(0, 0, 0, 0);
+	catalog_clear_filters_button.setBounds(0, 0, 0, 0);
+
+	const bool catalog_visible =
+		current_model.destination == RootDestination::Catalog;
+	if (catalog_visible && bottom_nav_visible) {
+		const int strip_height =
+			current_model.catalog_filter_panel_visible ? 82 : 54;
+		juce::Rectangle<int> strip = bounds.removeFromBottom(strip_height);
+		if (current_model.catalog_filter_panel_visible) {
+			juce::Rectangle<int> count_row =
+				strip.removeFromTop(30).reduced(3, 2);
+			juce::Rectangle<int> action_row = strip.reduced(3, 2);
+			catalog_search_editor.setBounds(0, 0, 0, 0);
+			catalog_clear_button.setBounds(0, 0, 0, 0);
+			catalog_filter_button.setBounds(0, 0, 0, 0);
+			catalog_close_filters_button.setBounds(
+				action_row.removeFromRight(70));
+			action_row.removeFromRight(4);
+			catalog_clear_filters_button.setBounds(
+				action_row.removeFromRight(104));
+			action_row.removeFromRight(4);
+			catalog_apply_filters_button.setBounds(action_row);
+			catalog_draft_count_label.setBounds(count_row);
+		} else {
+			strip = strip.reduced(3, 2);
+			catalog_filter_button.setBounds(strip.removeFromRight(78));
+			strip.removeFromRight(4);
+			catalog_clear_button.setBounds(strip.removeFromRight(64));
+			strip.removeFromRight(4);
+			catalog_search_editor.setBounds(strip);
+			catalog_apply_filters_button.setBounds(0, 0, 0, 0);
+			catalog_close_filters_button.setBounds(0, 0, 0, 0);
+		}
+	}
 
 	title_label.setBounds(bounds.removeFromTop(32));
 	status_label.setBounds(bounds.removeFromTop(26));
 
-	juce::Rectangle<int> controls = bounds.removeFromTop(44);
-	const bool catalog_visible =
-		current_model.destination == RootDestination::Catalog;
 	const bool storages_visible =
 		current_model.destination == RootDestination::Storages;
 	const bool detail_visible =
@@ -191,22 +248,28 @@ juce::Rectangle<int> AppShellChromeComponent::layout_shell(
 		|| current_model.destination == RootDestination::StorageForm
 		|| current_model.destination == RootDestination::PhotoViewer
 		|| current_model.destination == RootDestination::BackupRecovery;
-	catalog_search_editor.setVisible(catalog_visible);
-	catalog_clear_button.setVisible(catalog_visible);
-	catalog_filter_button.setVisible(catalog_visible);
+	juce::Rectangle<int> controls =
+		catalog_visible ? juce::Rectangle<int>{} : bounds.removeFromTop(44);
+	catalog_search_editor.setVisible(
+		catalog_visible && !current_model.catalog_filter_panel_visible);
+	catalog_clear_button.setVisible(
+		catalog_visible && !current_model.catalog_filter_panel_visible);
+	catalog_filter_button.setVisible(
+		catalog_visible && !current_model.catalog_filter_panel_visible);
+	catalog_apply_filters_button.setVisible(
+		catalog_visible && current_model.catalog_filter_panel_visible);
 	catalog_clear_filters_button.setVisible(
-		catalog_visible && current_model.catalog_filters_active);
+		catalog_visible && current_model.catalog_filter_panel_visible);
+	catalog_close_filters_button.setVisible(
+		catalog_visible && current_model.catalog_filter_panel_visible);
+	catalog_draft_count_label.setVisible(
+		catalog_visible && current_model.catalog_filter_panel_visible);
 	storage_search_editor.setVisible(storages_visible);
 	storage_clear_button.setVisible(storages_visible);
 	back_button.setVisible(detail_visible);
 
 	if (catalog_visible) {
-		catalog_search_editor.setBounds(
-			controls.removeFromLeft(std::max(120, controls.getWidth() - 244))
-				.reduced(2));
-		catalog_clear_button.setBounds(controls.removeFromLeft(64).reduced(2));
-		catalog_filter_button.setBounds(controls.removeFromLeft(78).reduced(2));
-		catalog_clear_filters_button.setBounds(controls.reduced(2));
+		controls.removeFromTop(controls.getHeight());
 	} else if (storages_visible) {
 		storage_search_editor.setBounds(
 			controls.removeFromLeft(std::max(140, controls.getWidth() - 72))
@@ -234,6 +297,11 @@ void AppShellChromeComponent::clear_catalog_query_without_notification() {
 
 void AppShellChromeComponent::clear_storage_query_without_notification() {
 	storage_search_editor.setText(juce::String{}, juce::dontSendNotification);
+}
+
+void AppShellChromeComponent::release_catalog_search_focus() {
+	if (catalog_search_editor.hasKeyboardFocus(true))
+		catalog_search_editor.giveAwayKeyboardFocus();
 }
 
 void AppShellChromeComponent::paint(juce::Graphics&) {}

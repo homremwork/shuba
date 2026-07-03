@@ -128,6 +128,8 @@ AppShellScreenRenderer::AppShellScreenRenderer(Dependencies dependencies)
 		  std::move(dependencies.actions.confirm_delete_photo))
 	, cancel_delete_photo_handler(
 		  std::move(dependencies.actions.cancel_delete_photo))
+	, apply_catalog_filters_handler(
+		  std::move(dependencies.actions.apply_catalog_filters))
 	, reset_catalog_filters_handler(
 		  std::move(dependencies.actions.reset_catalog_filters))
 	, apply_entity_edit_result_handler(
@@ -960,6 +962,11 @@ void AppShellScreenRenderer::confirm_delete_photo(
 void AppShellScreenRenderer::cancel_delete_photo() {
 	if (cancel_delete_photo_handler)
 		cancel_delete_photo_handler();
+}
+
+void AppShellScreenRenderer::apply_catalog_filters() {
+	if (apply_catalog_filters_handler)
+		apply_catalog_filters_handler();
 }
 
 void AppShellScreenRenderer::reset_catalog_filters() {

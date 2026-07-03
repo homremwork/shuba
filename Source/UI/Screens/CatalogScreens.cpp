@@ -9,12 +9,29 @@
 
 namespace shuba::ui {
 namespace {
-constexpr int preview_result_row_height = 104;
+constexpr int preview_result_row_height		   = 104;
+constexpr std::size_t compact_chip_label_limit = 18U;
 
 [[nodiscard]] ImagePreviewRequestPriority list_preview_priority(
 	std::size_t preview_candidate_index) noexcept {
 	return preview_candidate_index < 8U ? ImagePreviewRequestPriority::Normal
 										: ImagePreviewRequestPriority::Low;
+}
+
+[[nodiscard]] int category_chip_columns(
+	const std::vector<std::string>& labels) noexcept {
+	for (const std::string& label : labels)
+		if (label.size() > compact_chip_label_limit)
+			return 1;
+	return 2;
+}
+
+[[nodiscard]] int storage_chip_columns(
+	const std::vector<catalog::StorageSearchDocument>& storages) noexcept {
+	for (const catalog::StorageSearchDocument& storage : storages)
+		if (storage.projection.display_name.size() > compact_chip_label_limit)
+			return 1;
+	return 2;
 }
 }	 // namespace
 
@@ -104,137 +121,171 @@ void AppShellScreenRenderer::build_catalog_content() {
 }
 
 void AppShellScreenRenderer::build_filter_panel() {
-	content->add_label("Filter workflow", 38, accent_colour().withAlpha(0.35f),
-					   true);
+	catalog::CatalogSearchOptions options{
+		.include_storage_results_for_empty_query = true};
+	const catalog::CatalogSearchResultSet draft_results =
+		catalog::search_catalog(session.search_index, catalog_query(),
+								catalog_filter_state.draft, options);
+	content->add_label(juce_text("Filters · Draft results: "
+								 + std::to_string(draft_results.total_count)),
+					   42, accent_colour().withAlpha(0.35f), true);
+	content->add_label(
+		juce_text("Draft: "
+				  + active_filter_summary(catalog_filter_state.draft,
+										  session.repository)),
+		46, surface_colour(), false);
 
-	content->add_label("Category multi-select", 32, panel_colour(), true);
 	const std::vector<std::string> categories =
 		distinct_categories(session.search_index);
-	if (categories.empty())
-		content->add_label("No category values yet.", 32);
-	for (const std::string& category : categories) {
-		juce::ToggleButton& toggle = content->add_toggle(
-			juce_text("Category: " + category),
-			contains_string(catalog_filter_state.draft.categories, category),
-			34);
-		toggle.onClick = [this, category] {
-			toggle_string(catalog_filter_state.draft.categories, category);
-			refresh_content();
-		};
+	if (categories.empty()) {
+		content->add_label("Categories: no values yet.", 34, panel_colour());
+	} else {
+		std::vector<ChipGridComponent::Action> category_actions;
+		category_actions.reserve(categories.size());
+		for (const std::string& category : categories) {
+			category_actions.push_back(ChipGridComponent::Action{
+				.label	  = juce_text(category),
+				.selected = contains_string(
+					catalog_filter_state.draft.categories, category),
+				.enabled = true,
+				.handler = [this, category] {
+				toggle_string(catalog_filter_state.draft.categories, category);
+				refresh_all();
+			}});
+		}
+		const int columns = category_chip_columns(categories);
+		content->add_chip_grid(
+			"Categories", std::move(category_actions), columns,
+			ChipGridComponent::preferred_height(
+				static_cast<int>(categories.size()), columns));
 	}
 
-	content->add_label("Status multi-select", 32, panel_colour(), true);
+	std::vector<ChipGridComponent::Action> status_actions;
 	for (domain::ItemStatus status :
 		 {domain::ItemStatus::Draft, domain::ItemStatus::Planned,
 		  domain::ItemStatus::Listed, domain::ItemStatus::Sold,
 		  domain::ItemStatus::Archived}) {
-		juce::ToggleButton& toggle = content->add_toggle(
-			juce_text("Status: " + status_text(status)),
-			contains_status(catalog_filter_state.draft.statuses, status), 34);
-		toggle.onClick = [this, status] {
+		status_actions.push_back(ChipGridComponent::Action{
+			.label = juce_text(status_text(status)),
+			.selected =
+				contains_status(catalog_filter_state.draft.statuses, status),
+			.enabled = true,
+			.handler = [this, status] {
 			toggle_status(catalog_filter_state.draft.statuses, status);
-			refresh_content();
-		};
+			refresh_all();
+		}});
 	}
+	content->add_chip_grid("Status", std::move(status_actions), 2,
+						   ChipGridComponent::preferred_height(5, 2));
 
-	content->add_label("Storage selector", 32, panel_colour(), true);
-	juce::Button& any_storage = content->add_button(
-		catalog_filter_state.draft.storage_id
-				|| catalog_filter_state.draft.storage_unassigned_only
-			? "Any storage"
-			: "* Any storage",
-		34);
-	any_storage.onClick = [this] {
+	std::vector<ChipGridComponent::Action> storage_actions;
+	storage_actions.reserve(session.search_index.storages.size() + 2U);
+	storage_actions.push_back(ChipGridComponent::Action{
+		.label	  = "Any",
+		.selected = !catalog_filter_state.draft.storage_id.has_value()
+					&& !catalog_filter_state.draft.storage_unassigned_only,
+		.enabled  = true,
+		.handler  = [this] {
 		catalog_filter_state.draft.storage_id.reset();
 		catalog_filter_state.draft.storage_unassigned_only = false;
-		refresh_content();
-	};
-	juce::Button& unassigned = content->add_button(
-		catalog_filter_state.draft.storage_unassigned_only ? "* Unassigned"
-														   : "Unassigned",
-		34);
-	unassigned.onClick = [this] {
+		refresh_all();
+	}});
+	storage_actions.push_back(ChipGridComponent::Action{
+		.label	  = "Unassigned",
+		.selected = catalog_filter_state.draft.storage_unassigned_only,
+		.enabled  = true,
+		.handler  = [this] {
 		catalog_filter_state.draft.storage_id.reset();
 		catalog_filter_state.draft.storage_unassigned_only = true;
-		refresh_content();
-	};
+		refresh_all();
+	}});
 	for (const catalog::StorageSearchDocument& storage :
 		 session.search_index.storages) {
-		std::string title = storage.projection.display_name;
-		if (catalog_filter_state.draft.storage_id
-			&& *catalog_filter_state.draft.storage_id
-				   == storage.projection.id) {
-			title = "* " + title;
-		}
-		juce::Button& button = content->add_button(juce_text(title), 34);
-		core::StableIdentifier storage_id = storage.projection.id;
-		button.onClick					  = [this, storage_id] {
+		const core::StableIdentifier storage_id = storage.projection.id;
+		storage_actions.push_back(ChipGridComponent::Action{
+			.label	  = juce_text(storage.projection.display_name),
+			.selected = catalog_filter_state.draft.storage_id.has_value()
+						&& *catalog_filter_state.draft.storage_id == storage_id,
+			.enabled  = true,
+			.handler  = [this, storage_id] {
 			catalog_filter_state.draft.storage_id			   = storage_id;
 			catalog_filter_state.draft.storage_unassigned_only = false;
 			catalog_filter_state.draft.include_nested_storage  = true;
-			refresh_content();
-		};
+			refresh_all();
+		}});
 	}
+	const int storage_columns =
+		storage_chip_columns(session.search_index.storages);
+	content->add_chip_grid(
+		"Storage", std::move(storage_actions), storage_columns,
+		ChipGridComponent::preferred_height(
+			static_cast<int>(session.search_index.storages.size() + 2U),
+			storage_columns));
 
-	juce::ToggleButton& nested = content->add_toggle(
-		"Include nested contents",
-		catalog_filter_state.draft.include_nested_storage, 34);
-	nested.setEnabled(catalog_filter_state.draft.storage_id.has_value());
-	nested.onClick = [this] {
+	content->add_chip_grid(
+		"Storage scope",
+		{ChipGridComponent::Action{
+			.label	  = "Nested contents",
+			.selected = catalog_filter_state.draft.include_nested_storage,
+			.enabled  = catalog_filter_state.draft.storage_id.has_value(),
+			.handler =
+				[this] {
 		catalog_filter_state.draft.include_nested_storage =
 			!catalog_filter_state.draft.include_nested_storage;
-		refresh_content();
-	};
+		refresh_all();
+	}}},
+		1, ChipGridComponent::preferred_height(1, 1));
 
-	content->add_label("Photo presence", 32, panel_colour(), true);
+	std::vector<ChipGridComponent::Action> photo_actions;
 	for (catalog::SearchPhotoPresenceFilter filter :
 		 {catalog::SearchPhotoPresenceFilter::Any,
 		  catalog::SearchPhotoPresenceFilter::HasPhotos,
 		  catalog::SearchPhotoPresenceFilter::NoPhotos,
 		  catalog::SearchPhotoPresenceFilter::BrokenPhotos}) {
-		std::string label = photo_filter_label(filter);
-		if (catalog_filter_state.draft.photo_presence == filter)
-			label = "* " + label;
-		juce::Button& button = content->add_button(juce_text(label), 34);
-		button.onClick		 = [this, filter] {
+		photo_actions.push_back(ChipGridComponent::Action{
+			.label	  = juce_text(photo_filter_label(filter)),
+			.selected = catalog_filter_state.draft.photo_presence == filter,
+			.enabled  = true,
+			.handler  = [this, filter] {
 			catalog_filter_state.draft.photo_presence = filter;
-			refresh_content();
-		};
+			refresh_all();
+		}});
 	}
+	content->add_chip_grid("Photo presence", std::move(photo_actions), 2,
+						   ChipGridComponent::preferred_height(4, 2));
 
-	juce::ToggleButton& listed = content->add_toggle(
-		"Listed shortcut", catalog_filter_state.draft.listed_only, 34);
-	listed.onClick = [this] {
+	content->add_chip_grid(
+		"Shortcuts",
+		{ChipGridComponent::Action{
+			 .label	   = "Listed",
+			 .selected = catalog_filter_state.draft.listed_only,
+			 .enabled  = true,
+			 .handler =
+				 [this] {
 		catalog_filter_state.draft.listed_only =
 			!catalog_filter_state.draft.listed_only;
-		refresh_content();
-	};
-	juce::ToggleButton& sold = content->add_toggle(
-		"Sold shortcut", catalog_filter_state.draft.sold_only, 34);
-	sold.onClick = [this] {
+		refresh_all();
+	}},
+		 ChipGridComponent::Action{
+			 .label	   = "Sold",
+			 .selected = catalog_filter_state.draft.sold_only,
+			 .enabled  = true,
+			 .handler =
+				 [this] {
 		catalog_filter_state.draft.sold_only =
 			!catalog_filter_state.draft.sold_only;
-		refresh_content();
-	};
-	juce::ToggleButton& archived = content->add_toggle(
-		"Include archived", catalog_filter_state.draft.include_archived, 34);
-	archived.onClick = [this] {
+		refresh_all();
+	}},
+		 ChipGridComponent::Action{
+			 .label	   = "Archived",
+			 .selected = catalog_filter_state.draft.include_archived,
+			 .enabled  = true,
+			 .handler =
+				 [this] {
 		catalog_filter_state.draft.include_archived =
 			!catalog_filter_state.draft.include_archived;
-		refresh_content();
-	};
-
-	juce::Button& apply = content->add_button("Apply filters", 38);
-	apply.onClick		= [this] {
-		catalog_filter_state.applied	   = catalog_filter_state.draft;
-		catalog_filter_state.panel_visible = false;
 		refresh_all();
-	};
-	juce::Button& clear = content->add_button("Clear filters", 38);
-	clear.onClick		= [this] {
-		reset_catalog_filters();
-		refresh_all();
-	};
+	}}},
+		2, ChipGridComponent::preferred_height(3, 2));
 }
-
 }	 // namespace shuba::ui

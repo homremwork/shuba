@@ -52,6 +52,32 @@ private:
 	std::vector<std::unique_ptr<juce::TextButton>> buttons;
 };
 
+class ChipGridComponent final : public juce::Component {
+public:
+	struct Action final {
+		juce::String label;
+		bool selected{};
+		bool enabled{true};
+		std::function<void()> handler;
+	};
+
+	ChipGridComponent(juce::String title_value,
+					  std::vector<Action> actions_value,
+					  int column_count_value);
+
+	[[nodiscard]] static int preferred_height(int action_count,
+											  int column_count_value,
+											  bool has_title = true) noexcept;
+
+	void resized() override;
+	void paint(juce::Graphics& graphics) override;
+
+private:
+	juce::String title;
+	int column_count{1};
+	std::vector<std::unique_ptr<juce::TextButton>> buttons;
+};
+
 class TagRowEditorComponent final : public juce::Component {
 public:
 	TagRowEditorComponent(

@@ -115,6 +115,72 @@ void ButtonGridComponent::paint(juce::Graphics& graphics) {
 							1, 0.90f);
 }
 
+ChipGridComponent::ChipGridComponent(juce::String title_value,
+									 std::vector<Action> actions_value,
+									 int column_count_value)
+	: title(std::move(title_value))
+	, column_count(std::max(1, column_count_value)) {
+	setOpaque(true);
+	setBufferedToImage(true);
+	for (Action& action : actions_value) {
+		std::unique_ptr<juce::TextButton> button =
+			std::make_unique<juce::TextButton>(action.label);
+		style_text_button(*button);
+		button->setClickingTogglesState(false);
+		button->setToggleState(action.selected, juce::dontSendNotification);
+		button->setEnabled(action.enabled);
+		button->setTooltip(action.label);
+		button->setColour(juce::TextButton::buttonColourId,
+						  action.selected ? accent_colour().withAlpha(0.78f)
+										  : surface_colour());
+		button->setColour(juce::TextButton::buttonOnColourId,
+						  accent_colour().withAlpha(0.78f));
+		button->onClick = std::move(action.handler);
+		addAndMakeVisible(*button);
+		buttons.push_back(std::move(button));
+	}
+}
+
+int ChipGridComponent::preferred_height(int action_count,
+										int column_count_value,
+										bool has_title) noexcept {
+	const int safe_columns = std::max(1, column_count_value);
+	const int row_count =
+		std::max(1, (action_count + safe_columns - 1) / safe_columns);
+	return (has_title ? 30 : 12) + row_count * 34 + 10;
+}
+
+void ChipGridComponent::resized() {
+	juce::Rectangle<int> area = getLocalBounds().reduced(10, 8);
+	if (!title.isEmpty())
+		area.removeFromTop(22);
+	const int gap			= 6;
+	const int button_height = 28;
+	const int button_width	= std::max(
+		1, (area.getWidth() - gap * (column_count - 1)) / column_count);
+	for (std::size_t index = 0; index < buttons.size(); ++index) {
+		const int row	 = static_cast<int>(index) / column_count;
+		const int column = static_cast<int>(index) % column_count;
+		buttons[index]->setBounds(area.getX() + column * (button_width + gap),
+								  area.getY() + row * (button_height + gap),
+								  button_width, button_height);
+	}
+}
+
+void ChipGridComponent::paint(juce::Graphics& graphics) {
+	graphics.fillAll(background_colour());
+	draw_card_background(graphics, getLocalBounds(), panel_colour(), false);
+	if (title.isEmpty())
+		return;
+
+	juce::Rectangle<int> title_area = getLocalBounds().reduced(12, 8);
+	title_area.setHeight(20);
+	graphics.setColour(text_colour());
+	graphics.setFont(juce::FontOptions(13.5f, juce::Font::bold));
+	graphics.drawFittedText(title, title_area, juce::Justification::centredLeft,
+							1, 0.90f);
+}
+
 TagRowEditorComponent::TagRowEditorComponent(
 	std::size_t row_index_value, domain::TagRow tag_value,
 	std::function<void(std::size_t, domain::TagRow)> change_handler,

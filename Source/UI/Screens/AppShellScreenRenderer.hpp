@@ -75,6 +75,7 @@ public:
 		std::function<void(core::StableIdentifier)> request_delete_photo;
 		std::function<void(core::StableIdentifier)> confirm_delete_photo;
 		std::function<void()> cancel_delete_photo;
+		std::function<void()> apply_catalog_filters;
 		std::function<void()> reset_catalog_filters;
 		std::function<void(EntityEditResult)> apply_entity_edit_result;
 		std::function<void(EntityEditResult, core::StableIdentifier)>
@@ -250,6 +251,7 @@ private:
 	void request_delete_photo(core::StableIdentifier photo_id);
 	void confirm_delete_photo(core::StableIdentifier photo_id);
 	void cancel_delete_photo();
+	void apply_catalog_filters();
 	void reset_catalog_filters();
 	void apply_entity_edit_result(EntityEditResult result);
 	void apply_photo_edit_result(EntityEditResult result,
@@ -320,6 +322,7 @@ private:
 	std::function<void(core::StableIdentifier)> request_delete_photo_handler;
 	std::function<void(core::StableIdentifier)> confirm_delete_photo_handler;
 	std::function<void()> cancel_delete_photo_handler;
+	std::function<void()> apply_catalog_filters_handler;
 	std::function<void()> reset_catalog_filters_handler;
 	std::function<void(EntityEditResult)> apply_entity_edit_result_handler;
 	std::function<void(EntityEditResult, core::StableIdentifier)>

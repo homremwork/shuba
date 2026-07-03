@@ -28,9 +28,8 @@ TEST_CASE("B23 fullscreen safe area preserves bottom fullscreen layout") {
 
 TEST_CASE("B23 fullscreen safe area clamps oversized display insets") {
 	const juce::Rectangle<int> compact_bounds{10, 20, 80, 40};
-	const shuba::ui::FullscreenSafeAreaInsets insets{.top = 100,
-												 .left = 100,
-												 .right = 100};
+	const shuba::ui::FullscreenSafeAreaInsets insets{
+		.top = 100, .left = 100, .right = 100};
 
 	const juce::Rectangle<int> content_bounds =
 		shuba::ui::apply_fullscreen_safe_area(compact_bounds, insets);

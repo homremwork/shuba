@@ -48,6 +48,9 @@ public:
 	ButtonGridComponent& add_button_grid(
 		juce::String title, std::vector<ButtonGridComponent::Action> actions,
 		int column_count, int height);
+	ChipGridComponent& add_chip_grid(
+		juce::String title, std::vector<ChipGridComponent::Action> actions,
+		int column_count, int height);
 	EditorPairComponent& add_editor_pair(juce::TextEditor& first_editor,
 										 juce::String first_placeholder,
 										 juce::TextEditor& second_editor,

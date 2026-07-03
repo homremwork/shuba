@@ -108,7 +108,13 @@ private:
 		AppShellManagedPhotoDeckState& photo_deck,
 		std::vector<PendingPhotoSource>& pending_photos,
 		std::size_t pending_photo_index);
+	void toggle_catalog_filters();
+	void apply_catalog_filters();
+	void close_catalog_filters();
 	void reset_catalog_filters();
+	void release_catalog_search_focus();
+	void schedule_catalog_search_focus_release();
+	[[nodiscard]] juce::String catalog_draft_result_count_text() const;
 	void reset_item_form();
 	void reset_storage_form();
 	void load_item_form_from_record(const persistence::ItemEnvelope& item);
