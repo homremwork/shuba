@@ -8,3 +8,4 @@
 #include "UI/Session/EntityEditTypes.hpp"
 #include "UI/Session/PhotoSession.hpp"
 #include "UI/Session/PhotoSessionTypes.hpp"
+#include "UI/Session/StartupRecoverySession.hpp"

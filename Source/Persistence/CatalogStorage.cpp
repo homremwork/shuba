@@ -66,6 +66,50 @@ constexpr auto quarantine_directory_path =
 	return static_cast<std::uint64_t>(-(value + 1)) + 1U;
 }
 
+[[nodiscard]] std::filesystem::path normalized_absolute_path(
+	const std::filesystem::path& path) {
+	std::error_code error;
+	std::filesystem::path absolute_path =
+		std::filesystem::absolute(path, error);
+	if (error)
+		absolute_path = path;
+	return absolute_path.lexically_normal();
+}
+
+[[nodiscard]] bool path_is_same_or_nested_under(
+	const std::filesystem::path& candidate,
+	const std::filesystem::path& parent) {
+	const std::filesystem::path normalized_candidate =
+		normalized_absolute_path(candidate);
+	const std::filesystem::path normalized_parent =
+		normalized_absolute_path(parent);
+
+	std::filesystem::path::const_iterator parent_iterator =
+		normalized_parent.begin();
+	std::filesystem::path::const_iterator candidate_iterator =
+		normalized_candidate.begin();
+	for (; parent_iterator != normalized_parent.end();
+		 ++parent_iterator, ++candidate_iterator) {
+		if (candidate_iterator == normalized_candidate.end())
+			return false;
+		if (*candidate_iterator != *parent_iterator)
+			return false;
+	}
+
+	return true;
+}
+
+[[nodiscard]] bool path_has_cleanup_protection(
+	const std::filesystem::path& cleanup_entry,
+	const std::vector<std::filesystem::path>& protected_paths) {
+	return std::ranges::any_of(
+		protected_paths,
+		[&cleanup_entry](const std::filesystem::path& protected_path) {
+		return path_is_same_or_nested_under(cleanup_entry, protected_path)
+			   || path_is_same_or_nested_under(protected_path, cleanup_entry);
+	});
+}
+
 [[nodiscard]] core::Diagnostic make_diagnostic(
 	core::DiagnosticSeverity severity, std::string code, std::string message,
 	std::string technical_details = {}) {
@@ -483,9 +527,11 @@ void append_cleanup_warning(CatalogStorageResult& result, std::string code,
 		std::move(message), path, error));
 }
 
-void cleanup_directory_contents(CatalogStorageResult& result,
-								const std::filesystem::path& directory) {
-	auto error = std::error_code{};
+void cleanup_directory_contents(
+	CatalogStorageResult& result, const std::filesystem::path& directory,
+	const std::vector<std::filesystem::path>& protected_paths) {
+	result.cleanup_attempted = true;
+	auto error				 = std::error_code{};
 	std::filesystem::create_directories(directory, error);
 	if (error) {
 		append_cleanup_warning(
@@ -505,18 +551,25 @@ void cleanup_directory_contents(CatalogStorageResult& result,
 	}
 
 	for (const auto& entry : iterator) {
+		if (path_has_cleanup_protection(entry.path(), protected_paths))
+			continue;
+
 		error.clear();
 		std::filesystem::remove_all(entry.path(), error);
-		if (error)
+		if (error) {
 			append_cleanup_warning(result, "temp_cleanup_failed",
 								   "Temporary leftover could not be removed.",
 								   entry.path(), error);
+		} else {
+			++result.cleanup_removed_entry_count;
+		}
 	}
 }
 
 void cleanup_metadata_temp_files(CatalogStorageResult& result,
 								 const std::filesystem::path& directory) {
-	auto error = std::error_code{};
+	result.cleanup_attempted = true;
+	auto error				 = std::error_code{};
 	if (!std::filesystem::exists(directory, error) || error)
 		return;
 
@@ -535,11 +588,14 @@ void cleanup_metadata_temp_files(CatalogStorageResult& result,
 
 		error.clear();
 		std::filesystem::remove_all(entry.path(), error);
-		if (error)
+		if (error) {
 			append_cleanup_warning(
 				result, "temp_cleanup_failed",
 				"Metadata temp leftover could not be removed.", entry.path(),
 				error);
+		} else {
+			++result.cleanup_removed_entry_count;
+		}
 	}
 }
 
@@ -851,19 +907,30 @@ CatalogStorageResult commit_metadata_file(
 }
 
 CatalogStorageResult cleanup_startup_temporary_files(
-	const std::filesystem::path& app_private_root) {
-	const auto layout = make_catalog_container_layout(app_private_root);
+	const CatalogStartupCleanupRequest& request) {
+	const auto layout = make_catalog_container_layout(request.app_private_root);
 	auto result		  = CatalogStorageResult{};
 
-	cleanup_directory_contents(
-		result, layout.active_catalog_root
-					/ std::filesystem::path{
-						std::string{active_catalog_tmp_directory_path}});
-	cleanup_directory_contents(result, layout.operation_tmp_root);
+	result.active_catalog_tmp_cleanup_attempted = true;
+	cleanup_directory_contents(result,
+							   layout.active_catalog_root
+								   / std::filesystem::path{std::string{
+									   active_catalog_tmp_directory_path}},
+							   request.protected_paths);
+	result.operation_tmp_cleanup_attempted = true;
+	cleanup_directory_contents(result, layout.operation_tmp_root,
+							   request.protected_paths);
+	result.metadata_temp_cleanup_attempted = true;
 	cleanup_metadata_temp_files(result, layout.active_catalog_root);
 	cleanup_metadata_temp_files(
 		result, layout.active_catalog_root
 					/ std::filesystem::path{std::string{data_directory_path}});
 	return result;
+}
+
+CatalogStorageResult cleanup_startup_temporary_files(
+	const std::filesystem::path& app_private_root) {
+	return cleanup_startup_temporary_files(
+		CatalogStartupCleanupRequest{.app_private_root = app_private_root});
 }
 }	 // namespace shuba::persistence

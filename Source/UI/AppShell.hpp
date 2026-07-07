@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Catalog/PhotoExport.hpp"
+#include "Platform/AndroidPreviousExit.hpp"
 #include "Platform/JuceAndroidServices.hpp"
 #include "Platform/JuceHashing.hpp"
 #include "Platform/JuceZipArchive.hpp"
@@ -19,6 +20,7 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <string>
 
 namespace shuba::ui {
 class AppShellContentComponent;
@@ -45,6 +47,11 @@ class AppShellComponent final
 public:
 	struct PlatformServices final {
 		platform::InternalPhotoCodec& internal_photo_codec;
+		platform::AppPrivatePathProvider& path_provider;
+		platform::AndroidPreviousExitService& android_previous_exit_service;
+		std::string app_version;
+		std::string platform_name;
+		bool debug_demo_seed_enabled{};
 	};
 
 	AppShellComponent(CatalogSessionState session_state,
@@ -56,6 +63,7 @@ public:
 
 private:
 	void refresh_all();
+	void clear_controlled_startup_attempt_marker();
 	void refresh_controls();
 	void refresh_content();
 	void build_catalog_content();
@@ -91,6 +99,7 @@ private:
 	void request_export_backup();
 	void request_export_diagnostic_archive();
 	void request_import_backup();
+	void retry_normal_startup();
 	void apply_backup_export_result(BackupExportSessionResult result,
 									bool diagnostic_archive);
 	void apply_backup_import_staging_result(
@@ -159,6 +168,11 @@ private:
 	std::unique_ptr<AsyncImagePreviewScheduler> preview_scheduler;
 	ShellIdentifierSource edit_identifiers;
 	ShellClock edit_clock;
+	platform::AppPrivatePathProvider& path_provider;
+	platform::AndroidPreviousExitService& android_previous_exit_service;
+	std::string app_version;
+	std::string platform_name;
+	bool debug_demo_seed_enabled{};
 	core::OperationGate ui_operation_gate;
 	platform::JuceAndroidPhotoSelectionService photo_selection_service;
 	platform::JuceAndroidDocumentExportService document_export_service;

@@ -94,12 +94,15 @@ add_library(shuba_core
 	Source/Core/OperationGate.cpp
 	Source/Core/Result.cpp
 	Source/Domain/Domain.cpp
+	Source/Platform/AndroidPreviousExit.cpp
 	Source/Platform/LinuxFakes.cpp
 	Source/Platform/PlatformServices.cpp
 	Source/Persistence/CatalogStorage.cpp
 	Source/Persistence/JsonlCatalog.cpp
 	Source/Persistence/MetadataSchema.cpp
 	Source/UI/Session/CatalogStartupSession.cpp
+	Source/UI/Session/AndroidPreviousExitArtifacts.cpp
+	Source/UI/Session/StartupRecoverySession.cpp
 	Source/UI/Session/EntityEditSession.cpp
 	Source/UI/Session/ImagePreviewSession.cpp
 	Source/UI/Session/PhotoSession.cpp
@@ -116,6 +119,7 @@ add_subdirectory(third_party/JUCE EXCLUDE_FROM_ALL)
 
 add_library(shuba_juce_platform STATIC
 	Source/Platform/JuceHashing.cpp
+	Source/Platform/JuceAndroidPreviousExit.cpp
 	Source/Platform/JuceJpegExport.cpp
 	Source/Platform/JuceZipArchive.cpp
 	Source/UI/AppShellPhotoCoordinator.cpp

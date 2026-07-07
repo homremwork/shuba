@@ -7,9 +7,20 @@
 #include "UI/Session/CatalogStartupSession.hpp"
 
 #include <algorithm>
+#include <span>
 #include <string>
+#include <string_view>
 
 namespace shuba::ui {
+namespace {
+[[nodiscard]] bool contains_action(std::span<const std::string> actions,
+								   std::string_view label) {
+	return std::ranges::any_of(actions, [label](const std::string& action) {
+		return action == label;
+	});
+}
+}	 // namespace
+
 void AppShellComponent::request_export_backup() {
 	last_progress_events.clear();
 	feedback.backup_diagnostics.clear();
@@ -148,6 +159,50 @@ void AppShellComponent::request_import_backup() {
 		feedback.backup_diagnostics = import_started.diagnostics();
 		refresh_all();
 	}
+}
+
+void AppShellComponent::retry_normal_startup() {
+	if (session.source != CatalogSessionStartupSource::StartupCrashSafeMode) {
+		feedback.backup_message =
+			"Retry normal launch is available only from startup safe mode.";
+		refresh_all();
+		return;
+	}
+
+	last_progress_events.clear();
+	feedback.backup_diagnostics.clear();
+	backup.pending_import_staging.reset();
+	backup.pending_import_degraded_acknowledged = false;
+
+	CatalogSessionState retry_session =
+		load_guarded_catalog_session(GuardedCatalogSessionLoadRequest{
+			.path_provider				   = path_provider,
+			.identifiers				   = edit_identifiers,
+			.clock						   = edit_clock,
+			.app_version				   = app_version,
+			.platform					   = platform_name,
+			.debug_demo_seed_enabled	   = debug_demo_seed_enabled,
+			.retry_requested_by_user	   = true,
+			.android_previous_exit_service = &android_previous_exit_service});
+
+	session = std::move(retry_session);
+	invalidate_all_previews();
+	route				 = AppShellRouteState{};
+	catalog_filter_state = AppShellCatalogFilterState{};
+	storage_detail		 = AppShellStorageDetailState{};
+	item_form			 = AppShellItemFormState{};
+	storage_form		 = AppShellStorageFormState{};
+	photo_display		 = AppShellPhotoDisplayState{};
+	feedback.photo_message.clear();
+	feedback.photo_diagnostics.clear();
+	feedback.edit_message.clear();
+	feedback.edit_diagnostics.clear();
+	feedback.backup_message =
+		session.fatal() ? "Normal startup retry reached recovery state."
+						: "Normal startup retry completed.";
+	select_root(session.fatal() ? RootDestination::BackupRecovery
+								: RootDestination::Catalog);
+	clear_controlled_startup_attempt_marker();
 }
 
 void AppShellComponent::apply_backup_export_result(
@@ -323,6 +378,14 @@ void AppShellScreenRenderer::build_backup_recovery_content() {
 		content->add_button("Import backup ZIP: select and validate", 46);
 	import.setEnabled(session.paths.has_value());
 	import.onClick = [this] { request_import_backup(); };
+	if (contains_action(summary.safe_actions, "Retry normal launch")) {
+		content->add_label(
+			"Retry normal launch is explicit and one-shot. Startup cleanup and "
+			"normal catalog loading run only after this action.",
+			78, warning_panel_colour(), true);
+		juce::Button& retry = content->add_button("Retry normal launch", 46);
+		retry.onClick		= [this] { retry_normal_startup(); };
+	}
 
 	if (backup.pending_import_staging) {
 		content->add_label(juce_text(import_validation_summary(

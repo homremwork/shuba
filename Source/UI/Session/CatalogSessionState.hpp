@@ -23,6 +23,8 @@ enum class CatalogSessionStartupSource : std::uint8_t {
 	PathResolutionFailed,
 	InitializationFailed,
 	LoadFailed,
+	StartupException,
+	StartupCrashSafeMode,
 };
 
 [[nodiscard]] std::string_view to_string(

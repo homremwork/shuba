@@ -8,6 +8,7 @@
 #include "UI/Session/CatalogStartupSession.hpp"
 #include "UI/Session/EntityEditSession.hpp"
 #include "UI/Session/PhotoSession.hpp"
+#include "UI/Session/StartupRecoverySession.hpp"
 
 #include "Domain/Domain.hpp"
 
@@ -633,6 +634,12 @@ core::EpochMilliseconds ShellClock::now() const {
 AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 									 PlatformServices platform_services)
 	: session(std::move(session_state))
+	, path_provider(platform_services.path_provider)
+	, android_previous_exit_service(
+		  platform_services.android_previous_exit_service)
+	, app_version(std::move(platform_services.app_version))
+	, platform_name(std::move(platform_services.platform_name))
+	, debug_demo_seed_enabled(platform_services.debug_demo_seed_enabled)
 	, internal_photo_codec(platform_services.internal_photo_codec)
 	, content(std::make_unique<AppShellContentComponent>()) {
 	setOpaque(true);
@@ -839,6 +846,7 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 					request_export_diagnostic_archive();
 				},
 				.request_import_backup = [this] { request_import_backup(); },
+				.retry_normal_startup = [this] { retry_normal_startup(); },
 				.confirm_staged_backup_import = [this] {
 					confirm_staged_backup_import();
 				},
@@ -912,6 +920,7 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 	addAndMakeVisible(viewport);
 
 	refresh_all();
+	clear_controlled_startup_attempt_marker();
 }
 
 AppShellComponent::~AppShellComponent() {
@@ -1753,6 +1762,20 @@ void AppShellComponent::refresh_all() {
 	refresh_content();
 	resized();
 	repaint();
+}
+
+void AppShellComponent::clear_controlled_startup_attempt_marker() {
+	if (!session.paths.has_value()
+		|| session.source
+			   == CatalogSessionStartupSource::StartupCrashSafeMode) {
+		return;
+	}
+
+	StartupRecoveryFileResult cleared =
+		clear_startup_attempt_marker(*session.paths);
+	session.startup_diagnostics.insert(session.startup_diagnostics.end(),
+									   cleared.diagnostics.begin(),
+									   cleared.diagnostics.end());
 }
 
 void AppShellComponent::refresh_controls() {

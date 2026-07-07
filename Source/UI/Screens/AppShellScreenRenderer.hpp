@@ -65,6 +65,7 @@ public:
 		std::function<void()> request_export_backup;
 		std::function<void()> request_export_diagnostic_archive;
 		std::function<void()> request_import_backup;
+		std::function<void()> retry_normal_startup;
 		std::function<void()> confirm_staged_backup_import;
 		std::function<void()> cleanup_item_pending_photos;
 		std::function<void()> cleanup_storage_pending_photos;
@@ -241,6 +242,7 @@ private:
 	void request_export_backup();
 	void request_export_diagnostic_archive();
 	void request_import_backup();
+	void retry_normal_startup();
 	void confirm_staged_backup_import();
 	void cleanup_item_pending_photos();
 	void cleanup_storage_pending_photos();
@@ -312,6 +314,7 @@ private:
 	std::function<void()> request_export_backup_handler;
 	std::function<void()> request_export_diagnostic_archive_handler;
 	std::function<void()> request_import_backup_handler;
+	std::function<void()> retry_normal_startup_handler;
 	std::function<void()> confirm_staged_backup_import_handler;
 	std::function<void()> cleanup_item_pending_photos_handler;
 	std::function<void()> cleanup_storage_pending_photos_handler;

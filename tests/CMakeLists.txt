@@ -22,7 +22,9 @@ add_executable(shuba_headless_tests
 	B20BackupRecoverySessionTests.cpp
 	B21PendingPhotoStagingTests.cpp
 	B22ImagePreviewCacheTests.cpp
-	B23UiSafeAreaTests.cpp)
+	B23UiSafeAreaTests.cpp
+	B24FatalStartupRecoveryTests.cpp
+	B25AndroidPreviousExitTests.cpp)
 
 target_compile_features(shuba_headless_tests PRIVATE cxx_std_23)
 shuba_apply_common_target_options(shuba_headless_tests)

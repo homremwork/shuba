@@ -45,8 +45,12 @@
         <FILE id="metadataschemahpp" name="MetadataSchema.hpp" compile="0" resource="0" file="Source/Persistence/MetadataSchema.hpp"/>
       </GROUP>
 	  <GROUP id="platform01" name="Platform">
+		<FILE id="androidpreviousexitcpp" name="AndroidPreviousExit.cpp" compile="1" resource="0" file="Source/Platform/AndroidPreviousExit.cpp"/>
+		<FILE id="androidpreviousexithpp" name="AndroidPreviousExit.hpp" compile="0" resource="0" file="Source/Platform/AndroidPreviousExit.hpp"/>
 		<FILE id="jxlcodeccpp" name="JpegXlPhotoCodec.cpp" compile="1" resource="0" file="Source/Platform/JpegXlPhotoCodec.cpp"/>
 		<FILE id="jxlcodechpp" name="JpegXlPhotoCodec.hpp" compile="0" resource="0" file="Source/Platform/JpegXlPhotoCodec.hpp"/>
+		<FILE id="juceandroidpreviousexitcpp" name="JuceAndroidPreviousExit.cpp" compile="1" resource="0" file="Source/Platform/JuceAndroidPreviousExit.cpp"/>
+		<FILE id="juceandroidpreviousexithpp" name="JuceAndroidPreviousExit.hpp" compile="0" resource="0" file="Source/Platform/JuceAndroidPreviousExit.hpp"/>
 		<FILE id="jucehashingcpp" name="JuceHashing.cpp" compile="1" resource="0" file="Source/Platform/JuceHashing.cpp"/>
 		<FILE id="jucehashinghpp" name="JuceHashing.hpp" compile="0" resource="0" file="Source/Platform/JuceHashing.hpp"/>
 		<FILE id="jucejpegexportcpp" name="JuceJpegExport.cpp" compile="1" resource="0" file="Source/Platform/JuceJpegExport.cpp"/>
@@ -97,9 +101,13 @@
   <FILE id="storagescreenscpp" name="StorageScreens.cpp" compile="1" resource="0" file="Source/UI/Screens/StorageScreens.cpp"/>
 </GROUP>
         <GROUP id="uisession01" name="Session">
+          <FILE id="androidpreviousexitartifactscpp" name="AndroidPreviousExitArtifacts.cpp" compile="1" resource="0" file="Source/UI/Session/AndroidPreviousExitArtifacts.cpp"/>
+          <FILE id="androidpreviousexitartifactshpp" name="AndroidPreviousExitArtifacts.hpp" compile="0" resource="0" file="Source/UI/Session/AndroidPreviousExitArtifacts.hpp"/>
           <FILE id="catalogsessionstatehpp" name="CatalogSessionState.hpp" compile="0" resource="0" file="Source/UI/Session/CatalogSessionState.hpp"/>
           <FILE id="catalogstartupsessioncpp" name="CatalogStartupSession.cpp" compile="1" resource="0" file="Source/UI/Session/CatalogStartupSession.cpp"/>
           <FILE id="catalogstartupsessionhpp" name="CatalogStartupSession.hpp" compile="0" resource="0" file="Source/UI/Session/CatalogStartupSession.hpp"/>
+          <FILE id="startuprecoverysessioncpp" name="StartupRecoverySession.cpp" compile="1" resource="0" file="Source/UI/Session/StartupRecoverySession.cpp"/>
+          <FILE id="startuprecoverysessionhpp" name="StartupRecoverySession.hpp" compile="0" resource="0" file="Source/UI/Session/StartupRecoverySession.hpp"/>
           <FILE id="entityeditsessioncpp" name="EntityEditSession.cpp" compile="1" resource="0" file="Source/UI/Session/EntityEditSession.cpp"/>
           <FILE id="entityeditsessionhpp" name="EntityEditSession.hpp" compile="0" resource="0" file="Source/UI/Session/EntityEditSession.hpp"/>
           <FILE id="photosessioncpp" name="PhotoSession.cpp" compile="1" resource="0" file="Source/UI/Session/PhotoSession.cpp"/>

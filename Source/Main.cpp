@@ -1,13 +1,18 @@
 #include "Core/Clock.hpp"
 #include "Core/Identifier.hpp"
 #include "Platform/JpegXlPhotoCodec.hpp"
+#include "Platform/JuceAndroidPreviousExit.hpp"
 #include "Platform/JuceAndroidServices.hpp"
 #include "UI/AppShell.hpp"
 #include "UI/Session/CatalogStartupSession.hpp"
+#include "UI/Session/StartupRecoverySession.hpp"
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <utility>
 
 namespace {
@@ -19,15 +24,81 @@ namespace {
 #endif
 }
 
-[[nodiscard]] shuba::ui::CatalogSessionState make_catalog_session() {
-	shuba::platform::JuceAndroidPathProvider path_provider;
-	shuba::core::RandomIdentifierSource identifiers;
-	shuba::core::SystemClock clock;
-	return shuba::ui::load_catalog_session(shuba::ui::CatalogSessionLoadRequest{
-		.path_provider			 = path_provider,
-		.identifiers			 = identifiers,
-		.clock					 = clock,
-		.debug_demo_seed_enabled = debug_demo_seed_enabled()});
+[[nodiscard]] std::string_view platform_name() noexcept {
+#if JUCE_ANDROID
+	return "android";
+#elif JUCE_IOS
+	return "ios";
+#elif JUCE_MAC
+	return "macos";
+#elif JUCE_WINDOWS
+	return "windows";
+#elif JUCE_LINUX
+	return "linux";
+#else
+	return "unknown";
+#endif
+}
+
+[[nodiscard]] shuba::ui::CatalogSessionState make_catalog_session(
+	shuba::platform::AppPrivatePathProvider& path_provider,
+	shuba::platform::AndroidPreviousExitService& android_previous_exit_service,
+	shuba::core::IdentifierSource& identifiers, shuba::core::Clock& clock) {
+	return shuba::ui::load_guarded_catalog_session(
+		shuba::ui::GuardedCatalogSessionLoadRequest{
+			.path_provider				   = path_provider,
+			.identifiers				   = identifiers,
+			.clock						   = clock,
+			.app_version				   = "0.1.0",
+			.platform					   = std::string{platform_name()},
+			.debug_demo_seed_enabled	   = debug_demo_seed_enabled(),
+			.android_previous_exit_service = &android_previous_exit_service});
+}
+
+[[nodiscard]] shuba::ui::AppShellComponent::PlatformServices shell_services(
+	shuba::platform::InternalPhotoCodec& internal_photo_codec,
+	shuba::platform::AppPrivatePathProvider& path_provider,
+	shuba::platform::AndroidPreviousExitService&
+		android_previous_exit_service) {
+	return shuba::ui::AppShellComponent::PlatformServices{
+		.internal_photo_codec		   = internal_photo_codec,
+		.path_provider				   = path_provider,
+		.android_previous_exit_service = android_previous_exit_service,
+		.app_version				   = "0.1.0",
+		.platform_name				   = std::string{platform_name()},
+		.debug_demo_seed_enabled	   = debug_demo_seed_enabled()};
+}
+
+void update_ui_construction_stage(
+	const std::optional<shuba::platform::AppPrivatePaths>& paths,
+	shuba::ui::CatalogSessionStartupSource source) {
+	if (!paths.has_value()
+		|| source
+			   == shuba::ui::CatalogSessionStartupSource::
+				   StartupCrashSafeMode) {
+		return;
+	}
+
+	static_cast<void>(
+		shuba::ui::update_startup_attempt_stage(*paths, "ui-construction"));
+}
+
+[[nodiscard]] shuba::ui::CatalogSessionState
+make_ui_construction_exception_session(shuba::platform::AppPrivatePaths paths,
+									   const shuba::core::Clock& clock,
+									   std::string exception_kind,
+									   std::string message,
+									   std::string technical_details) {
+	return shuba::ui::make_startup_exception_session(
+		shuba::ui::StartupExceptionSessionRequest{
+			.paths			   = std::move(paths),
+			.captured_at	   = clock.now(),
+			.app_version	   = "0.1.0",
+			.platform		   = std::string{platform_name()},
+			.fallback_stage	   = "ui-construction",
+			.exception_kind	   = std::move(exception_kind),
+			.message		   = std::move(message),
+			.technical_details = std::move(technical_details)});
 }
 
 class MainWindow final : public juce::DocumentWindow {
@@ -39,11 +110,53 @@ public:
 			  std::make_unique<shuba::platform::JpegXlInternalPhotoCodec>()) {
 		setOpaque(true);
 		setUsingNativeTitleBar(true);
-		setContentOwned(new shuba::ui::AppShellComponent(
-							make_catalog_session(),
-							shuba::ui::AppShellComponent::PlatformServices{
-								.internal_photo_codec = *internal_photo_codec}),
-						true);
+		shuba::core::RandomIdentifierSource identifiers;
+		shuba::core::SystemClock clock;
+		shuba::ui::CatalogSessionState startup_session = make_catalog_session(
+			path_provider, android_previous_exit_service, identifiers, clock);
+		std::optional<shuba::platform::AppPrivatePaths> startup_paths =
+			startup_session.paths;
+		update_ui_construction_stage(startup_paths, startup_session.source);
+		try {
+			setContentOwned(
+				new shuba::ui::AppShellComponent(
+					std::move(startup_session),
+					shell_services(*internal_photo_codec, path_provider,
+								   android_previous_exit_service)),
+				true);
+		} catch (const std::exception& exception) {
+			if (!startup_paths.has_value())
+				throw;
+			shuba::ui::CatalogSessionState exception_session =
+				make_ui_construction_exception_session(
+					std::move(*startup_paths), clock, "std::exception",
+					exception.what(),
+					"App shell construction threw before the initial UI could "
+					"be "
+					"shown.");
+			setContentOwned(
+				new shuba::ui::AppShellComponent(
+					std::move(exception_session),
+					shell_services(*internal_photo_codec, path_provider,
+								   android_previous_exit_service)),
+				true);
+		} catch (...) {
+			if (!startup_paths.has_value())
+				throw;
+			shuba::ui::CatalogSessionState exception_session =
+				make_ui_construction_exception_session(
+					std::move(*startup_paths), clock, "unknown",
+					"unknown UI construction exception",
+					"App shell construction threw a non-standard exception "
+					"before "
+					"the initial UI could be shown.");
+			setContentOwned(
+				new shuba::ui::AppShellComponent(
+					std::move(exception_session),
+					shell_services(*internal_photo_codec, path_provider,
+								   android_previous_exit_service)),
+				true);
+		}
 #if JUCE_ANDROID
 		setFullScreen(true);
 #else
@@ -69,6 +182,9 @@ public:
 private:
 	std::unique_ptr<shuba::platform::JpegXlInternalPhotoCodec>
 		internal_photo_codec;
+	shuba::platform::JuceAndroidPathProvider path_provider;
+	shuba::platform::JuceAndroidPreviousExitService
+		android_previous_exit_service;
 };
 
 class ShubaApplication final : public juce::JUCEApplication {
@@ -86,6 +202,37 @@ public:
 	void shutdown() override { main_window = nullptr; }
 
 	void systemRequestedQuit() override { quit(); }
+
+	void unhandledException(const std::exception* exception,
+							const juce::String& source_filename,
+							int line_number) override {
+		juce::ignoreUnused(source_filename, line_number);
+		try {
+			shuba::platform::JuceAndroidPathProvider path_provider;
+			shuba::platform::PlatformValueResult<
+				shuba::platform::AppPrivatePaths>
+				paths = path_provider.resolve_app_private_paths();
+			if (!paths.succeeded())
+				return;
+
+			shuba::core::SystemClock clock;
+			shuba::ui::StartupExceptionReport report{
+				.captured_at = clock.now(),
+				.app_version = "0.1.0",
+				.platform	 = std::string{platform_name()},
+				.stage		 = "post-startup",
+				.exception_kind =
+					exception == nullptr ? "unknown" : "std::exception",
+				.message = exception == nullptr
+							   ? "unknown post-startup exception"
+							   : exception->what(),
+				.technical_details =
+					"JUCEApplication::unhandledException captured a "
+					"post-startup exception locally."};
+			static_cast<void>(shuba::ui::write_startup_exception_report(
+				*paths.value, report));
+		} catch (...) {}
+	}
 
 private:
 	std::unique_ptr<MainWindow> main_window;

@@ -2,6 +2,8 @@
 
 #include "UI/Session/CatalogStartupSession.hpp"
 
+#include "Persistence/CatalogStorage.hpp"
+
 #include <algorithm>
 #include <string>
 #include <utility>
@@ -227,6 +229,19 @@ BackupImportReplacementSessionResult replace_session_with_staged_import(
 			"Validated staged catalog root is required before replacement.");
 	}
 
+	CatalogSessionState current_session = request.current_session;
+	if (current_session.source
+		== CatalogSessionStartupSource::StartupCrashSafeMode) {
+		persistence::CatalogStorageResult cleanup =
+			persistence::cleanup_startup_temporary_files(
+				persistence::CatalogStartupCleanupRequest{
+					.app_private_root = current_session.paths->app_private_root,
+					.protected_paths  = {request.staged_catalog_root}});
+		current_session.startup_diagnostics.insert(
+			current_session.startup_diagnostics.end(),
+			cleanup.diagnostics.begin(), cleanup.diagnostics.end());
+	}
+
 	catalog::CatalogReplacementUseCase use_case{
 		request.identifiers, request.clock, request.operation_gate};
 	catalog::CatalogReplacementResult replacement_result =
@@ -242,15 +257,17 @@ BackupImportReplacementSessionResult replace_session_with_staged_import(
 
 	BackupImportReplacementSessionResult result{
 		.category	 = replacement_result.category,
-		.session	 = request.current_session,
+		.session	 = current_session,
 		.diagnostics = replacement_result.diagnostics,
 		.fatal_recovery_required =
 			replacement_result.fatal_recovery_required()};
 	if (replacement_result.succeeded()) {
-		result.session = reload_catalog_session(request.current_session);
+		result.session = reload_catalog_session(std::move(current_session));
 	} else if (replacement_result.fatal_recovery_required()) {
 		result.session.load_status = persistence::CatalogLoadStatus::Fatal;
 		result.session.source	   = CatalogSessionStartupSource::LoadFailed;
+	} else {
+		result.session = std::move(current_session);
 	}
 	result.replacement_result = std::move(replacement_result);
 	return result;

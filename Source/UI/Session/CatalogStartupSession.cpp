@@ -1,10 +1,14 @@
 #include "UI/Session/CatalogStartupSession.hpp"
 
+#include "UI/Session/AndroidPreviousExitArtifacts.hpp"
+#include "UI/Session/StartupRecoverySession.hpp"
+
 #include "Persistence/CatalogStorage.hpp"
 #include "Persistence/MetadataSchema.hpp"
 
 #include <algorithm>
 #include <array>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -69,6 +73,12 @@ void append_storage_diagnostics(CatalogSessionState& state,
 									 result.diagnostics.end());
 }
 
+void append_core_diagnostics(CatalogSessionState& state,
+							 const std::vector<Diagnostic>& diagnostics) {
+	state.startup_diagnostics.insert(state.startup_diagnostics.end(),
+									 diagnostics.begin(), diagnostics.end());
+}
+
 [[nodiscard]] bool has_fatal_diagnostic(
 	std::span<const JsonlDiagnostic> diagnostics) {
 	return std::ranges::any_of(diagnostics, [](const JsonlDiagnostic& entry) {
@@ -115,6 +125,64 @@ void append_storage_diagnostics(CatalogSessionState& state,
 		}
 	}
 	return false;
+}
+
+[[nodiscard]] std::string exception_message(const std::exception& exception) {
+	const char* message = exception.what();
+	return message == nullptr ? std::string{"std::exception"}
+							  : std::string{message};
+}
+
+[[nodiscard]] CatalogSessionState make_path_resolution_exception_session(
+	std::string exception_kind, std::string message,
+	std::string technical_details) {
+	CatalogSessionState state;
+	state.source	  = CatalogSessionStartupSource::StartupException;
+	state.load_status = CatalogLoadStatus::Fatal;
+	state.load_result.load_status = CatalogLoadStatus::Fatal;
+	state.startup_diagnostics.push_back(make_diagnostic(
+		DiagnosticSeverity::FatalCatalogError,
+		"startup_path_resolution_exception",
+		"Startup failed while resolving app-private paths. Diagnostic archive "
+		"export is unavailable until paths can be resolved.",
+		exception_kind + ": " + message
+			+ (technical_details.empty()
+				   ? std::string{}
+				   : std::string{"; "} + technical_details)));
+	return state;
+}
+
+[[nodiscard]] StartupAttemptMarker make_startup_attempt_marker(
+	const GuardedCatalogSessionLoadRequest& request,
+	const StartupAttemptMarkerReadResult& stale_marker_result) {
+	std::uint64_t previous_attempt_count = 0U;
+	if (stale_marker_result.marker.has_value()) {
+		previous_attempt_count =
+			stale_marker_result.marker->previous_attempt_count + 1U;
+	}
+	return StartupAttemptMarker{
+		.attempt_id	 = request.identifiers.next_operation_identifier().value(),
+		.started_at	 = request.clock.now(),
+		.app_version = request.app_version,
+		.platform	 = request.platform,
+		.stage		 = "catalog-load",
+		.retry_requested_by_user = request.retry_requested_by_user,
+		.previous_attempt_count	 = previous_attempt_count};
+}
+
+[[nodiscard]] CatalogSessionState invoke_catalog_session_loader(
+	const GuardedCatalogSessionLoadRequest& request,
+	const platform::AppPrivatePaths& paths) {
+	CatalogSessionLoadRequest load_request{
+		.path_provider			 = request.path_provider,
+		.identifiers			 = request.identifiers,
+		.clock					 = request.clock,
+		.debug_demo_seed_enabled = request.debug_demo_seed_enabled,
+		.honor_startup_safe_mode = false,
+		.resolved_paths			 = paths};
+	if (request.loader)
+		return request.loader(load_request);
+	return load_catalog_session(load_request);
 }
 
 [[nodiscard]] std::filesystem::path marker_path(
@@ -735,6 +803,10 @@ std::string_view to_string(CatalogSessionStartupSource source) noexcept {
 			return "initialization failed";
 		case CatalogSessionStartupSource::LoadFailed:
 			return "load failed";
+		case CatalogSessionStartupSource::StartupException:
+			return "startup exception";
+		case CatalogSessionStartupSource::StartupCrashSafeMode:
+			return "startup crash safe mode";
 	}
 	return "unknown catalog session source";
 }
@@ -759,21 +831,42 @@ bool CatalogRecoveryUiSummary::degraded() const noexcept {
 	return load_status == persistence::CatalogLoadStatus::Degraded;
 }
 
+bool CatalogRecoveryUiSummary::startup_crash_safe_mode() const noexcept {
+	return startup_source == CatalogSessionStartupSource::StartupCrashSafeMode;
+}
+
 CatalogSessionState load_catalog_session(
 	const CatalogSessionLoadRequest& request) {
 	CatalogSessionState state;
-	platform::PlatformValueResult<platform::AppPrivatePaths> paths =
-		request.path_provider.resolve_app_private_paths();
-	if (!paths.succeeded()) {
-		state.source = CatalogSessionStartupSource::PathResolutionFailed;
-		state.startup_diagnostics = std::move(paths.diagnostics);
-		return state;
-	}
+	if (request.resolved_paths.has_value()) {
+		state.paths = request.resolved_paths;
+	} else {
+		platform::PlatformValueResult<platform::AppPrivatePaths> paths =
+			request.path_provider.resolve_app_private_paths();
+		if (!paths.succeeded()) {
+			state.source = CatalogSessionStartupSource::PathResolutionFailed;
+			state.startup_diagnostics = std::move(paths.diagnostics);
+			return state;
+		}
 
-	state.paths = std::move(*paths.value);
-	state.startup_diagnostics.insert(state.startup_diagnostics.end(),
-									 paths.diagnostics.begin(),
-									 paths.diagnostics.end());
+		state.paths = std::move(*paths.value);
+		state.startup_diagnostics.insert(state.startup_diagnostics.end(),
+										 paths.diagnostics.begin(),
+										 paths.diagnostics.end());
+	}
+	if (request.honor_startup_safe_mode) {
+		StartupAttemptMarkerReadResult marker_result =
+			read_startup_attempt_marker(*state.paths);
+		state.startup_diagnostics.insert(state.startup_diagnostics.end(),
+										 marker_result.diagnostics.begin(),
+										 marker_result.diagnostics.end());
+		if (marker_result.safe_mode_required()) {
+			marker_result.diagnostics = std::move(state.startup_diagnostics);
+			return make_startup_crash_safe_mode_session(
+				std::move(*state.paths), std::move(marker_result),
+				request.clock.now());
+		}
+	}
 
 	CatalogStorageResult cleanup = persistence::cleanup_startup_temporary_files(
 		state.paths->app_private_root);
@@ -825,6 +918,98 @@ CatalogSessionState load_catalog_session(
 	return state;
 }
 
+CatalogSessionState load_guarded_catalog_session(
+	GuardedCatalogSessionLoadRequest request) {
+	platform::PlatformValueResult<platform::AppPrivatePaths> paths;
+	try {
+		paths = request.path_provider.resolve_app_private_paths();
+	} catch (const std::exception& exception) {
+		return make_path_resolution_exception_session(
+			"std::exception", exception_message(exception),
+			"App-private path provider threw before startup recovery paths "
+			"were "
+			"available.");
+	} catch (...) {
+		return make_path_resolution_exception_session(
+			"unknown", "unknown startup path resolution exception",
+			"App-private path provider threw a non-standard exception before "
+			"startup recovery paths were available.");
+	}
+
+	if (!paths.succeeded()) {
+		CatalogSessionState state;
+		state.source = CatalogSessionStartupSource::PathResolutionFailed;
+		state.startup_diagnostics = std::move(paths.diagnostics);
+		return state;
+	}
+
+	StartupAttemptMarkerReadResult marker_result =
+		read_startup_attempt_marker(*paths.value);
+	marker_result.diagnostics.insert(marker_result.diagnostics.begin(),
+									 paths.diagnostics.begin(),
+									 paths.diagnostics.end());
+	if (request.android_previous_exit_service != nullptr
+		&& (marker_result.safe_mode_required()
+			|| request.retry_requested_by_user)) {
+		StartupRecoveryFileResult previous_exit_captured =
+			capture_android_previous_exit_artifacts(
+				AndroidPreviousExitArtifactCaptureRequest{
+					.paths	 = *paths.value,
+					.service = *request.android_previous_exit_service,
+					.clock	 = request.clock});
+		marker_result.diagnostics.insert(
+			marker_result.diagnostics.end(),
+			previous_exit_captured.diagnostics.begin(),
+			previous_exit_captured.diagnostics.end());
+	}
+	if (marker_result.safe_mode_required()
+		&& !request.retry_requested_by_user) {
+		return make_startup_crash_safe_mode_session(std::move(*paths.value),
+													std::move(marker_result),
+													request.clock.now());
+	}
+
+	std::vector<Diagnostic> guard_diagnostics = marker_result.diagnostics;
+	try {
+		StartupAttemptMarker marker =
+			make_startup_attempt_marker(request, marker_result);
+		StartupRecoveryFileResult marker_written =
+			write_startup_attempt_marker(*paths.value, marker);
+		guard_diagnostics.insert(guard_diagnostics.end(),
+								 marker_written.diagnostics.begin(),
+								 marker_written.diagnostics.end());
+
+		CatalogSessionState session =
+			invoke_catalog_session_loader(request, *paths.value);
+		append_core_diagnostics(session, guard_diagnostics);
+		return session;
+	} catch (const std::exception& exception) {
+		return make_startup_exception_session(StartupExceptionSessionRequest{
+			.paths			= std::move(*paths.value),
+			.captured_at	= request.clock.now(),
+			.app_version	= std::move(request.app_version),
+			.platform		= std::move(request.platform),
+			.fallback_stage = "catalog-load",
+			.exception_kind = "std::exception",
+			.message		= exception_message(exception),
+			.technical_details =
+				"Guarded catalog startup caught an ordinary C++ exception.",
+			.diagnostics = std::move(guard_diagnostics)});
+	} catch (...) {
+		return make_startup_exception_session(StartupExceptionSessionRequest{
+			.paths			= std::move(*paths.value),
+			.captured_at	= request.clock.now(),
+			.app_version	= std::move(request.app_version),
+			.platform		= std::move(request.platform),
+			.fallback_stage = "catalog-load",
+			.exception_kind = "unknown",
+			.message		= "unknown startup exception",
+			.technical_details =
+				"Guarded catalog startup caught a non-standard exception.",
+			.diagnostics = std::move(guard_diagnostics)});
+	}
+}
+
 CatalogSessionState reload_catalog_session(CatalogSessionState session) {
 	session.source = CatalogSessionStartupSource::ExistingCatalog;
 	session.existing_canonical_metadata = true;
@@ -837,7 +1022,8 @@ CatalogSessionState reload_catalog_session(CatalogSessionState session) {
 CatalogRecoveryUiSummary make_recovery_ui_summary(
 	const CatalogSessionState& session) {
 	CatalogRecoveryUiSummary summary{
-		.load_status = session.load_status,
+		.load_status	= session.load_status,
+		.startup_source = session.source,
 		.accepted_item_count =
 			static_cast<std::uint64_t>(session.repository.items.size()),
 		.accepted_storage_count =
@@ -855,12 +1041,29 @@ CatalogRecoveryUiSummary make_recovery_ui_summary(
 			session.repository.recovery_summary.orphan_media_count};
 
 	if (session.fatal()) {
-		summary.plain_summary_message =
-			"Catalog cannot safely open. Browsing and editing stay disabled "
-			"until a backup is imported or the catalog is repaired.";
+		if (session.source
+			== CatalogSessionStartupSource::StartupCrashSafeMode) {
+			summary.plain_summary_message =
+				"Previous launch stopped before startup completed. Normal "
+				"catalog load was skipped so diagnostics can be exported or a "
+				"backup can be imported before retrying.";
+		} else if (session.source
+				   == CatalogSessionStartupSource::StartupException) {
+			summary.plain_summary_message =
+				"Startup failed before catalog browsing could open. Browsing "
+				"and editing stay disabled until diagnostics are reviewed or a "
+				"backup is imported.";
+		} else {
+			summary.plain_summary_message =
+				"Catalog cannot safely open. Browsing and editing stay "
+				"disabled "
+				"until a backup is imported or the catalog is repaired.";
+		}
 		summary.safe_actions = {"Export diagnostic archive",
-								"Import backup ZIP", "Show technical report",
-								"Exit"};
+								"Import backup ZIP", "Show technical report"};
+		if (summary.startup_crash_safe_mode())
+			summary.safe_actions.push_back("Retry normal launch");
+		summary.safe_actions.push_back("Exit");
 	} else if (session.degraded()) {
 		summary.plain_summary_message =
 			"Some records or media could not be loaded. Accepted records "

@@ -447,7 +447,11 @@ void collect_recursive_files(
 		"Diagnostic archive preserves raw readable files and does not repair "
 		"catalog metadata.",
 		"All readable files under media/photos are included, including orphan "
-		"media."};
+		"media.",
+		"Diagnostic archive may include previous startup crash artifacts such "
+		"as startup markers, exception reports, and safe-mode reports.",
+		"Diagnostic archive is unencrypted and may contain damaged records or "
+		"sensitive local data."};
 	std::vector<std::string> report_included_entries = included_entries;
 	report_included_entries.push_back(
 		std::string{diagnostic_archive_report_path});

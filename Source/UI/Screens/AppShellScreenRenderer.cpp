@@ -108,6 +108,8 @@ AppShellScreenRenderer::AppShellScreenRenderer(Dependencies dependencies)
 		  std::move(dependencies.actions.request_export_diagnostic_archive))
 	, request_import_backup_handler(
 		  std::move(dependencies.actions.request_import_backup))
+	, retry_normal_startup_handler(
+		  std::move(dependencies.actions.retry_normal_startup))
 	, confirm_staged_backup_import_handler(
 		  std::move(dependencies.actions.confirm_staged_backup_import))
 	, cleanup_item_pending_photos_handler(
@@ -906,6 +908,11 @@ void AppShellScreenRenderer::request_export_diagnostic_archive() {
 void AppShellScreenRenderer::request_import_backup() {
 	if (request_import_backup_handler)
 		request_import_backup_handler();
+}
+
+void AppShellScreenRenderer::retry_normal_startup() {
+	if (retry_normal_startup_handler)
+		retry_normal_startup_handler();
 }
 
 void AppShellScreenRenderer::confirm_staged_backup_import() {

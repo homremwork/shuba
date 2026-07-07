@@ -43,6 +43,11 @@ struct CatalogStorageResult final {
 	std::vector<core::Diagnostic> diagnostics;
 	bool changed_canonical_file{};
 	bool previous_copy_created{};
+	bool cleanup_attempted{};
+	bool active_catalog_tmp_cleanup_attempted{};
+	bool operation_tmp_cleanup_attempted{};
+	bool metadata_temp_cleanup_attempted{};
+	std::uint64_t cleanup_removed_entry_count{};
 	std::optional<std::filesystem::path> previous_copy_directory;
 	std::optional<std::filesystem::path> temp_path;
 
@@ -76,6 +81,11 @@ struct CatalogMetadataCommitRequest final {
 		default_previous_metadata_copy_retention};
 };
 
+struct CatalogStartupCleanupRequest final {
+	std::filesystem::path app_private_root;
+	std::vector<std::filesystem::path> protected_paths;
+};
+
 [[nodiscard]] CatalogContainerLayout make_catalog_container_layout(
 	std::filesystem::path app_private_root);
 
@@ -96,4 +106,6 @@ struct CatalogMetadataCommitRequest final {
 	const CatalogMetadataCommitRequest& request);
 [[nodiscard]] CatalogStorageResult cleanup_startup_temporary_files(
 	const std::filesystem::path& app_private_root);
+[[nodiscard]] CatalogStorageResult cleanup_startup_temporary_files(
+	const CatalogStartupCleanupRequest& request);
 }	 // namespace shuba::persistence
