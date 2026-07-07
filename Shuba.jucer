@@ -64,6 +64,12 @@
       <GROUP id="ui01" name="UI">
         <FILE id="appshellcpp" name="AppShell.cpp" compile="1" resource="0" file="Source/UI/AppShell.cpp"/>
         <FILE id="appshellhpp" name="AppShell.hpp" compile="0" resource="0" file="Source/UI/AppShell.hpp"/>
+        <FILE id="appshellpreviewschedulercpp" name="AppShellPreviewScheduler.cpp" compile="1" resource="0" file="Source/UI/AppShellPreviewScheduler.cpp"/>
+        <FILE id="appshellpreviewschedulerhpp" name="AppShellPreviewScheduler.hpp" compile="0" resource="0" file="Source/UI/AppShellPreviewScheduler.hpp"/>
+        <FILE id="appshellroutecoordinatorcpp" name="AppShellRouteCoordinator.cpp" compile="1" resource="0" file="Source/UI/AppShellRouteCoordinator.cpp"/>
+        <FILE id="appshellroutecoordinatorhpp" name="AppShellRouteCoordinator.hpp" compile="0" resource="0" file="Source/UI/AppShellRouteCoordinator.hpp"/>
+        <FILE id="appshelleditcoordinatorcpp" name="AppShellEditCoordinator.cpp" compile="1" resource="0" file="Source/UI/AppShellEditCoordinator.cpp"/>
+        <FILE id="appshelleditcoordinatorhpp" name="AppShellEditCoordinator.hpp" compile="0" resource="0" file="Source/UI/AppShellEditCoordinator.hpp"/>
         <FILE id="appshellphotocoordinatorcpp" name="AppShellPhotoCoordinator.cpp" compile="1" resource="0" file="Source/UI/AppShellPhotoCoordinator.cpp"/>
         <FILE id="appshellphotocoordinatorhpp" name="AppShellPhotoCoordinator.hpp" compile="0" resource="0" file="Source/UI/AppShellPhotoCoordinator.hpp"/>
         <FILE id="appshellstatehpp" name="AppShellState.hpp" compile="0" resource="0" file="Source/UI/AppShellState.hpp"/>
