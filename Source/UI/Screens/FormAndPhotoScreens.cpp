@@ -17,8 +17,9 @@ constexpr ImagePreviewSize viewer_preview_target_size{.max_width  = 640U,
 													  .max_height = 420U};
 
 template<typename Content>
-void add_status_rows(Content& content, domain::ItemStatus selected_status,
-					 std::function<void(domain::ItemStatus)> choose_status) {
+void add_status_rows(
+	Content& content, domain::ItemStatus selected_status,
+	const std::function<void(domain::ItemStatus)>& choose_status) {
 	content.add_inline_buttons(
 		"Status",
 		{InlineButtonRowComponent::Action{
@@ -56,7 +57,7 @@ void add_status_rows(Content& content, domain::ItemStatus selected_status,
 }
 template<typename Content>
 void add_tag_rows(Content& content, std::vector<domain::TagRow>& tags,
-				  std::function<void()> refresh) {
+				  const std::function<void()>& refresh) {
 	content.add_label(juce_text(tag_row_count_summary(tags)), 38,
 					  panel_colour(), true);
 	if (tags.empty())
@@ -216,6 +217,7 @@ void AppShellScreenRenderer::build_item_form_content() {
 		}
 		if (!groups.item_keys.empty()) {
 			std::vector<ButtonGridComponent::Action> item_key_actions;
+			item_key_actions.reserve(groups.item_keys.size());
 			for (const std::string& key : groups.item_keys) {
 				item_key_actions.push_back(ButtonGridComponent::Action{
 					.label = juce_text(key), .handler = [this, key] {
@@ -231,6 +233,7 @@ void AppShellScreenRenderer::build_item_form_content() {
 		}
 		if (!groups.storage_keys.empty()) {
 			std::vector<ButtonGridComponent::Action> storage_key_actions;
+			storage_key_actions.reserve(groups.storage_keys.size());
 			for (const std::string& key : groups.storage_keys) {
 				storage_key_actions.push_back(ButtonGridComponent::Action{
 					.label = juce_text(key), .handler = [this, key] {
@@ -468,6 +471,7 @@ void AppShellScreenRenderer::build_storage_form_content() {
 		}
 		if (!groups.item_keys.empty()) {
 			std::vector<ButtonGridComponent::Action> item_key_actions;
+			item_key_actions.reserve(groups.item_keys.size());
 			for (const std::string& key : groups.item_keys) {
 				item_key_actions.push_back(ButtonGridComponent::Action{
 					.label = juce_text(key), .handler = [this, key] {
@@ -484,6 +488,7 @@ void AppShellScreenRenderer::build_storage_form_content() {
 		}
 		if (!groups.storage_keys.empty()) {
 			std::vector<ButtonGridComponent::Action> storage_key_actions;
+			storage_key_actions.reserve(groups.storage_keys.size());
 			for (const std::string& key : groups.storage_keys) {
 				storage_key_actions.push_back(ButtonGridComponent::Action{
 					.label = juce_text(key), .handler = [this, key] {

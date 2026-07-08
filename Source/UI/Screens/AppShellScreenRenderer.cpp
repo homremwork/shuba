@@ -357,8 +357,8 @@ void AppShellScreenRenderer::apply_representative_preview(
 		return;
 	}
 
-	const core::StableIdentifier photo_id = *representative_usable_photo_id;
-	const ImagePreviewRenderState preview = load_internal_preview_image(
+	const core::StableIdentifier& photo_id = *representative_usable_photo_id;
+	const ImagePreviewRenderState preview  = load_internal_preview_image(
 		photo_id, list_preview_target_size, preview_priority);
 	card.content.image		 = preview.image;
 	card.content.state		 = preview.state;
@@ -383,8 +383,8 @@ void AppShellScreenRenderer::apply_representative_preview(
 		return;
 	}
 
-	const core::StableIdentifier photo_id = *representative_usable_photo_id;
-	const ImagePreviewRenderState preview = load_internal_preview_image(
+	const core::StableIdentifier& photo_id = *representative_usable_photo_id;
+	const ImagePreviewRenderState preview  = load_internal_preview_image(
 		photo_id, compact_storage_preview_target_size, preview_priority);
 	card.image		 = preview.image;
 	card.state		 = preview.state;
@@ -504,7 +504,7 @@ AppShellScreenRenderer::build_staged_photo_card_entries(
 
 std::vector<CurrentPhotoCardEntry>
 AppShellScreenRenderer::build_current_photo_card_entries(
-	domain::PhotoOwner owner, ImagePreviewSize target_size,
+	const domain::PhotoOwner& owner, ImagePreviewSize target_size,
 	std::optional<std::size_t> immediate_preview_index,
 	bool load_default_previews) {
 	std::vector<CurrentPhotoCardEntry> entries;
@@ -646,7 +646,7 @@ void AppShellScreenRenderer::add_photo_management_deck(
 		.clear_staged  = std::move(clear_staged_handler),
 		.remove_staged = std::move(remove_staged_handler),
 		.set_main_current =
-			[this, &deck_state](core::StableIdentifier photo_id) {
+			[this, &deck_state](const core::StableIdentifier& photo_id) {
 		deck_state.staged_main_index.reset();
 		EntityEditResult result = set_main_photo_in_session(
 			EntityEditRequest{.current_session = session,
@@ -707,7 +707,7 @@ AppShellScreenRenderer::selected_usable_photo_id_for_owner(
 	if (projection == nullptr)
 		return std::nullopt;
 
-	const std::optional<core::StableIdentifier> selected_photo_id =
+	std::optional<core::StableIdentifier> selected_photo_id =
 		selected_photo_id_for_owner(owner);
 	if (selected_photo_id.has_value()
 		&& std::ranges::find(projection->usable_photo_ids, *selected_photo_id)
@@ -719,7 +719,7 @@ AppShellScreenRenderer::selected_usable_photo_id_for_owner(
 }
 
 void AppShellScreenRenderer::add_owner_photo_carousel(
-	domain::PhotoOwner owner, catalog::PhotoPresenceState photo_presence,
+	const domain::PhotoOwner& owner, catalog::PhotoPresenceState photo_presence,
 	juce::String empty_title, juce::String empty_caption) {
 	const catalog::OwnerPhotoProjection* projection =
 		owner_photo_projection(session.repository, owner);

@@ -45,7 +45,8 @@ struct ImagePreviewRequestIdentity final {
 
 struct ImagePreviewCacheSettings final {
 	std::size_t maximum_entries{512U};
-	std::uint64_t maximum_pixel_bytes{128U * 1024U * 1024U};
+	std::uint64_t maximum_pixel_bytes{static_cast<std::uint64_t>(128U) * 1024U
+									  * 1024U};
 };
 
 struct ImagePreviewCacheStats final {

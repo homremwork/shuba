@@ -125,7 +125,7 @@ void import_two_photos_into_owner(
 	shuba::platform::ScriptedIdentifierSource& identifiers,
 	shuba::core::ManualClock& clock, const shuba::domain::PhotoOwner& owner,
 	std::string operation_id, std::string first_photo_id,
-	std::string second_photo_id, std::string source_prefix) {
+	std::string second_photo_id, const std::string& source_prefix) {
 	const std::filesystem::path source_a =
 		temporary.path() / (source_prefix + "-a.jpg");
 	const std::filesystem::path source_b =

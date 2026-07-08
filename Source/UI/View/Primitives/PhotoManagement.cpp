@@ -10,15 +10,18 @@
 
 namespace shuba::ui {
 namespace {
+constexpr std::uint64_t kibibyte{1024U};
+constexpr std::uint64_t mebibyte{kibibyte * 1024U};
+
 [[nodiscard]] std::string compact_byte_summary(
 	const std::optional<std::uint64_t>& byte_count) {
 	if (!byte_count.has_value())
 		return "size unknown";
-	if (*byte_count < 1024U)
+	if (*byte_count < kibibyte)
 		return std::to_string(*byte_count) + " B";
-	if (*byte_count < 1024U * 1024U)
-		return std::to_string(*byte_count / 1024U) + " KB";
-	return std::to_string(*byte_count / (1024U * 1024U)) + " MB";
+	if (*byte_count < mebibyte)
+		return std::to_string(*byte_count / kibibyte) + " KB";
+	return std::to_string(*byte_count / mebibyte) + " MB";
 }
 
 [[nodiscard]] std::string pending_photo_card_text(

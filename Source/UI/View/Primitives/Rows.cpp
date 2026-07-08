@@ -29,9 +29,9 @@ void TextRowComponent::paint(juce::Graphics& graphics) {
 		fitted_line_count(getHeight(), 14, font_height + 2.0f), 0.92f);
 }
 
-RowButtonComponent::RowButtonComponent(juce::String text_value,
+RowButtonComponent::RowButtonComponent(const juce::String& text_value,
 									   juce::Colour background_value)
-	: juce::Button(std::move(text_value)), background(background_value) {
+	: juce::Button(text_value), background(background_value) {
 	setOpaque(true);
 	setBufferedToImage(true);
 }
@@ -82,8 +82,8 @@ void RowButtonComponent::mouseUp(const juce::MouseEvent& event) {
 	juce::Button::mouseUp(event);
 }
 
-TouchSafeToggleButton::TouchSafeToggleButton(juce::String text_value)
-	: juce::ToggleButton(std::move(text_value)) {
+TouchSafeToggleButton::TouchSafeToggleButton(const juce::String& text_value)
+	: juce::ToggleButton(text_value) {
 	setBufferedToImage(true);
 }
 

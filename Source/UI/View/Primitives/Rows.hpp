@@ -19,7 +19,8 @@ private:
 
 class RowButtonComponent final : public juce::Button {
 public:
-	RowButtonComponent(juce::String text_value, juce::Colour background_value);
+	RowButtonComponent(const juce::String& text_value,
+					   juce::Colour background_value);
 
 	void paintButton(juce::Graphics& graphics, bool highlighted,
 					 bool down) override;
@@ -35,7 +36,7 @@ private:
 
 class TouchSafeToggleButton final : public juce::ToggleButton {
 public:
-	explicit TouchSafeToggleButton(juce::String text_value);
+	explicit TouchSafeToggleButton(const juce::String& text_value);
 
 private:
 	void mouseDown(const juce::MouseEvent& event) override;

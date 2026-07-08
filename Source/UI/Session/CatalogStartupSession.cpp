@@ -134,8 +134,8 @@ void append_core_diagnostics(CatalogSessionState& state,
 }
 
 [[nodiscard]] CatalogSessionState make_path_resolution_exception_session(
-	std::string exception_kind, std::string message,
-	std::string technical_details) {
+	const std::string& exception_kind, const std::string& message,
+	const std::string& technical_details) {
 	CatalogSessionState state;
 	state.source	  = CatalogSessionStartupSource::StartupException;
 	state.load_status = CatalogLoadStatus::Fatal;
@@ -994,7 +994,7 @@ CatalogSessionState load_guarded_catalog_session(
 			.message		= exception_message(exception),
 			.technical_details =
 				"Guarded catalog startup caught an ordinary C++ exception.",
-			.diagnostics = std::move(guard_diagnostics)});
+			.diagnostics = guard_diagnostics});
 	} catch (...) {
 		return make_startup_exception_session(StartupExceptionSessionRequest{
 			.paths			= std::move(*paths.value),
@@ -1006,7 +1006,7 @@ CatalogSessionState load_guarded_catalog_session(
 			.message		= "unknown startup exception",
 			.technical_details =
 				"Guarded catalog startup caught a non-standard exception.",
-			.diagnostics = std::move(guard_diagnostics)});
+			.diagnostics = guard_diagnostics});
 	}
 }
 

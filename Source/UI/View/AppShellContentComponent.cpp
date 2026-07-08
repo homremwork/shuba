@@ -9,15 +9,19 @@ AppShellContentComponent::AppShellContentComponent() {
 
 AppShellContentComponent::~AppShellContentComponent() {
 	for (Row& row : rows)
-		if (!row.owned)
-			row.component.release();
+		if (!row.owned) {
+			juce::Component* const released_component = row.component.release();
+			juce::ignoreUnused(released_component);
+		}
 }
 
 void AppShellContentComponent::clear_rows() {
 	for (Row& row : rows) {
 		removeChildComponent(row.component.get());
-		if (!row.owned)
-			row.component.release();
+		if (!row.owned) {
+			juce::Component* const released_component = row.component.release();
+			juce::ignoreUnused(released_component);
+		}
 	}
 	rows.clear();
 	if (!rebuilding)
@@ -44,11 +48,10 @@ TextRowComponent& AppShellContentComponent::add_label(juce::String text,
 	return reference;
 }
 
-juce::Button& AppShellContentComponent::add_button(juce::String text,
+juce::Button& AppShellContentComponent::add_button(const juce::String& text,
 												   int height) {
 	std::unique_ptr<RowButtonComponent> button =
-		std::make_unique<RowButtonComponent>(std::move(text),
-											 elevated_surface_colour());
+		std::make_unique<RowButtonComponent>(text, elevated_surface_colour());
 	RowButtonComponent& reference = *button;
 	add_row(std::move(button), height);
 	return reference;
@@ -143,13 +146,12 @@ ChipGridComponent& AppShellContentComponent::add_chip_grid(
 }
 
 EditorPairComponent& AppShellContentComponent::add_editor_pair(
-	juce::TextEditor& first_editor, juce::String first_placeholder,
-	juce::TextEditor& second_editor, juce::String second_placeholder,
+	juce::TextEditor& first_editor, const juce::String& first_placeholder,
+	juce::TextEditor& second_editor, const juce::String& second_placeholder,
 	int height) {
 	std::unique_ptr<EditorPairComponent> row =
-		std::make_unique<EditorPairComponent>(first_editor, second_editor,
-											  std::move(first_placeholder),
-											  std::move(second_placeholder));
+		std::make_unique<EditorPairComponent>(
+			first_editor, second_editor, first_placeholder, second_placeholder);
 	EditorPairComponent& reference = *row;
 	add_row(std::move(row), height);
 	return reference;
@@ -167,11 +169,11 @@ ManagedPhotoDeckComponent& AppShellContentComponent::add_managed_photo_deck(
 }
 
 TagRowEditorComponent& AppShellContentComponent::add_tag_editor_row(
-	std::size_t row_index, domain::TagRow tag,
+	std::size_t row_index, const domain::TagRow& tag,
 	std::function<void(std::size_t, domain::TagRow)> change_handler,
 	std::function<void(std::size_t)> remove_handler, int height) {
 	std::unique_ptr<TagRowEditorComponent> row =
-		std::make_unique<TagRowEditorComponent>(row_index, std::move(tag),
+		std::make_unique<TagRowEditorComponent>(row_index, tag,
 												std::move(change_handler),
 												std::move(remove_handler));
 	TagRowEditorComponent& reference = *row;
@@ -179,11 +181,10 @@ TagRowEditorComponent& AppShellContentComponent::add_tag_editor_row(
 	return reference;
 }
 
-juce::ToggleButton& AppShellContentComponent::add_toggle(juce::String text,
-														 bool state,
-														 int height) {
+juce::ToggleButton& AppShellContentComponent::add_toggle(
+	const juce::String& text, bool state, int height) {
 	std::unique_ptr<TouchSafeToggleButton> toggle =
-		std::make_unique<TouchSafeToggleButton>(std::move(text));
+		std::make_unique<TouchSafeToggleButton>(text);
 	TouchSafeToggleButton& reference = *toggle;
 	toggle->setToggleState(state, juce::dontSendNotification);
 	toggle->setColour(juce::ToggleButton::textColourId, text_colour());
@@ -192,12 +193,11 @@ juce::ToggleButton& AppShellContentComponent::add_toggle(juce::String text,
 	return reference;
 }
 
-juce::TextEditor& AppShellContentComponent::add_editor(juce::TextEditor& editor,
-													   juce::String placeholder,
-													   int height,
-													   bool multiline) {
+juce::TextEditor& AppShellContentComponent::add_editor(
+	juce::TextEditor& editor, const juce::String& placeholder, int height,
+	bool multiline) {
 	removeChildComponent(&editor);
-	editor.setTextToShowWhenEmpty(std::move(placeholder), muted_text_colour());
+	editor.setTextToShowWhenEmpty(placeholder, muted_text_colour());
 	editor.setMultiLine(multiline);
 	editor.setReturnKeyStartsNewLine(multiline);
 	editor.setScrollbarsShown(multiline);

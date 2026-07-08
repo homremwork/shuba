@@ -182,7 +182,7 @@ void ChipGridComponent::paint(juce::Graphics& graphics) {
 }
 
 TagRowEditorComponent::TagRowEditorComponent(
-	std::size_t row_index_value, domain::TagRow tag_value,
+	std::size_t row_index_value, const domain::TagRow& tag_value,
 	std::function<void(std::size_t, domain::TagRow)> change_handler,
 	std::function<void(std::size_t)> remove_handler)
 	: row_index(row_index_value)
@@ -236,13 +236,13 @@ void TagRowEditorComponent::publish_change() {
 
 EditorPairComponent::EditorPairComponent(juce::TextEditor& first_editor_value,
 										 juce::TextEditor& second_editor_value,
-										 juce::String first_placeholder,
-										 juce::String second_placeholder)
+										 const juce::String& first_placeholder,
+										 const juce::String& second_placeholder)
 	: first_editor(first_editor_value), second_editor(second_editor_value) {
 	setOpaque(true);
 	setBufferedToImage(true);
-	prepare_editor(first_editor, std::move(first_placeholder));
-	prepare_editor(second_editor, std::move(second_placeholder));
+	prepare_editor(first_editor, first_placeholder);
+	prepare_editor(second_editor, second_placeholder);
 	addAndMakeVisible(first_editor);
 	addAndMakeVisible(second_editor);
 }
@@ -267,10 +267,10 @@ void EditorPairComponent::paint(juce::Graphics& graphics) {
 }
 
 void EditorPairComponent::prepare_editor(juce::TextEditor& editor,
-										 juce::String placeholder) {
+										 const juce::String& placeholder) {
 	if (juce::Component* parent = editor.getParentComponent())
 		parent->removeChildComponent(&editor);
-	editor.setTextToShowWhenEmpty(std::move(placeholder), muted_text_colour());
+	editor.setTextToShowWhenEmpty(placeholder, muted_text_colour());
 	editor.setMultiLine(false);
 	editor.setReturnKeyStartsNewLine(false);
 	editor.setScrollbarsShown(false);

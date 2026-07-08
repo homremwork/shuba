@@ -204,7 +204,7 @@ private:
 		bool load_default_previews);
 	[[nodiscard]] std::vector<CurrentPhotoCardEntry>
 	build_current_photo_card_entries(
-		domain::PhotoOwner owner, ImagePreviewSize target_size,
+		const domain::PhotoOwner& owner, ImagePreviewSize target_size,
 		std::optional<std::size_t> immediate_preview_index,
 		bool load_default_previews);
 	void add_photo_management_deck(
@@ -217,7 +217,7 @@ private:
 		std::function<void(std::size_t)> set_main_staged_handler);
 	[[nodiscard]] std::size_t current_photo_count_for_owner(
 		const std::optional<domain::PhotoOwner>& owner) const;
-	void add_owner_photo_carousel(domain::PhotoOwner owner,
+	void add_owner_photo_carousel(const domain::PhotoOwner& owner,
 								  catalog::PhotoPresenceState photo_presence,
 								  juce::String empty_title,
 								  juce::String empty_caption);

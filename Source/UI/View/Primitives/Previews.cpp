@@ -424,13 +424,10 @@ void PhotoCarouselComponent::move_selection(int direction) {
 	if (slides.size() <= 1U)
 		return;
 
-	std::size_t next_index = selected_slide_index;
-	if (direction < 0) {
-		next_index = selected_slide_index == 0U ? slides.size() - 1U
-												: selected_slide_index - 1U;
-	} else {
-		next_index = (selected_slide_index + 1U) % slides.size();
-	}
+	const std::size_t next_index =
+		direction < 0 ? (selected_slide_index == 0U ? slides.size() - 1U
+													: selected_slide_index - 1U)
+					  : (selected_slide_index + 1U) % slides.size();
 	select_slide(next_index);
 }
 

@@ -83,7 +83,8 @@ AppShellPhotoCoordinator::AppShellPhotoCoordinator(Dependencies dependencies)
 		  std::move(dependencies.invalidate_staged_photo_preview))
 	, refresh_all_handler(std::move(dependencies.refresh_all)) {}
 
-void AppShellPhotoCoordinator::request_add_photos(domain::PhotoOwner owner) {
+void AppShellPhotoCoordinator::request_add_photos(
+	const domain::PhotoOwner& owner) {
 	progress_events.clear();
 	feedback.photo_diagnostics.clear();
 	feedback.photo_message = "Select photos to import.";
@@ -220,7 +221,7 @@ AppShellPhotoCoordinator::owner_for_pending_target(
 }
 
 void AppShellPhotoCoordinator::request_export_photo(
-	core::StableIdentifier photo_id) {
+	const core::StableIdentifier& photo_id) {
 	progress_events.clear();
 	feedback.photo_diagnostics.clear();
 	const std::string suggested_name =
@@ -277,8 +278,8 @@ void AppShellPhotoCoordinator::request_export_photo(
 }
 
 void AppShellPhotoCoordinator::request_delete_photo_confirmation(
-	core::StableIdentifier photo_id) {
-	photo_display.pending_delete_photo_id = std::move(photo_id);
+	const core::StableIdentifier& photo_id) {
+	photo_display.pending_delete_photo_id = photo_id;
 	feedback.photo_message =
 		"Tap Confirm delete to remove the selected photo metadata first.";
 	refresh_all();
@@ -291,10 +292,10 @@ void AppShellPhotoCoordinator::cancel_delete_photo_confirmation() {
 }
 
 void AppShellPhotoCoordinator::confirm_delete_photo(
-	core::StableIdentifier photo_id) {
+	const core::StableIdentifier& photo_id) {
 	if (!photo_display.pending_delete_photo_id.has_value()
 		|| *photo_display.pending_delete_photo_id != photo_id) {
-		request_delete_photo_confirmation(std::move(photo_id));
+		request_delete_photo_confirmation(photo_id);
 		return;
 	}
 
@@ -377,7 +378,8 @@ void AppShellPhotoCoordinator::apply_photo_import_result(
 }
 
 void AppShellPhotoCoordinator::apply_photo_edit_result(
-	EntityEditResult result, core::StableIdentifier selected_photo_id_value) {
+	EntityEditResult result,
+	const core::StableIdentifier& selected_photo_id_value) {
 	copy_entity_diagnostics_to_photo_feedback(feedback, result.diagnostics);
 	if (result.failed()) {
 		feedback.photo_message = "Photo metadata update failed.";

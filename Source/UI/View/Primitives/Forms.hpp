@@ -81,7 +81,7 @@ private:
 class TagRowEditorComponent final : public juce::Component {
 public:
 	TagRowEditorComponent(
-		std::size_t row_index_value, domain::TagRow tag_value,
+		std::size_t row_index_value, const domain::TagRow& tag_value,
 		std::function<void(std::size_t, domain::TagRow)> change_handler,
 		std::function<void(std::size_t)> remove_handler);
 
@@ -103,8 +103,8 @@ class EditorPairComponent final : public juce::Component {
 public:
 	EditorPairComponent(juce::TextEditor& first_editor_value,
 						juce::TextEditor& second_editor_value,
-						juce::String first_placeholder,
-						juce::String second_placeholder);
+						const juce::String& first_placeholder,
+						const juce::String& second_placeholder);
 	~EditorPairComponent() override;
 
 	void resized() override;
@@ -112,7 +112,7 @@ public:
 
 private:
 	static void prepare_editor(juce::TextEditor& editor,
-							   juce::String placeholder);
+							   const juce::String& placeholder);
 
 	juce::TextEditor& first_editor;
 	juce::TextEditor& second_editor;

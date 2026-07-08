@@ -28,7 +28,7 @@ public:
 		std::error_code error;
 		std::filesystem::remove_all(root, error);
 		std::filesystem::create_directories(root, error);
-		REQUIRE_FALSE(error);
+		REQUIRE(!error);
 	}
 
 	[[nodiscard]] const std::filesystem::path& path() const noexcept {

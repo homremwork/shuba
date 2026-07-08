@@ -48,15 +48,17 @@ public:
 
 	explicit AppShellPhotoCoordinator(Dependencies dependencies);
 
-	void request_add_photos(domain::PhotoOwner owner);
+	void request_add_photos(const domain::PhotoOwner& owner);
 	void request_add_pending_item_photos();
 	void request_add_pending_storage_photos();
-	void request_export_photo(core::StableIdentifier photo_id);
-	void request_delete_photo_confirmation(core::StableIdentifier photo_id);
-	void confirm_delete_photo(core::StableIdentifier photo_id);
+	void request_export_photo(const core::StableIdentifier& photo_id);
+	void request_delete_photo_confirmation(
+		const core::StableIdentifier& photo_id);
+	void confirm_delete_photo(const core::StableIdentifier& photo_id);
 	void cancel_delete_photo_confirmation();
-	void apply_photo_edit_result(EntityEditResult result,
-								 core::StableIdentifier selected_photo_id);
+	void apply_photo_edit_result(
+		EntityEditResult result,
+		const core::StableIdentifier& selected_photo_id);
 	void cleanup_item_pending_photos();
 	void cleanup_storage_pending_photos();
 	void remove_item_pending_photo(std::size_t pending_photo_index);

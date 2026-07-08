@@ -27,7 +27,7 @@ public:
 	TextRowComponent& add_label(juce::String text, int height,
 								juce::Colour colour = panel_colour(),
 								bool bold			= false);
-	juce::Button& add_button(juce::String text, int height);
+	juce::Button& add_button(const juce::String& text, int height);
 	ImagePanelComponent& add_image_panel(juce::Image image,
 										 juce::String caption,
 										 juce::String placeholder, int height);
@@ -52,20 +52,21 @@ public:
 		juce::String title, std::vector<ChipGridComponent::Action> actions,
 		int column_count, int height);
 	EditorPairComponent& add_editor_pair(juce::TextEditor& first_editor,
-										 juce::String first_placeholder,
+										 const juce::String& first_placeholder,
 										 juce::TextEditor& second_editor,
-										 juce::String second_placeholder,
+										 const juce::String& second_placeholder,
 										 int height);
 	ManagedPhotoDeckComponent& add_managed_photo_deck(
 		ManagedPhotoDeckModel model, ManagedPhotoDeckHandlers handlers,
 		int height);
 	TagRowEditorComponent& add_tag_editor_row(
-		std::size_t row_index, domain::TagRow tag,
+		std::size_t row_index, const domain::TagRow& tag,
 		std::function<void(std::size_t, domain::TagRow)> change_handler,
 		std::function<void(std::size_t)> remove_handler, int height);
-	juce::ToggleButton& add_toggle(juce::String text, bool state, int height);
+	juce::ToggleButton& add_toggle(const juce::String& text, bool state,
+								   int height);
 	juce::TextEditor& add_editor(juce::TextEditor& editor,
-								 juce::String placeholder, int height,
+								 const juce::String& placeholder, int height,
 								 bool multiline = false);
 
 	void resized() override;

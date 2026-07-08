@@ -30,10 +30,11 @@ namespace {
 		   && identity.source_key == normalized_preview_path(staged_path);
 }
 
-void append_fingerprint_part(std::string& fingerprint, std::string part) {
+void append_fingerprint_part(std::string& fingerprint,
+							 const std::string& part) {
 	if (!fingerprint.empty())
 		fingerprint += ';';
-	fingerprint += std::move(part);
+	fingerprint += part;
 }
 
 [[nodiscard]] std::string staged_source_fingerprint(
@@ -453,17 +454,18 @@ InternalPhotoPreviewLoadResult load_internal_photo_preview(
 	catalog::PhotoExportUseCase& photo_export_use_case,
 	platform::ProgressSink& progress_sink,
 	platform::CancellationToken& cancellation_token) {
-	ImagePreviewRequestIdentity identity = make_internal_photo_preview_identity(
-		request.photo_id, request.target_size);
+	const ImagePreviewRequestIdentity identity =
+		make_internal_photo_preview_identity(request.photo_id,
+											 request.target_size);
 	if (!valid_image_preview_size(request.target_size))
-		return invalid_preview_size_result(std::move(identity));
+		return invalid_preview_size_result(identity);
 
 	const platform::ImagePixels* cached_pixels = cache.find(identity);
 	if (cached_pixels != nullptr) {
 		return InternalPhotoPreviewLoadResult{
 			.status	   = ImagePreviewLoadStatus::Loaded,
 			.category  = core::OperationResultCategory::Success,
-			.identity  = std::move(identity),
+			.identity  = identity,
 			.pixels	   = *cached_pixels,
 			.cache_hit = true};
 	}
@@ -478,7 +480,7 @@ InternalPhotoPreviewLoadResult load_internal_photo_preview(
 		return InternalPhotoPreviewLoadResult{
 			.status		 = ImagePreviewLoadStatus::Cancelled,
 			.category	 = core::OperationResultCategory::UserCancelled,
-			.identity	 = std::move(identity),
+			.identity	 = identity,
 			.diagnostics = std::move(display_result.diagnostics),
 			.media_path	 = std::move(display_result.media_path)};
 	}
@@ -486,7 +488,7 @@ InternalPhotoPreviewLoadResult load_internal_photo_preview(
 		return InternalPhotoPreviewLoadResult{
 			.status		 = ImagePreviewLoadStatus::Broken,
 			.category	 = display_result.category,
-			.identity	 = std::move(identity),
+			.identity	 = identity,
 			.diagnostics = std::move(display_result.diagnostics),
 			.placeholder = std::move(display_result.placeholder),
 			.media_path	 = std::move(display_result.media_path)};
@@ -499,7 +501,7 @@ InternalPhotoPreviewLoadResult load_internal_photo_preview(
 		return InternalPhotoPreviewLoadResult{
 			.status		 = ImagePreviewLoadStatus::Broken,
 			.category	 = core::OperationResultCategory::CodecFailure,
-			.identity	 = std::move(identity),
+			.identity	 = identity,
 			.diagnostics = {make_preview_diagnostic(
 				core::DiagnosticSeverity::WriteBlockingError,
 				"image_preview_scale_failed",
@@ -533,7 +535,7 @@ InternalPhotoPreviewLoadResult load_internal_photo_preview(
 	return InternalPhotoPreviewLoadResult{
 		.status		  = ImagePreviewLoadStatus::Loaded,
 		.category	  = core::OperationResultCategory::Success,
-		.identity	  = std::move(identity),
+		.identity	  = identity,
 		.diagnostics  = std::move(display_result.diagnostics),
 		.pixels		  = std::move(preview_pixels),
 		.media_path	  = std::move(display_result.media_path),
@@ -546,19 +548,17 @@ StagedPhotoPreviewLoadResult load_staged_photo_preview(
 	platform::SourceImageDecodeService& decode_service,
 	platform::ProgressSink& progress_sink,
 	platform::CancellationToken& cancellation_token) {
-	ImagePreviewRequestIdentity identity =
+	const ImagePreviewRequestIdentity identity =
 		make_staged_photo_preview_identity(request.source, request.target_size);
-	std::optional<std::filesystem::path> staged_path =
+	const std::optional<std::filesystem::path> staged_path =
 		request.source.staged_path;
-	if (!valid_image_preview_size(request.target_size)) {
-		return invalid_staged_preview_size_result(std::move(identity),
-												  std::move(staged_path));
-	}
+	if (!valid_image_preview_size(request.target_size))
+		return invalid_staged_preview_size_result(identity, staged_path);
 
 	if (!request.source.ready_for_import()
 		|| !request.source.staged_path.has_value()) {
 		return staged_preview_failure_result(
-			std::move(identity), std::move(staged_path),
+			identity, staged_path,
 			core::OperationResultCategory::ValidationFailure,
 			make_preview_diagnostic(
 				core::DiagnosticSeverity::ActionValidationError,
@@ -575,15 +575,15 @@ StagedPhotoPreviewLoadResult load_staged_photo_preview(
 		return StagedPhotoPreviewLoadResult{
 			.status		 = ImagePreviewLoadStatus::Loaded,
 			.category	 = core::OperationResultCategory::Success,
-			.identity	 = std::move(identity),
+			.identity	 = identity,
 			.pixels		 = *cached_pixels,
-			.staged_path = std::move(staged_path),
+			.staged_path = staged_path,
 			.cache_hit	 = true};
 	}
 
 	if (!staged_path_readable(*request.source.staged_path)) {
 		return staged_preview_failure_result(
-			std::move(identity), std::move(staged_path),
+			identity, staged_path,
 			core::OperationResultCategory::SourceUnavailable,
 			make_preview_diagnostic(
 				core::DiagnosticSeverity::RecoverableWarning,
@@ -607,9 +607,9 @@ StagedPhotoPreviewLoadResult load_staged_photo_preview(
 		return StagedPhotoPreviewLoadResult{
 			.status		 = ImagePreviewLoadStatus::Cancelled,
 			.category	 = core::OperationResultCategory::UserCancelled,
-			.identity	 = std::move(identity),
+			.identity	 = identity,
 			.diagnostics = std::move(decoded.diagnostics),
-			.staged_path = std::move(staged_path)};
+			.staged_path = staged_path};
 	}
 	if (decoded.failed()) {
 		const std::string diagnostic_code =
@@ -618,12 +618,12 @@ StagedPhotoPreviewLoadResult load_staged_photo_preview(
 		return StagedPhotoPreviewLoadResult{
 			.status		 = ImagePreviewLoadStatus::Broken,
 			.category	 = decoded.category,
-			.identity	 = std::move(identity),
+			.identity	 = identity,
 			.diagnostics = std::move(decoded.diagnostics),
 			.placeholder = make_preview_placeholder(
 				"The staged photo source could not be decoded for preview.",
 				diagnostic_code),
-			.staged_path = std::move(staged_path)};
+			.staged_path = staged_path};
 	}
 
 	std::optional<platform::ImagePixels> scaled_pixels =
@@ -632,7 +632,7 @@ StagedPhotoPreviewLoadResult load_staged_photo_preview(
 		return StagedPhotoPreviewLoadResult{
 			.status		 = ImagePreviewLoadStatus::Broken,
 			.category	 = core::OperationResultCategory::CodecFailure,
-			.identity	 = std::move(identity),
+			.identity	 = identity,
 			.diagnostics = {make_preview_diagnostic(
 				core::DiagnosticSeverity::WriteBlockingError,
 				"staged_photo_preview_scale_failed",
@@ -641,7 +641,7 @@ StagedPhotoPreviewLoadResult load_staged_photo_preview(
 			.placeholder = make_preview_placeholder(
 				"The staged photo source could not be prepared for preview.",
 				"staged_photo_preview_scale_failed"),
-			.staged_path = std::move(staged_path)};
+			.staged_path = staged_path};
 	}
 
 	ImagePreviewLoadMetrics metrics{
@@ -664,10 +664,10 @@ StagedPhotoPreviewLoadResult load_staged_photo_preview(
 	return StagedPhotoPreviewLoadResult{
 		.status		  = ImagePreviewLoadStatus::Loaded,
 		.category	  = core::OperationResultCategory::Success,
-		.identity	  = std::move(identity),
+		.identity	  = identity,
 		.diagnostics  = std::move(decoded.diagnostics),
 		.pixels		  = std::move(preview_pixels),
-		.staged_path  = std::move(staged_path),
+		.staged_path  = staged_path,
 		.metrics	  = metrics,
 		.cache_stored = cache_stored};
 }
