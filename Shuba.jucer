@@ -4,31 +4,47 @@
               version="0.1.0" companyName="Shuba" companyWebsite="" companyEmail=""
               displaySplashScreen="0" reportAppUsage="0" splashScreenColour="Dark"
               useAppConfig="0" addUsingNamespaceToJuceHeader="1" jucerFormatVersion="1"
-              cppLanguageStandard="23" useGNUExtensions="0" headerPath="../../third_party/glaze/include;../../build/libjxl-android-arm64/lib/include"
+              cppLanguageStandard="23" useGNUExtensions="0" headerPath="../../Source;../../third_party/glaze/include;../../build/libjxl-android-arm64/lib/include"
               projectLineFeed="&#10;">
   <MAINGROUP id="main01" name="Shuba">
     <GROUP id="source01" name="Source">
-	  <GROUP id="catalog01" name="Catalog">
-		<FILE id="backuparchive_cpp" name="BackupArchive.cpp" compile="1" resource="0" file="Source/Catalog/BackupArchive.cpp"/>
-		<FILE id="backuparchive_hpp" name="BackupArchive.hpp" compile="0" resource="0" file="Source/Catalog/BackupArchive.hpp"/>
-		<FILE id="catalogreplacement_cpp" name="CatalogReplacement.cpp" compile="1" resource="0" file="Source/Catalog/CatalogReplacement.cpp"/>
-		<FILE id="catalogreplacement_hpp" name="CatalogReplacement.hpp" compile="0" resource="0" file="Source/Catalog/CatalogReplacement.hpp"/>
-		<FILE id="catalogrepo_cpp" name="CatalogRepository.cpp" compile="1" resource="0" file="Source/Catalog/CatalogRepository.cpp"/>
-		<FILE id="catalogrepo_hpp" name="CatalogRepository.hpp" compile="0" resource="0" file="Source/Catalog/CatalogRepository.hpp"/>
-		<FILE id="photoexport_cpp" name="PhotoExport.cpp" compile="1" resource="0" file="Source/Catalog/PhotoExport.cpp"/>
-		<FILE id="photoexport_hpp" name="PhotoExport.hpp" compile="0" resource="0" file="Source/Catalog/PhotoExport.hpp"/>
-		<FILE id="photoimport_cpp" name="PhotoImport.cpp" compile="1" resource="0" file="Source/Catalog/PhotoImport.cpp"/>
-		<FILE id="photoimport_hpp" name="PhotoImport.hpp" compile="0" resource="0" file="Source/Catalog/PhotoImport.hpp"/>
-        <FILE id="catalogsearch_cpp" name="Search.cpp" compile="1" resource="0" file="Source/Catalog/Search.cpp"/>
-        <FILE id="catalogsearch_hpp" name="Search.hpp" compile="0" resource="0" file="Source/Catalog/Search.hpp"/>
+      <GROUP id="catalog01" name="Catalog">
+        <FILE id="backuparchive_cpp" name="BackupArchive.cpp" compile="1" resource="0"
+              file="Source/Catalog/BackupArchive.cpp"/>
+        <FILE id="backuparchive_hpp" name="BackupArchive.hpp" compile="0" resource="0"
+              file="Source/Catalog/BackupArchive.hpp"/>
+        <FILE id="catalogreplacement_cpp" name="CatalogReplacement.cpp" compile="1"
+              resource="0" file="Source/Catalog/CatalogReplacement.cpp"/>
+        <FILE id="catalogreplacement_hpp" name="CatalogReplacement.hpp" compile="0"
+              resource="0" file="Source/Catalog/CatalogReplacement.hpp"/>
+        <FILE id="catalogrepo_cpp" name="CatalogRepository.cpp" compile="1"
+              resource="0" file="Source/Catalog/CatalogRepository.cpp"/>
+        <FILE id="catalogrepo_hpp" name="CatalogRepository.hpp" compile="0"
+              resource="0" file="Source/Catalog/CatalogRepository.hpp"/>
+        <FILE id="photoexport_cpp" name="PhotoExport.cpp" compile="1" resource="0"
+              file="Source/Catalog/PhotoExport.cpp"/>
+        <FILE id="photoexport_hpp" name="PhotoExport.hpp" compile="0" resource="0"
+              file="Source/Catalog/PhotoExport.hpp"/>
+        <FILE id="photoimport_cpp" name="PhotoImport.cpp" compile="1" resource="0"
+              file="Source/Catalog/PhotoImport.cpp"/>
+        <FILE id="photoimport_hpp" name="PhotoImport.hpp" compile="0" resource="0"
+              file="Source/Catalog/PhotoImport.hpp"/>
+        <FILE id="catalogsearch_cpp" name="Search.cpp" compile="1" resource="0"
+              file="Source/Catalog/Search.cpp"/>
+        <FILE id="catalogsearch_hpp" name="Search.hpp" compile="0" resource="0"
+              file="Source/Catalog/Search.hpp"/>
       </GROUP>
       <GROUP id="core01" name="Core">
         <FILE id="coreclockcpp" name="Clock.cpp" compile="1" resource="0" file="Source/Core/Clock.cpp"/>
         <FILE id="coreclockhpp" name="Clock.hpp" compile="0" resource="0" file="Source/Core/Clock.hpp"/>
-        <FILE id="coreidcpp" name="Identifier.cpp" compile="1" resource="0" file="Source/Core/Identifier.cpp"/>
-        <FILE id="coreidhpp" name="Identifier.hpp" compile="0" resource="0" file="Source/Core/Identifier.hpp"/>
-        <FILE id="opgatecpp" name="OperationGate.cpp" compile="1" resource="0" file="Source/Core/OperationGate.cpp"/>
-        <FILE id="opgatehpp" name="OperationGate.hpp" compile="0" resource="0" file="Source/Core/OperationGate.hpp"/>
+        <FILE id="coreidcpp" name="Identifier.cpp" compile="1" resource="0"
+              file="Source/Core/Identifier.cpp"/>
+        <FILE id="coreidhpp" name="Identifier.hpp" compile="0" resource="0"
+              file="Source/Core/Identifier.hpp"/>
+        <FILE id="opgatecpp" name="OperationGate.cpp" compile="1" resource="0"
+              file="Source/Core/OperationGate.cpp"/>
+        <FILE id="opgatehpp" name="OperationGate.hpp" compile="0" resource="0"
+              file="Source/Core/OperationGate.hpp"/>
         <FILE id="resultcpp" name="Result.cpp" compile="1" resource="0" file="Source/Core/Result.cpp"/>
         <FILE id="resulthpp" name="Result.hpp" compile="0" resource="0" file="Source/Core/Result.hpp"/>
       </GROUP>
@@ -37,92 +53,165 @@
         <FILE id="domainhpp" name="Domain.hpp" compile="0" resource="0" file="Source/Domain/Domain.hpp"/>
       </GROUP>
       <GROUP id="persistence01" name="Persistence">
-        <FILE id="catalogstoragecpp" name="CatalogStorage.cpp" compile="1" resource="0" file="Source/Persistence/CatalogStorage.cpp"/>
-        <FILE id="catalogstoragehpp" name="CatalogStorage.hpp" compile="0" resource="0" file="Source/Persistence/CatalogStorage.hpp"/>
-        <FILE id="jsonlcatalogcpp" name="JsonlCatalog.cpp" compile="1" resource="0" file="Source/Persistence/JsonlCatalog.cpp"/>
-        <FILE id="jsonlcataloghpp" name="JsonlCatalog.hpp" compile="0" resource="0" file="Source/Persistence/JsonlCatalog.hpp"/>
-        <FILE id="metadataschemacpp" name="MetadataSchema.cpp" compile="1" resource="0" file="Source/Persistence/MetadataSchema.cpp"/>
-        <FILE id="metadataschemahpp" name="MetadataSchema.hpp" compile="0" resource="0" file="Source/Persistence/MetadataSchema.hpp"/>
+        <FILE id="catalogstoragecpp" name="CatalogStorage.cpp" compile="1"
+              resource="0" file="Source/Persistence/CatalogStorage.cpp"/>
+        <FILE id="catalogstoragehpp" name="CatalogStorage.hpp" compile="0"
+              resource="0" file="Source/Persistence/CatalogStorage.hpp"/>
+        <FILE id="jsonlcatalogcpp" name="JsonlCatalog.cpp" compile="1" resource="0"
+              file="Source/Persistence/JsonlCatalog.cpp"/>
+        <FILE id="jsonlcataloghpp" name="JsonlCatalog.hpp" compile="0" resource="0"
+              file="Source/Persistence/JsonlCatalog.hpp"/>
+        <FILE id="metadataschemacpp" name="MetadataSchema.cpp" compile="1"
+              resource="0" file="Source/Persistence/MetadataSchema.cpp"/>
+        <FILE id="metadataschemahpp" name="MetadataSchema.hpp" compile="0"
+              resource="0" file="Source/Persistence/MetadataSchema.hpp"/>
       </GROUP>
-	  <GROUP id="platform01" name="Platform">
-		<FILE id="androidpreviousexitcpp" name="AndroidPreviousExit.cpp" compile="1" resource="0" file="Source/Platform/AndroidPreviousExit.cpp"/>
-		<FILE id="androidpreviousexithpp" name="AndroidPreviousExit.hpp" compile="0" resource="0" file="Source/Platform/AndroidPreviousExit.hpp"/>
-		<FILE id="jxlcodeccpp" name="JpegXlPhotoCodec.cpp" compile="1" resource="0" file="Source/Platform/JpegXlPhotoCodec.cpp"/>
-		<FILE id="jxlcodechpp" name="JpegXlPhotoCodec.hpp" compile="0" resource="0" file="Source/Platform/JpegXlPhotoCodec.hpp"/>
-		<FILE id="juceandroidpreviousexitcpp" name="JuceAndroidPreviousExit.cpp" compile="1" resource="0" file="Source/Platform/JuceAndroidPreviousExit.cpp"/>
-		<FILE id="juceandroidpreviousexithpp" name="JuceAndroidPreviousExit.hpp" compile="0" resource="0" file="Source/Platform/JuceAndroidPreviousExit.hpp"/>
-		<FILE id="jucehashingcpp" name="JuceHashing.cpp" compile="1" resource="0" file="Source/Platform/JuceHashing.cpp"/>
-		<FILE id="jucehashinghpp" name="JuceHashing.hpp" compile="0" resource="0" file="Source/Platform/JuceHashing.hpp"/>
-		<FILE id="jucejpegexportcpp" name="JuceJpegExport.cpp" compile="1" resource="0" file="Source/Platform/JuceJpegExport.cpp"/>
-		<FILE id="juceziparchivecpp" name="JuceZipArchive.cpp" compile="1" resource="0" file="Source/Platform/JuceZipArchive.cpp"/>
-		<FILE id="juceziparchivehpp" name="JuceZipArchive.hpp" compile="0" resource="0" file="Source/Platform/JuceZipArchive.hpp"/>
-		<FILE id="juceandroidcpp" name="JuceAndroidServices.cpp" compile="1" resource="0" file="Source/Platform/JuceAndroidServices.cpp"/>
-        <FILE id="juceandroidhpp" name="JuceAndroidServices.hpp" compile="0" resource="0" file="Source/Platform/JuceAndroidServices.hpp"/>
-        <FILE id="platformcpp" name="PlatformServices.cpp" compile="1" resource="0" file="Source/Platform/PlatformServices.cpp"/>
-        <FILE id="platformhpp" name="PlatformServices.hpp" compile="0" resource="0" file="Source/Platform/PlatformServices.hpp"/>
+      <GROUP id="platform01" name="Platform">
+        <FILE id="androidpreviousexitcpp" name="AndroidPreviousExit.cpp" compile="1"
+              resource="0" file="Source/Platform/AndroidPreviousExit.cpp"/>
+        <FILE id="androidpreviousexithpp" name="AndroidPreviousExit.hpp" compile="0"
+              resource="0" file="Source/Platform/AndroidPreviousExit.hpp"/>
+        <FILE id="jxlcodeccpp" name="JpegXlPhotoCodec.cpp" compile="1" resource="0"
+              file="Source/Platform/JpegXlPhotoCodec.cpp"/>
+        <FILE id="jxlcodechpp" name="JpegXlPhotoCodec.hpp" compile="0" resource="0"
+              file="Source/Platform/JpegXlPhotoCodec.hpp"/>
+        <FILE id="juceandroidpreviousexitcpp" name="JuceAndroidPreviousExit.cpp"
+              compile="1" resource="0" file="Source/Platform/JuceAndroidPreviousExit.cpp"/>
+        <FILE id="juceandroidpreviousexithpp" name="JuceAndroidPreviousExit.hpp"
+              compile="0" resource="0" file="Source/Platform/JuceAndroidPreviousExit.hpp"/>
+        <FILE id="jucehashingcpp" name="JuceHashing.cpp" compile="1" resource="0"
+              file="Source/Platform/JuceHashing.cpp"/>
+        <FILE id="jucehashinghpp" name="JuceHashing.hpp" compile="0" resource="0"
+              file="Source/Platform/JuceHashing.hpp"/>
+        <FILE id="jucejpegexportcpp" name="JuceJpegExport.cpp" compile="1"
+              resource="0" file="Source/Platform/JuceJpegExport.cpp"/>
+        <FILE id="juceziparchivecpp" name="JuceZipArchive.cpp" compile="1"
+              resource="0" file="Source/Platform/JuceZipArchive.cpp"/>
+        <FILE id="juceziparchivehpp" name="JuceZipArchive.hpp" compile="0"
+              resource="0" file="Source/Platform/JuceZipArchive.hpp"/>
+        <FILE id="juceandroidcpp" name="JuceAndroidServices.cpp" compile="1"
+              resource="0" file="Source/Platform/JuceAndroidServices.cpp"/>
+        <FILE id="juceandroidhpp" name="JuceAndroidServices.hpp" compile="0"
+              resource="0" file="Source/Platform/JuceAndroidServices.hpp"/>
+        <FILE id="platformcpp" name="PlatformServices.cpp" compile="1" resource="0"
+              file="Source/Platform/PlatformServices.cpp"/>
+        <FILE id="platformhpp" name="PlatformServices.hpp" compile="0" resource="0"
+              file="Source/Platform/PlatformServices.hpp"/>
       </GROUP>
       <GROUP id="ui01" name="UI">
-        <FILE id="appshellcpp" name="AppShell.cpp" compile="1" resource="0" file="Source/UI/AppShell.cpp"/>
-        <FILE id="appshellhpp" name="AppShell.hpp" compile="0" resource="0" file="Source/UI/AppShell.hpp"/>
-        <FILE id="appshellpreviewschedulercpp" name="AppShellPreviewScheduler.cpp" compile="1" resource="0" file="Source/UI/AppShellPreviewScheduler.cpp"/>
-        <FILE id="appshellpreviewschedulerhpp" name="AppShellPreviewScheduler.hpp" compile="0" resource="0" file="Source/UI/AppShellPreviewScheduler.hpp"/>
-        <FILE id="appshellroutecoordinatorcpp" name="AppShellRouteCoordinator.cpp" compile="1" resource="0" file="Source/UI/AppShellRouteCoordinator.cpp"/>
-        <FILE id="appshellroutecoordinatorhpp" name="AppShellRouteCoordinator.hpp" compile="0" resource="0" file="Source/UI/AppShellRouteCoordinator.hpp"/>
-        <FILE id="appshelleditcoordinatorcpp" name="AppShellEditCoordinator.cpp" compile="1" resource="0" file="Source/UI/AppShellEditCoordinator.cpp"/>
-        <FILE id="appshelleditcoordinatorhpp" name="AppShellEditCoordinator.hpp" compile="0" resource="0" file="Source/UI/AppShellEditCoordinator.hpp"/>
-        <FILE id="appshellphotocoordinatorcpp" name="AppShellPhotoCoordinator.cpp" compile="1" resource="0" file="Source/UI/AppShellPhotoCoordinator.cpp"/>
-        <FILE id="appshellphotocoordinatorhpp" name="AppShellPhotoCoordinator.hpp" compile="0" resource="0" file="Source/UI/AppShellPhotoCoordinator.hpp"/>
-        <FILE id="appshellstatehpp" name="AppShellState.hpp" compile="0" resource="0" file="Source/UI/AppShellState.hpp"/>
-        <FILE id="catalogsessioncpp" name="CatalogSession.cpp" compile="1" resource="0" file="Source/UI/CatalogSession.cpp"/>
-        <FILE id="catalogsessionhpp" name="CatalogSession.hpp" compile="0" resource="0" file="Source/UI/CatalogSession.hpp"/>
-
-<GROUP id="uiview01" name="View">
-  <FILE id="appshellchromecomponentcpp" name="AppShellChromeComponent.cpp" compile="1" resource="0" file="Source/UI/View/AppShellChromeComponent.cpp"/>
-  <FILE id="appshellchromecomponenthpp" name="AppShellChromeComponent.hpp" compile="0" resource="0" file="Source/UI/View/AppShellChromeComponent.hpp"/>
-  <FILE id="appshellcontentcomponentcpp" name="AppShellContentComponent.cpp" compile="1" resource="0" file="Source/UI/View/AppShellContentComponent.cpp"/>
-  <FILE id="appshellcontentcomponenthpp" name="AppShellContentComponent.hpp" compile="0" resource="0" file="Source/UI/View/AppShellContentComponent.hpp"/>
-  <GROUP id="uiviewprimitives01" name="Primitives">
-    <FILE id="palettecpp" name="Palette.cpp" compile="1" resource="0" file="Source/UI/View/Primitives/Palette.cpp"/>
-    <FILE id="palettehpp" name="Palette.hpp" compile="0" resource="0" file="Source/UI/View/Primitives/Palette.hpp"/>
-    <FILE id="touchguardscpp" name="TouchGuards.cpp" compile="1" resource="0" file="Source/UI/View/Primitives/TouchGuards.cpp"/>
-    <FILE id="touchguardshpp" name="TouchGuards.hpp" compile="0" resource="0" file="Source/UI/View/Primitives/TouchGuards.hpp"/>
-    <FILE id="rowscpp" name="Rows.cpp" compile="1" resource="0" file="Source/UI/View/Primitives/Rows.cpp"/>
-    <FILE id="rowshpp" name="Rows.hpp" compile="0" resource="0" file="Source/UI/View/Primitives/Rows.hpp"/>
-    <FILE id="previewscpp" name="Previews.cpp" compile="1" resource="0" file="Source/UI/View/Primitives/Previews.cpp"/>
-    <FILE id="previewshpp" name="Previews.hpp" compile="0" resource="0" file="Source/UI/View/Primitives/Previews.hpp"/>
-    <FILE id="formscpp" name="Forms.cpp" compile="1" resource="0" file="Source/UI/View/Primitives/Forms.cpp"/>
-    <FILE id="formshpp" name="Forms.hpp" compile="0" resource="0" file="Source/UI/View/Primitives/Forms.hpp"/>
-    <FILE id="photomanagementcpp" name="PhotoManagement.cpp" compile="1" resource="0" file="Source/UI/View/Primitives/PhotoManagement.cpp"/>
-    <FILE id="photomanagementhpp" name="PhotoManagement.hpp" compile="0" resource="0" file="Source/UI/View/Primitives/PhotoManagement.hpp"/>
-  </GROUP>
-  <FILE id="screentextcpp" name="ScreenText.cpp" compile="1" resource="0" file="Source/UI/View/ScreenText.cpp"/>
-  <FILE id="screentexthpp" name="ScreenText.hpp" compile="0" resource="0" file="Source/UI/View/ScreenText.hpp"/>
-</GROUP>
-<GROUP id="uiscreens01" name="Screens">
-  <FILE id="appshellscreenrenderercpp" name="AppShellScreenRenderer.cpp" compile="1" resource="0" file="Source/UI/Screens/AppShellScreenRenderer.cpp"/>
-  <FILE id="appshellscreenrendererhpp" name="AppShellScreenRenderer.hpp" compile="0" resource="0" file="Source/UI/Screens/AppShellScreenRenderer.hpp"/>
-  <FILE id="catalogscreenscpp" name="CatalogScreens.cpp" compile="1" resource="0" file="Source/UI/Screens/CatalogScreens.cpp"/>
-  <FILE id="formandphotoscreenscpp" name="FormAndPhotoScreens.cpp" compile="1" resource="0" file="Source/UI/Screens/FormAndPhotoScreens.cpp"/>
-  <FILE id="maintenancescreenscpp" name="MaintenanceScreens.cpp" compile="1" resource="0" file="Source/UI/Screens/MaintenanceScreens.cpp"/>
-  <FILE id="storagescreenscpp" name="StorageScreens.cpp" compile="1" resource="0" file="Source/UI/Screens/StorageScreens.cpp"/>
-</GROUP>
+        <FILE id="appshellcpp" name="AppShell.cpp" compile="1" resource="0"
+              file="Source/UI/AppShell.cpp"/>
+        <FILE id="appshellhpp" name="AppShell.hpp" compile="0" resource="0"
+              file="Source/UI/AppShell.hpp"/>
+        <FILE id="appshellpreviewschedulercpp" name="AppShellPreviewScheduler.cpp"
+              compile="1" resource="0" file="Source/UI/AppShellPreviewScheduler.cpp"/>
+        <FILE id="appshellpreviewschedulerhpp" name="AppShellPreviewScheduler.hpp"
+              compile="0" resource="0" file="Source/UI/AppShellPreviewScheduler.hpp"/>
+        <FILE id="appshellroutecoordinatorcpp" name="AppShellRouteCoordinator.cpp"
+              compile="1" resource="0" file="Source/UI/AppShellRouteCoordinator.cpp"/>
+        <FILE id="appshellroutecoordinatorhpp" name="AppShellRouteCoordinator.hpp"
+              compile="0" resource="0" file="Source/UI/AppShellRouteCoordinator.hpp"/>
+        <FILE id="appshelleditcoordinatorcpp" name="AppShellEditCoordinator.cpp"
+              compile="1" resource="0" file="Source/UI/AppShellEditCoordinator.cpp"/>
+        <FILE id="appshelleditcoordinatorhpp" name="AppShellEditCoordinator.hpp"
+              compile="0" resource="0" file="Source/UI/AppShellEditCoordinator.hpp"/>
+        <FILE id="appshellphotocoordinatorcpp" name="AppShellPhotoCoordinator.cpp"
+              compile="1" resource="0" file="Source/UI/AppShellPhotoCoordinator.cpp"/>
+        <FILE id="appshellphotocoordinatorhpp" name="AppShellPhotoCoordinator.hpp"
+              compile="0" resource="0" file="Source/UI/AppShellPhotoCoordinator.hpp"/>
+        <FILE id="appshellstatehpp" name="AppShellState.hpp" compile="0" resource="0"
+              file="Source/UI/AppShellState.hpp"/>
+        <FILE id="catalogsessioncpp" name="CatalogSession.cpp" compile="1"
+              resource="0" file="Source/UI/CatalogSession.cpp"/>
+        <FILE id="catalogsessionhpp" name="CatalogSession.hpp" compile="0"
+              resource="0" file="Source/UI/CatalogSession.hpp"/>
+        <GROUP id="uiview01" name="View">
+          <FILE id="appshellchromecomponentcpp" name="AppShellChromeComponent.cpp"
+                compile="1" resource="0" file="Source/UI/View/AppShellChromeComponent.cpp"/>
+          <FILE id="appshellchromecomponenthpp" name="AppShellChromeComponent.hpp"
+                compile="0" resource="0" file="Source/UI/View/AppShellChromeComponent.hpp"/>
+          <FILE id="appshellcontentcomponentcpp" name="AppShellContentComponent.cpp"
+                compile="1" resource="0" file="Source/UI/View/AppShellContentComponent.cpp"/>
+          <FILE id="appshellcontentcomponenthpp" name="AppShellContentComponent.hpp"
+                compile="0" resource="0" file="Source/UI/View/AppShellContentComponent.hpp"/>
+          <FILE id="uisafeareahpp" name="SafeArea.hpp" compile="0" resource="0"
+                file="Source/UI/View/SafeArea.hpp"/>
+          <GROUP id="uiviewprimitives01" name="Primitives">
+            <FILE id="palettecpp" name="Palette.cpp" compile="1" resource="0" file="Source/UI/View/Primitives/Palette.cpp"/>
+            <FILE id="palettehpp" name="Palette.hpp" compile="0" resource="0" file="Source/UI/View/Primitives/Palette.hpp"/>
+            <FILE id="touchguardscpp" name="TouchGuards.cpp" compile="1" resource="0"
+                  file="Source/UI/View/Primitives/TouchGuards.cpp"/>
+            <FILE id="touchguardshpp" name="TouchGuards.hpp" compile="0" resource="0"
+                  file="Source/UI/View/Primitives/TouchGuards.hpp"/>
+            <FILE id="rowscpp" name="Rows.cpp" compile="1" resource="0" file="Source/UI/View/Primitives/Rows.cpp"/>
+            <FILE id="rowshpp" name="Rows.hpp" compile="0" resource="0" file="Source/UI/View/Primitives/Rows.hpp"/>
+            <FILE id="previewscpp" name="Previews.cpp" compile="1" resource="0"
+                  file="Source/UI/View/Primitives/Previews.cpp"/>
+            <FILE id="previewshpp" name="Previews.hpp" compile="0" resource="0"
+                  file="Source/UI/View/Primitives/Previews.hpp"/>
+            <FILE id="formscpp" name="Forms.cpp" compile="1" resource="0" file="Source/UI/View/Primitives/Forms.cpp"/>
+            <FILE id="formshpp" name="Forms.hpp" compile="0" resource="0" file="Source/UI/View/Primitives/Forms.hpp"/>
+            <FILE id="photomanagementcpp" name="PhotoManagement.cpp" compile="1"
+                  resource="0" file="Source/UI/View/Primitives/PhotoManagement.cpp"/>
+            <FILE id="photomanagementhpp" name="PhotoManagement.hpp" compile="0"
+                  resource="0" file="Source/UI/View/Primitives/PhotoManagement.hpp"/>
+          </GROUP>
+          <FILE id="screentextcpp" name="ScreenText.cpp" compile="1" resource="0"
+                file="Source/UI/View/ScreenText.cpp"/>
+          <FILE id="screentexthpp" name="ScreenText.hpp" compile="0" resource="0"
+                file="Source/UI/View/ScreenText.hpp"/>
+        </GROUP>
+        <GROUP id="uiscreens01" name="Screens">
+          <FILE id="appshellscreenrenderercpp" name="AppShellScreenRenderer.cpp"
+                compile="1" resource="0" file="Source/UI/Screens/AppShellScreenRenderer.cpp"/>
+          <FILE id="appshellscreenrendererhpp" name="AppShellScreenRenderer.hpp"
+                compile="0" resource="0" file="Source/UI/Screens/AppShellScreenRenderer.hpp"/>
+          <FILE id="catalogscreenscpp" name="CatalogScreens.cpp" compile="1"
+                resource="0" file="Source/UI/Screens/CatalogScreens.cpp"/>
+          <FILE id="formandphotoscreenscpp" name="FormAndPhotoScreens.cpp" compile="1"
+                resource="0" file="Source/UI/Screens/FormAndPhotoScreens.cpp"/>
+          <FILE id="maintenancescreenscpp" name="MaintenanceScreens.cpp" compile="1"
+                resource="0" file="Source/UI/Screens/MaintenanceScreens.cpp"/>
+          <FILE id="storagescreenscpp" name="StorageScreens.cpp" compile="1"
+                resource="0" file="Source/UI/Screens/StorageScreens.cpp"/>
+        </GROUP>
         <GROUP id="uisession01" name="Session">
-          <FILE id="androidpreviousexitartifactscpp" name="AndroidPreviousExitArtifacts.cpp" compile="1" resource="0" file="Source/UI/Session/AndroidPreviousExitArtifacts.cpp"/>
-          <FILE id="androidpreviousexitartifactshpp" name="AndroidPreviousExitArtifacts.hpp" compile="0" resource="0" file="Source/UI/Session/AndroidPreviousExitArtifacts.hpp"/>
-          <FILE id="catalogsessionstatehpp" name="CatalogSessionState.hpp" compile="0" resource="0" file="Source/UI/Session/CatalogSessionState.hpp"/>
-          <FILE id="catalogstartupsessioncpp" name="CatalogStartupSession.cpp" compile="1" resource="0" file="Source/UI/Session/CatalogStartupSession.cpp"/>
-          <FILE id="catalogstartupsessionhpp" name="CatalogStartupSession.hpp" compile="0" resource="0" file="Source/UI/Session/CatalogStartupSession.hpp"/>
-          <FILE id="startuprecoverysessioncpp" name="StartupRecoverySession.cpp" compile="1" resource="0" file="Source/UI/Session/StartupRecoverySession.cpp"/>
-          <FILE id="startuprecoverysessionhpp" name="StartupRecoverySession.hpp" compile="0" resource="0" file="Source/UI/Session/StartupRecoverySession.hpp"/>
-          <FILE id="entityeditsessioncpp" name="EntityEditSession.cpp" compile="1" resource="0" file="Source/UI/Session/EntityEditSession.cpp"/>
-          <FILE id="entityeditsessionhpp" name="EntityEditSession.hpp" compile="0" resource="0" file="Source/UI/Session/EntityEditSession.hpp"/>
-          <FILE id="photosessioncpp" name="PhotoSession.cpp" compile="1" resource="0" file="Source/UI/Session/PhotoSession.cpp"/>
-          <FILE id="backuprecoverysessioncpp" name="BackupRecoverySession.cpp" compile="1" resource="0" file="Source/UI/Session/BackupRecoverySession.cpp"/>
-          <FILE id="entityedittypeshpp" name="EntityEditTypes.hpp" compile="0" resource="0" file="Source/UI/Session/EntityEditTypes.hpp"/>
-          <FILE id="photosessionhpp" name="PhotoSession.hpp" compile="0" resource="0" file="Source/UI/Session/PhotoSession.hpp"/>
-          <FILE id="photosessiontypeshpp" name="PhotoSessionTypes.hpp" compile="0" resource="0" file="Source/UI/Session/PhotoSessionTypes.hpp"/>
-          <FILE id="backuprecoverysessionhpp" name="BackupRecoverySession.hpp" compile="0" resource="0" file="Source/UI/Session/BackupRecoverySession.hpp"/>
-          <FILE id="backuprecoverytypeshpp" name="BackupRecoveryTypes.hpp" compile="0" resource="0" file="Source/UI/Session/BackupRecoveryTypes.hpp"/>
+          <FILE id="androidpreviousexitartifactscpp" name="AndroidPreviousExitArtifacts.cpp"
+                compile="1" resource="0" file="Source/UI/Session/AndroidPreviousExitArtifacts.cpp"/>
+          <FILE id="androidpreviousexitartifactshpp" name="AndroidPreviousExitArtifacts.hpp"
+                compile="0" resource="0" file="Source/UI/Session/AndroidPreviousExitArtifacts.hpp"/>
+          <FILE id="catalogsessionstatehpp" name="CatalogSessionState.hpp" compile="0"
+                resource="0" file="Source/UI/Session/CatalogSessionState.hpp"/>
+          <FILE id="catalogstartupsessioncpp" name="CatalogStartupSession.cpp"
+                compile="1" resource="0" file="Source/UI/Session/CatalogStartupSession.cpp"/>
+          <FILE id="catalogstartupsessionhpp" name="CatalogStartupSession.hpp"
+                compile="0" resource="0" file="Source/UI/Session/CatalogStartupSession.hpp"/>
+          <FILE id="startuprecoverysessioncpp" name="StartupRecoverySession.cpp"
+                compile="1" resource="0" file="Source/UI/Session/StartupRecoverySession.cpp"/>
+          <FILE id="startuprecoverysessionhpp" name="StartupRecoverySession.hpp"
+                compile="0" resource="0" file="Source/UI/Session/StartupRecoverySession.hpp"/>
+          <FILE id="imagepreviewsessioncpp" name="ImagePreviewSession.cpp" compile="1"
+                resource="0" file="Source/UI/Session/ImagePreviewSession.cpp"/>
+          <FILE id="imagepreviewsessionhpp" name="ImagePreviewSession.hpp" compile="0"
+                resource="0" file="Source/UI/Session/ImagePreviewSession.hpp"/>
+          <FILE id="entityeditsessioncpp" name="EntityEditSession.cpp" compile="1"
+                resource="0" file="Source/UI/Session/EntityEditSession.cpp"/>
+          <FILE id="entityeditsessionhpp" name="EntityEditSession.hpp" compile="0"
+                resource="0" file="Source/UI/Session/EntityEditSession.hpp"/>
+          <FILE id="photosessioncpp" name="PhotoSession.cpp" compile="1" resource="0"
+                file="Source/UI/Session/PhotoSession.cpp"/>
+          <FILE id="backuprecoverysessioncpp" name="BackupRecoverySession.cpp"
+                compile="1" resource="0" file="Source/UI/Session/BackupRecoverySession.cpp"/>
+          <FILE id="entityedittypeshpp" name="EntityEditTypes.hpp" compile="0"
+                resource="0" file="Source/UI/Session/EntityEditTypes.hpp"/>
+          <FILE id="photosessionhpp" name="PhotoSession.hpp" compile="0" resource="0"
+                file="Source/UI/Session/PhotoSession.hpp"/>
+          <FILE id="photosessiontypeshpp" name="PhotoSessionTypes.hpp" compile="0"
+                resource="0" file="Source/UI/Session/PhotoSessionTypes.hpp"/>
+          <FILE id="backuprecoverysessionhpp" name="BackupRecoverySession.hpp"
+                compile="0" resource="0" file="Source/UI/Session/BackupRecoverySession.hpp"/>
+          <FILE id="backuprecoverytypeshpp" name="BackupRecoveryTypes.hpp" compile="0"
+                resource="0" file="Source/UI/Session/BackupRecoveryTypes.hpp"/>
         </GROUP>
       </GROUP>
       <FILE id="maincpp" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
@@ -137,7 +226,7 @@
                    androidExternalWriteNeeded="0" androidInAppBilling="0" androidVibratePermissionNeeded="0"
                    androidPushNotifications="0" androidEnableRemoteNotifications="0"
                    androidEnableContentSharing="0" androidEnableVirtualMidi="0"
-                   androidOtherPermissions="" headerPath="../../third_party/glaze/include;../../build/libjxl-android-arm64/lib/include"
+                   androidOtherPermissions="" headerPath="../../Source;../../third_party/glaze/include;../../build/libjxl-android-arm64/lib/include"
                    extraDefs="JXL_STATIC_DEFINE=1 JXL_THREADS_STATIC_DEFINE=1 JXL_CMS_STATIC_DEFINE=1 HWY_STATIC_DEFINE=1"
                    externalLibraries="jxl_dec;jxl;jxl_threads;jxl_cms;brotlienc;brotlidec;brotlicommon;hwy;jnigraphics;m"
                    androidCustomAppBuildGradleContent="    ndkVersion = &quot;29.0.14206865&quot;&#10;    buildToolsVersion = &quot;35.0.1&quot;&#10;">

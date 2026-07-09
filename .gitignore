@@ -158,7 +158,10 @@ CMakeUserPresets.json
 # Shuba project-local generated and machine-specific outputs
 .idea/
 /build/
+/build-host/
 /cmake-build-*/
+/Builds/Android/
+/JuceLibraryCode/
 /Builds/Android/.gradle/
 /Builds/Android/app/.cxx/
 /Builds/Android/app/build/
