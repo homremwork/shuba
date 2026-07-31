@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A deliberately simplified alpha mask for Android 13+ themed icons. Fine
+  tailoring and colour-only details are omitted so the mark survives tinting.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <group
+        android:pivotX="256"
+        android:pivotY="256"
+        android:scaleX="0.75"
+        android:scaleY="0.75">
+        <path
+            android:fillAlpha="0.22"
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M166,257 L346,257 L405,323 L107,323 Z" />
+        <path
+            android:fillAlpha="0.48"
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M166,257 L107,323 L54,280 L125,224 Z M346,257 L405,323 L458,280 L387,224 Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M204,68 L168,98 Q151,117 135,151 L116,195 L143,213 L128,294 L177,306 L198,223 L189,319 L323,319 L314,223 L335,306 L384,294 L369,213 L396,195 L377,151 Q361,117 344,98 L308,68 L282,106 L256,91 L230,106 Z M204,68 L230,106 L256,91 L282,106 L308,68 L295,137 Q288,163 256,190 Q224,163 217,137 Z" />
+        <path
+            android:fillAlpha="0.34"
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M107,319 L405,319 L378,437 L134,437 Z"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineJoin="round"
+            android:strokeWidth="10" />
+        <path
+            android:fillColor="@android:color/transparent"
+            android:pathData="M178,376 L194,361 L210,376 L227,357 L244,376 L261,360 L278,376 L296,358 L312,373 L350,361"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="square"
+            android:strokeLineJoin="miter"
+            android:strokeWidth="9" />
+    </group>
+</vector>

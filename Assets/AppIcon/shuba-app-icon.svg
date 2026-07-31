@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+
+  <defs>
+    <filter id="shadow" x="-25%" y="-25%" width="150%" height="170%">
+      <feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#080B10" flood-opacity="0.30"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" fill="#101722"/>
+
+  <g stroke="#FAF2E5" stroke-width="9" stroke-linejoin="round" filter="url(#shadow)">
+    <path d="M166 257 L346 257 L405 323 L107 323 Z" fill="#080D14"/>
+    <path d="M166 257 L346 257 L371 207 L141 207 Z" fill="#284968"/>
+    <path d="M166 257 L107 323 L54 280 L125 224 Z" fill="#477DA8"/>
+    <path d="M346 257 L405 323 L458 280 L387 224 Z" fill="#477DA8"/>
+  </g>
+
+  <g stroke="#172536" stroke-width="9" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M204 68 L168 98 Q151 117 135 151 L116 195 L143 213 L128 294 L177 306 L198 223 L185 349 L327 349 L314 223 L335 306 L384 294 L369 213 L396 195 L377 151 Q361 117 344 98 L308 68 L282 106 L256 91 L230 106 Z" fill="#315E88"/>
+    <path d="M204 68 L230 106 L256 91 L282 106 L308 68 L295 137 Q288 163 256 190 Q224 163 217 137 Z" fill="#FAF2E5"/>
+    <path d="M256 190 L256 340" fill="none" stroke="#FAF2E5" stroke-width="11"/>
+    <path d="M143 246 L177 255" fill="none" stroke="#D9BA7A" stroke-width="11"/>
+    <path d="M335 255 L369 246" fill="none" stroke="#D9BA7A" stroke-width="11"/>
+  </g>
+  <path d="M256 198 L240 340 M256 198 L272 340" fill="none" stroke="#172536" stroke-width="3" opacity="0.35"/>
+  <circle cx="274" cy="229" r="5" fill="#FAF2E5"/>
+  <circle cx="274" cy="265" r="5" fill="#FAF2E5"/>
+
+  <path d="M204 281 Q218 291 234 287" fill="none" stroke="#FAF2E5" stroke-width="8" stroke-linecap="round"/>
+  <path d="M308 281 Q294 291 278 287" fill="none" stroke="#FAF2E5" stroke-width="8" stroke-linecap="round"/>
+
+  <g stroke="#FAF2E5" stroke-width="9" stroke-linejoin="round" filter="url(#shadow)">
+    <path d="M107 319 L405 319 L378 437 L134 437 Z" fill="#EFE6D6"/>
+  </g>
+  <path d="M154 351 L358 351 L346 410 L166 410 Z" fill="none" stroke="#FAF2E5" stroke-width="5" opacity="0.72"/>
+
+  <path d="M178 376 L194 361 L210 376 L227 357 L244 376 L261 360 L278 376 L296 358 L312 373 L350 361" fill="none" stroke="#315E88" stroke-width="7" stroke-linecap="square" stroke-linejoin="miter"/>
+  <path d="M185 392 L343 392" fill="none" stroke="#D9BA7A" stroke-width="3" stroke-linecap="round"/>
+
+</svg>

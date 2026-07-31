@@ -257,6 +257,14 @@
       </GROUP>
       <FILE id="maincpp" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
     </GROUP>
+    <GROUP id="appicon01" name="App Icon">
+      <FILE id="appiconmaster01" name="shuba-app-icon.svg" compile="0" resource="0"
+            file="Assets/AppIcon/shuba-app-icon.svg"/>
+      <FILE id="appiconsmall01" name="shuba-app-icon-small.png" compile="0"
+            resource="0" file="Assets/AppIcon/shuba-app-icon-small.png"/>
+      <FILE id="appiconlarge01" name="shuba-app-icon-large.png" compile="0"
+            resource="0" file="Assets/AppIcon/shuba-app-icon-large.png"/>
+    </GROUP>
   </MAINGROUP>
   <EXPORTFORMATS>
     <ANDROIDSTUDIO targetFolder="Builds/Android" androidMinimumSDK="34" androidTargetSDK="34"
@@ -270,7 +278,8 @@
                    androidOtherPermissions="" headerPath="../../Source;../../third_party/glaze/include;../../third_party/spiritless_po/include;../../build/libjxl-android-arm64/lib/include"
                    extraDefs="JXL_STATIC_DEFINE=1 JXL_THREADS_STATIC_DEFINE=1 JXL_CMS_STATIC_DEFINE=1 HWY_STATIC_DEFINE=1"
                    externalLibraries="jxl_dec;jxl;jxl_threads;jxl_cms;brotlienc;brotlidec;brotlicommon;hwy;jnigraphics;m"
-                   androidCustomAppBuildGradleContent="    ndkVersion = &quot;29.0.14206865&quot;&#10;    buildToolsVersion = &quot;35.0.1&quot;&#10;">
+                   androidCustomAppBuildGradleContent="    ndkVersion = &quot;29.0.14206865&quot;&#10;    buildToolsVersion = &quot;35.0.1&quot;&#10;"
+                   smallIcon="appiconsmall01" bigIcon="appiconlarge01" androidAdditionalResourceFolders="Assets/Android/res">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="1" name="Debug" targetName="Shuba" androidArchitectures="arm64-v8a"
                        libraryPath="../../build/libjxl-android-arm64/lib;../../build/libjxl-android-arm64/third_party/brotli;../../build/libjxl-android-arm64/third_party/highway"/>
