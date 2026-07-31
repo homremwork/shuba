@@ -1,5 +1,6 @@
 #include "UI/Screens/AppShellScreenRenderer.hpp"
 
+#include "Localization/Facade.hpp"
 #include "UI/Session/PhotoSession.hpp"
 #include "UI/View/AppShellContentComponent.hpp"
 #include "UI/View/ScreenText.hpp"
@@ -39,10 +40,6 @@ void append_summary_part(std::string& text, std::string_view part) {
 		return "Representative photo needs attention.";
 	return "Photo preview is unavailable.";
 }
-
-[[nodiscard]] std::string item_count_text(std::uint64_t count) {
-	return std::to_string(count) + (count == 1U ? " item" : " items");
-}
 }	 // namespace
 AppShellScreenRenderer::AppShellScreenRenderer(Dependencies dependencies)
 	: session(dependencies.session)
@@ -64,6 +61,7 @@ AppShellScreenRenderer::AppShellScreenRenderer(Dependencies dependencies)
 	, document_export_service(dependencies.document_export_service)
 	, last_progress_events(dependencies.last_progress_events)
 	, never_cancelled(dependencies.never_cancelled)
+	, localization(dependencies.localization)
 	, content(&dependencies.content)
 	, item_name_editor(dependencies.editors.item_name_editor)
 	, item_category_editor(dependencies.editors.item_category_editor)
@@ -163,26 +161,36 @@ AppShellScreenRenderer::build_item_result_preview_card(
 	const catalog::SearchResult& result,
 	ImagePreviewRequestPriority preview_priority) {
 	PreviewCardBuildResult card;
-	card.content.title = result.display_title.empty()
-							 ? "Untitled item"
-							 : juce_text(result.display_title);
+	card.content.title =
+		result.display_title.empty()
+			? juce_text(localization.text(
+				  localization::MessageId::CatalogPreviewUntitledItem))
+			: juce_text(result.display_title);
 
-	std::string subtitle;
-	append_summary_part(subtitle, result.category);
-	if (result.item_status.has_value())
-		append_summary_part(subtitle, status_text(*result.item_status));
-	append_summary_part(subtitle, result.location_text);
 	const persistence::ItemEnvelope* item =
 		catalog::find_item_envelope(session.repository, result.record_id);
-	append_summary_part(subtitle, first_note_or_tag_summary(item));
-	card.content.subtitle = juce_text(subtitle);
-
-	std::string metadata	   = photo_presence_label(result.photo_presence);
-	const std::string warnings = warning_summary(result.warnings);
-	if (!warnings.empty())
-		append_summary_part(metadata, "⚠ " + warnings);
-	append_summary_part(metadata, result.match_summary);
-	card.content.metadata = juce_text(metadata);
+	const std::string photo_state =
+		localization.photo_presence_label(result.photo_presence);
+	const std::string status =
+		result.item_status.has_value()
+			? localization.item_status_label(*result.item_status)
+			: std::string{};
+	const std::string details  = first_note_or_tag_summary(item);
+	const std::string warnings = warning_summary(result.warnings, localization);
+	card.content.subtitle =
+		juce_text(localization.item_result_card(localization::ItemResultFields{
+			.title =
+				result.display_title.empty()
+					? std::string_view{localization.text(
+						  localization::MessageId::CatalogPreviewUntitledItem)}
+					: std::string_view{result.display_title},
+			.photo_state = photo_state,
+			.category	 = result.category,
+			.status		 = status,
+			.location	 = result.location_text,
+			.details	 = details,
+			.warnings	 = warnings}));
+	card.content.metadata = juce_text(photo_state);
 
 	apply_representative_preview(result, preview_priority, card);
 	return card;
@@ -193,34 +201,37 @@ AppShellScreenRenderer::build_storage_result_preview_card(
 	const catalog::SearchResult& result,
 	ImagePreviewRequestPriority preview_priority) {
 	PreviewCardBuildResult card;
-	card.content.title = result.display_title.empty()
-							 ? "Storage"
-							 : juce_text(result.display_title);
+	card.content.title =
+		result.display_title.empty()
+			? juce_text(localization.text(
+				  localization::MessageId::CatalogPreviewDefaultStorage))
+			: juce_text(result.display_title);
 
-	std::string subtitle;
-	append_summary_part(subtitle, result.storage_type);
-	if (result.storage_lifecycle_status.has_value()) {
-		append_summary_part(
-			subtitle, storage_lifecycle_text(*result.storage_lifecycle_status));
-	}
-	append_summary_part(subtitle, result.location_text);
 	const persistence::StorageEnvelope* storage =
 		catalog::find_storage_envelope(session.repository, result.record_id);
-	append_summary_part(subtitle, first_storage_note_or_tag_summary(storage));
-	card.content.subtitle = juce_text(subtitle);
-
-	std::string metadata = photo_presence_label(result.photo_presence);
-	append_summary_part(
-		metadata,
-		"child storages=" + std::to_string(result.direct_child_count));
-	append_summary_part(
-		metadata, "items=" + std::to_string(result.direct_item_count) + "/"
-					  + std::to_string(result.nested_item_count));
-	const std::string warnings = warning_summary(result.warnings);
-	if (!warnings.empty())
-		append_summary_part(metadata, "⚠ " + warnings);
-	append_summary_part(metadata, result.match_summary);
-	card.content.metadata = juce_text(metadata);
+	const std::string lifecycle = result.storage_lifecycle_status.has_value()
+									  ? localization.storage_lifecycle_label(
+											*result.storage_lifecycle_status)
+									  : std::string{};
+	const std::string details	= first_storage_note_or_tag_summary(storage);
+	const std::string warnings = warning_summary(result.warnings, localization);
+	card.content.subtitle	   = juce_text(
+		localization.storage_result_card(localization::StorageResultFields{
+			.title			 = result.display_title.empty()
+								   ? std::string_view{localization.text(
+										 localization::MessageId::
+											 CatalogPreviewDefaultStorage)}
+								   : std::string_view{result.display_title},
+			.type			 = result.storage_type,
+			.lifecycle		 = lifecycle,
+			.location		 = result.location_text,
+			.direct_children = result.direct_child_count,
+			.direct_items	 = result.direct_item_count,
+			.nested_items	 = result.nested_item_count,
+			.details		 = details,
+			.warnings		 = warnings}));
+	card.content.metadata =
+		juce_text(localization.photo_presence_label(result.photo_presence));
 
 	apply_representative_preview(result, preview_priority, card);
 	return card;
@@ -231,9 +242,13 @@ AppShellScreenRenderer::build_storage_result_compact_card(
 	const catalog::SearchResult& result,
 	ImagePreviewRequestPriority preview_priority) {
 	CompactStorageCardContent card;
-	card.name = result.display_title.empty() ? "Storage"
-											 : juce_text(result.display_title);
-	card.item_count = juce_text(item_count_text(result.nested_item_count));
+	card.name =
+		result.display_title.empty()
+			? juce_text(localization.text(
+				  localization::MessageId::CatalogPreviewDefaultStorage))
+			: juce_text(result.display_title);
+	card.item_count =
+		juce_text(localization.item_count(result.nested_item_count));
 	apply_representative_preview(result, preview_priority, card);
 	return card;
 }
@@ -244,22 +259,32 @@ AppShellScreenRenderer::build_item_preview_card(
 	const catalog::ItemProjection& projection,
 	ImagePreviewRequestPriority preview_priority) {
 	PreviewCardBuildResult card;
-	card.content.title = item.record.display_name.empty()
-							 ? "Untitled item"
-							 : juce_text(item.record.display_name);
+	card.content.title =
+		item.record.display_name.empty()
+			? juce_text(localization.text(
+				  localization::MessageId::CatalogPreviewUntitledItem))
+			: juce_text(item.record.display_name);
 
 	std::string subtitle;
 	append_summary_part(subtitle, item.record.category);
-	append_summary_part(subtitle, status_text(item.record.status));
+	append_summary_part(subtitle,
+						status_text(item.record.status, localization));
 	append_summary_part(subtitle, projection.storage_path_label);
 	append_summary_part(subtitle, first_note_or_tag_summary(&item));
 	card.content.subtitle = juce_text(subtitle);
 
-	std::string metadata = photo_presence_label(projection.photo_presence);
+	std::string metadata =
+		photo_presence_label(projection.photo_presence, localization);
 	if (projection.storage_archived)
-		append_summary_part(metadata, "⚠ archived storage");
+		append_summary_part(
+			metadata, "⚠ "
+						  + localization.catalog_warning_label(
+							  localization::CatalogWarning::ArchivedStorage));
 	if (projection.broken_storage_reference)
-		append_summary_part(metadata, "⚠ broken storage");
+		append_summary_part(
+			metadata, "⚠ "
+						  + localization.catalog_warning_label(
+							  localization::CatalogWarning::BrokenStorage));
 	card.content.metadata = juce_text(metadata);
 
 	apply_representative_preview(
@@ -274,30 +299,43 @@ AppShellScreenRenderer::build_storage_preview_card(
 	const catalog::StorageProjection& projection,
 	ImagePreviewRequestPriority preview_priority) {
 	PreviewCardBuildResult card;
-	card.content.title = storage.record.display_name.empty()
-							 ? "Storage"
-							 : juce_text(storage.record.display_name);
+	card.content.title =
+		storage.record.display_name.empty()
+			? juce_text(localization.text(
+				  localization::MessageId::CatalogPreviewDefaultStorage))
+			: juce_text(storage.record.display_name);
 
 	std::string subtitle;
-	append_summary_part(subtitle, storage.record.storage_type);
-	append_summary_part(
-		subtitle, storage_lifecycle_text(storage.record.lifecycle_status));
-	append_summary_part(subtitle, projection.path_label);
-	append_summary_part(subtitle, storage.record.location);
-	append_summary_part(subtitle, first_storage_note_or_tag_summary(&storage));
+	const std::string lifecycle =
+		storage_lifecycle_text(storage.record.lifecycle_status, localization);
+	const std::string details = first_storage_note_or_tag_summary(&storage);
+	const std::string warnings =
+		projection.parent_reference_state == domain::ReferenceState::Broken
+			? localization.catalog_warning_label(
+				  localization::CatalogWarning::BrokenParent)
+			: std::string{};
+	const std::string location = !projection.path_label.empty()
+									 ? projection.path_label
+									 : storage.record.location;
+	subtitle =
+		localization.storage_result_card(localization::StorageResultFields{
+			.title	   = storage.record.display_name.empty()
+							 ? std::string_view{localization.text(
+								   localization::MessageId::
+									   CatalogPreviewDefaultStorage)}
+							 : std::string_view{storage.record.display_name},
+			.type	   = storage.record.storage_type,
+			.lifecycle = lifecycle,
+			.location  = location,
+			.direct_children = projection.direct_child_storage_ids.size(),
+			.direct_items	 = projection.direct_item_count,
+			.nested_items	 = projection.nested_item_count,
+			.details		 = details,
+			.warnings		 = warnings});
 	card.content.subtitle = juce_text(subtitle);
 
-	std::string metadata = photo_presence_label(projection.photo_presence);
-	append_summary_part(
-		metadata,
-		"child storages="
-			+ std::to_string(projection.direct_child_storage_ids.size()));
-	append_summary_part(
-		metadata, "items=" + std::to_string(projection.direct_item_count) + "/"
-					  + std::to_string(projection.nested_item_count));
-	if (projection.parent_reference_state == domain::ReferenceState::Broken)
-		append_summary_part(metadata, "⚠ broken parent");
-	card.content.metadata = juce_text(metadata);
+	card.content.metadata = juce_text(
+		photo_presence_label(projection.photo_presence, localization));
 
 	apply_representative_preview(
 		projection.photo_presence, projection.representative_photo_id,
@@ -310,10 +348,13 @@ CompactStorageCardContent AppShellScreenRenderer::build_storage_compact_card(
 	const catalog::StorageProjection& projection,
 	ImagePreviewRequestPriority preview_priority) {
 	CompactStorageCardContent card;
-	card.name		= storage.record.display_name.empty()
-						  ? "Storage"
-						  : juce_text(storage.record.display_name);
-	card.item_count = juce_text(item_count_text(projection.nested_item_count));
+	card.name =
+		storage.record.display_name.empty()
+			? juce_text(localization.text(
+				  localization::MessageId::CatalogPreviewDefaultStorage))
+			: juce_text(storage.record.display_name);
+	card.item_count =
+		juce_text(localization.item_count(projection.nested_item_count));
 	apply_representative_preview(
 		projection.photo_presence, projection.representative_photo_id,
 		projection.representative_usable_photo_id, preview_priority, card);
@@ -345,8 +386,7 @@ void AppShellScreenRenderer::apply_representative_preview(
 	ImagePreviewRequestPriority preview_priority,
 	PreviewCardBuildResult& card) {
 	if (!representative_photo_id.has_value()) {
-		card.content.state		 = PreviewImageVisualState::Empty;
-		card.content.placeholder = "No photos yet.";
+		card.content.state = PreviewImageVisualState::Empty;
 		return;
 	}
 
@@ -372,8 +412,7 @@ void AppShellScreenRenderer::apply_representative_preview(
 	ImagePreviewRequestPriority preview_priority,
 	CompactStorageCardContent& card) {
 	if (!representative_photo_id.has_value()) {
-		card.state		 = PreviewImageVisualState::Empty;
-		card.placeholder = "No photos yet.";
+		card.state = PreviewImageVisualState::Empty;
 		return;
 	}
 
@@ -666,17 +705,18 @@ void AppShellScreenRenderer::add_photo_management_deck(
 			refresh_content();
 	},
 		.request_delete_current =
-			[this](core::StableIdentifier photo_id) {
-		request_delete_photo(std::move(photo_id));
+			[this](const core::StableIdentifier& photo_id) {
+		request_delete_photo(photo_id);
 	},
 		.confirm_delete_current =
-			[this](core::StableIdentifier photo_id) {
-		confirm_delete_photo(std::move(photo_id));
+			[this](const core::StableIdentifier& photo_id) {
+		confirm_delete_photo(photo_id);
 	},
 		.cancel_delete_current = [this] { cancel_delete_photo(); }};
 
 	const bool has_any_photos = current_count > 0U || staged_count > 0U;
 	content->add_managed_photo_deck(std::move(model), std::move(handlers),
+									localization,
 									has_any_photos ? populated_photo_deck_height
 												   : compact_photo_deck_height);
 }
@@ -725,15 +765,18 @@ void AppShellScreenRenderer::add_owner_photo_carousel(
 		owner_photo_projection(session.repository, owner);
 	if (projection == nullptr || projection->ordered_photo_ids.empty()) {
 		PhotoCarouselSlide slide;
-		slide.title			 = std::move(empty_title);
-		slide.caption		 = std::move(empty_caption);
-		slide.placeholder	 = "No photos yet.";
-		slide.state			 = PreviewImageVisualState::Empty;
-		slide.action_label	 = "Add photos";
+		slide.title	  = std::move(empty_title);
+		slide.caption = std::move(empty_caption);
+		slide.placeholder =
+			localization.text(localization::MessageId::PreviewPlaceholderEmpty);
+		slide.state = PreviewImageVisualState::Empty;
+		slide.action_label =
+			juce_text(localization.text(localization::MessageId::PhotoAdd));
 		slide.action_handler = [this, owner] { request_add_photos(owner); };
 		std::vector<PhotoCarouselSlide> slides;
 		slides.push_back(std::move(slide));
-		content->add_photo_carousel(std::move(slides), 0U, {}, [this, owner] {
+		content->add_photo_carousel(std::move(slides), 0U, localization, {},
+									[this, owner] {
 			request_add_photos(owner);
 		}, detail_carousel_height);
 		return;
@@ -807,7 +850,7 @@ void AppShellScreenRenderer::add_owner_photo_carousel(
 	}
 
 	content->add_photo_carousel(
-		std::move(slides), carousel_index,
+		std::move(slides), carousel_index, localization,
 		[this, owner](std::size_t selected_index_value) {
 		const catalog::OwnerPhotoProjection* current_projection =
 			owner_photo_projection(session.repository, owner);
@@ -843,11 +886,10 @@ void AppShellScreenRenderer::open_storage_detail(
 }
 
 void AppShellScreenRenderer::open_photo_viewer(
-	domain::PhotoOwner owner,
-	std::optional<core::StableIdentifier> requested_photo_id) {
+	const domain::PhotoOwner& owner,
+	const std::optional<core::StableIdentifier>& requested_photo_id) {
 	if (open_photo_viewer_handler)
-		open_photo_viewer_handler(std::move(owner),
-								  std::move(requested_photo_id));
+		open_photo_viewer_handler(owner, requested_photo_id);
 }
 
 void AppShellScreenRenderer::open_new_item_form(
@@ -874,9 +916,10 @@ void AppShellScreenRenderer::open_existing_storage_form(
 		open_existing_storage_form_handler(std::move(storage_id));
 }
 
-void AppShellScreenRenderer::request_add_photos(domain::PhotoOwner owner) {
+void AppShellScreenRenderer::request_add_photos(
+	const domain::PhotoOwner& owner) {
 	if (request_add_photos_handler)
-		request_add_photos_handler(std::move(owner));
+		request_add_photos_handler(owner);
 }
 
 void AppShellScreenRenderer::request_add_pending_item_photos() {
@@ -890,9 +933,9 @@ void AppShellScreenRenderer::request_add_pending_storage_photos() {
 }
 
 void AppShellScreenRenderer::request_export_photo(
-	core::StableIdentifier photo_id) {
+	const core::StableIdentifier& photo_id) {
 	if (request_export_photo_handler)
-		request_export_photo_handler(std::move(photo_id));
+		request_export_photo_handler(photo_id);
 }
 
 void AppShellScreenRenderer::request_export_backup() {
@@ -955,15 +998,15 @@ void AppShellScreenRenderer::set_storage_pending_photo_as_main(
 }
 
 void AppShellScreenRenderer::request_delete_photo(
-	core::StableIdentifier photo_id) {
+	const core::StableIdentifier& photo_id) {
 	if (request_delete_photo_handler)
-		request_delete_photo_handler(std::move(photo_id));
+		request_delete_photo_handler(photo_id);
 }
 
 void AppShellScreenRenderer::confirm_delete_photo(
-	core::StableIdentifier photo_id) {
+	const core::StableIdentifier& photo_id) {
 	if (confirm_delete_photo_handler)
-		confirm_delete_photo_handler(std::move(photo_id));
+		confirm_delete_photo_handler(photo_id);
 }
 
 void AppShellScreenRenderer::cancel_delete_photo() {
@@ -987,11 +1030,9 @@ void AppShellScreenRenderer::apply_entity_edit_result(EntityEditResult result) {
 }
 
 void AppShellScreenRenderer::apply_photo_edit_result(
-	EntityEditResult result, core::StableIdentifier selected_photo_id) {
-	if (apply_photo_edit_result_handler) {
-		apply_photo_edit_result_handler(std::move(result),
-										std::move(selected_photo_id));
-	}
+	EntityEditResult result, const core::StableIdentifier& selected_photo_id) {
+	if (apply_photo_edit_result_handler)
+		apply_photo_edit_result_handler(std::move(result), selected_photo_id);
 }
 
 void AppShellScreenRenderer::refresh_all() {

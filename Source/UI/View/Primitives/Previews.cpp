@@ -1,5 +1,6 @@
 #include "UI/View/Primitives/Previews.hpp"
 
+#include "Localization/Facade.hpp"
 #include "UI/View/Primitives/Palette.hpp"
 
 #include <algorithm>
@@ -10,42 +11,56 @@
 namespace shuba::ui {
 namespace {
 [[nodiscard]] juce::String preview_state_badge_text(
-	PreviewImageVisualState state) {
+	PreviewImageVisualState state,
+	const localization::Localization& localization) {
 	switch (state) {
 		case PreviewImageVisualState::Empty:
-			return "No photos";
+			return juce_text(
+				localization.text(localization::MessageId::PreviewStateEmpty));
 		case PreviewImageVisualState::Loading:
-			return "Loading";
+			return juce_text(localization.text(
+				localization::MessageId::PreviewStateLoading));
 		case PreviewImageVisualState::Loaded:
-			return "Preview";
+			return juce_text(
+				localization.text(localization::MessageId::PreviewStateLoaded));
 		case PreviewImageVisualState::Broken:
-			return "Broken";
+			return juce_text(
+				localization.text(localization::MessageId::PreviewStateBroken));
 		case PreviewImageVisualState::Staged:
-			return "Staged";
+			return juce_text(
+				localization.text(localization::MessageId::PreviewStateStaged));
 	}
 
-	return "Preview";
+	return juce_text(
+		localization.text(localization::MessageId::PreviewStateLoaded));
 }
 
 [[nodiscard]] juce::String preview_placeholder_text(
-	const juce::String& placeholder, PreviewImageVisualState state) {
+	const juce::String& placeholder, PreviewImageVisualState state,
+	const localization::Localization& localization) {
 	if (!placeholder.isEmpty())
 		return placeholder;
 
 	switch (state) {
 		case PreviewImageVisualState::Empty:
-			return "No photos yet.";
+			return juce_text(localization.text(
+				localization::MessageId::PreviewPlaceholderEmpty));
 		case PreviewImageVisualState::Loading:
-			return "Preview will load when requested.";
+			return juce_text(localization.text(
+				localization::MessageId::PreviewPlaceholderLoading));
 		case PreviewImageVisualState::Loaded:
-			return "Decoded image cannot be displayed.";
+			return juce_text(localization.text(
+				localization::MessageId::PreviewPlaceholderLoaded));
 		case PreviewImageVisualState::Broken:
-			return "Photo preview is unavailable.";
+			return juce_text(localization.text(
+				localization::MessageId::PreviewPlaceholderBroken));
 		case PreviewImageVisualState::Staged:
-			return "Staged photo preview is unavailable.";
+			return juce_text(localization.text(
+				localization::MessageId::PreviewPlaceholderStaged));
 	}
 
-	return "Photo preview is unavailable.";
+	return juce_text(
+		localization.text(localization::MessageId::PreviewPlaceholderBroken));
 }
 
 [[nodiscard]] juce::Colour preview_state_colour(PreviewImageVisualState state) {
@@ -66,12 +81,13 @@ namespace {
 }
 
 void draw_preview_badge(juce::Graphics& graphics, juce::Rectangle<int> bounds,
-						PreviewImageVisualState state) {
+						PreviewImageVisualState state,
+						const localization::Localization& localization) {
 	if (state == PreviewImageVisualState::Loaded)
 		return;
 
-	juce::String text			   = preview_state_badge_text(state);
-	const int character_width	   = 7;
+	juce::String text		  = preview_state_badge_text(state, localization);
+	const int character_width = 7;
 	const int estimated_text_width = text.length() * character_width;
 	const int badge_width = std::min(std::max(68, estimated_text_width + 18),
 									 std::max(1, bounds.getWidth() - 12));
@@ -206,7 +222,8 @@ void draw_preview_image_slot(juce::Graphics& graphics,
 							 juce::Rectangle<int> bounds,
 							 const juce::Image& image,
 							 const juce::String& placeholder,
-							 PreviewImageVisualState state, bool compact) {
+							 PreviewImageVisualState state, bool compact,
+							 const localization::Localization& localization) {
 	juce::Rectangle<int> slot = bounds.reduced(compact ? 3 : 6);
 	graphics.setColour(juce::Colours::black.withAlpha(0.24f));
 	graphics.fillRoundedRectangle(slot.toFloat(), compact ? 8.0f : 12.0f);
@@ -223,14 +240,14 @@ void draw_preview_image_slot(juce::Graphics& graphics,
 		graphics.setColour(muted_text_colour());
 		graphics.setFont(
 			juce::FontOptions(compact ? 11.5f : 16.0f, juce::Font::plain));
-		graphics.drawFittedText(preview_placeholder_text(placeholder, state),
-								slot.reduced(compact ? 6 : 12),
-								juce::Justification::centred, compact ? 3 : 4,
-								0.90f);
+		graphics.drawFittedText(
+			preview_placeholder_text(placeholder, state, localization),
+			slot.reduced(compact ? 6 : 12), juce::Justification::centred,
+			compact ? 3 : 4, 0.90f);
 	}
 
 	if (!image.isValid())
-		draw_preview_badge(graphics, slot, state);
+		draw_preview_badge(graphics, slot, state, localization);
 }
 
 ImagePanelComponent::ImagePanelComponent(juce::Image image_value,
@@ -268,9 +285,11 @@ void ImagePanelComponent::paint(juce::Graphics& graphics) {
 PhotoCarouselComponent::PhotoCarouselComponent(
 	std::vector<PhotoCarouselSlide> slides_value,
 	std::size_t selected_index_value,
+	localization::Localization& localization_value,
 	std::function<void(std::size_t)> select_handler,
 	std::function<void()> activate_handler)
 	: slides(std::move(slides_value))
+	, localization(localization_value)
 	, on_select(std::move(select_handler))
 	, on_activate(std::move(activate_handler)) {
 	setOpaque(true);
@@ -281,6 +300,10 @@ PhotoCarouselComponent::PhotoCarouselComponent(
 	style_text_button(previous_button);
 	style_text_button(next_button);
 	style_text_button(slide_action_button);
+	previous_button.setButtonText(
+		juce_text(localization.text(localization::MessageId::Previous)));
+	next_button.setButtonText(
+		juce_text(localization.text(localization::MessageId::Next)));
 	previous_button.onClick		= [this] { move_selection(-1); };
 	next_button.onClick			= [this] { move_selection(1); };
 	slide_action_button.onClick = [this] {
@@ -333,22 +356,27 @@ void PhotoCarouselComponent::paint(juce::Graphics& graphics) {
 
 	const PhotoCarouselSlide* slide = selected_slide();
 	if (slide == nullptr) {
-		draw_preview_image_slot(graphics, image_area, {}, "No photos yet.",
-								PreviewImageVisualState::Empty, false);
+		draw_preview_image_slot(graphics, image_area, {}, {},
+								PreviewImageVisualState::Empty, false,
+								localization);
 		graphics.setColour(text_colour());
 		graphics.setFont(juce::FontOptions(15.5f, juce::Font::bold));
-		graphics.drawFittedText("No photos", caption_area,
-								juce::Justification::centredLeft, 1, 0.90f);
+		graphics.drawFittedText(
+			localization.text(localization::MessageId::PreviewStateEmpty),
+			caption_area, juce::Justification::centredLeft, 1, 0.90f);
 		return;
 	}
 
 	draw_preview_image_slot(graphics, image_area, slide->image,
-							slide->placeholder, slide->state, false);
+							slide->placeholder, slide->state, false,
+							localization);
 
 	juce::Rectangle<int> title_line = caption_area.removeFromTop(22);
 	juce::Rectangle<int> count_area = title_line.removeFromRight(82);
-	juce::String title =
-		slide->title.isEmpty() ? "Photo preview" : slide->title;
+	juce::String title = slide->title.isEmpty()
+							 ? juce_text(localization.text(
+								   localization::MessageId::PreviewViewerTitle))
+							 : slide->title;
 	graphics.setColour(text_colour());
 	graphics.setFont(juce::FontOptions(15.5f, juce::Font::bold));
 	graphics.drawFittedText(title, title_line, juce::Justification::centredLeft,
@@ -459,8 +487,11 @@ void PhotoCarouselComponent::refresh_controls() {
 }
 
 PhotoViewerImageComponent::PhotoViewerImageComponent(
-	PhotoViewerImageModel model_value, PhotoViewerImageHandlers handlers_value)
-	: model(std::move(model_value)), handlers(std::move(handlers_value)) {
+	PhotoViewerImageModel model_value, PhotoViewerImageHandlers handlers_value,
+	localization::Localization& localization_value)
+	: model(std::move(model_value))
+	, handlers(std::move(handlers_value))
+	, localization(localization_value) {
 	setOpaque(true);
 	setBufferedToImage(true);
 	refresh_viewport_drag_policy();
@@ -531,9 +562,10 @@ void PhotoViewerImageComponent::paint(juce::Graphics& graphics) {
 		graphics.setColour(muted_text_colour());
 		graphics.setFont(juce::FontOptions(17.0f, juce::Font::plain));
 		graphics.drawFittedText(
-			preview_placeholder_text(model.placeholder, model.state),
+			preview_placeholder_text(model.placeholder, model.state,
+									 localization),
 			slot.reduced(16), juce::Justification::centred, 4, 0.92f);
-		draw_preview_badge(graphics, slot, model.state);
+		draw_preview_badge(graphics, slot, model.state, localization);
 	}
 
 	juce::Rectangle<int> caption	= layout.caption.reduced(6, 0);
@@ -542,18 +574,19 @@ void PhotoViewerImageComponent::paint(juce::Graphics& graphics) {
 	graphics.setColour(text_colour());
 	graphics.setFont(juce::FontOptions(15.5f, juce::Font::bold));
 	graphics.drawFittedText(
-		model.title.isEmpty() ? "Photo viewer" : model.title, title_line,
-		juce::Justification::centredLeft, 1, 0.90f);
+		model.title.isEmpty()
+			? juce_text(localization.text(
+				  localization::MessageId::PreviewViewerTitle))
+			: model.title,
+		title_line, juce::Justification::centredLeft, 1, 0.90f);
 	graphics.setColour(muted_text_colour());
 	graphics.setFont(juce::FontOptions(12.8f, juce::Font::plain));
 	graphics.drawFittedText(model.caption, caption,
 							juce::Justification::centredLeft, 2, 0.88f);
 	juce::String state_text =
-		zoomed() ? juce::String{"Zoom "} + juce::String(zoom_scale, 2)
-					   + "x · drag to pan · double-tap to fit"
-		: model.multiple_photos
-			? "Fit view · double-tap to zoom · swipe horizontally"
-			: "Fit view · double-tap to zoom · rotate with buttons";
+		zoomed() ? juce_text(localization.preview_viewer_zoom_hint(zoom_scale))
+				 : juce_text(localization.text(
+					   localization::MessageId::PreviewViewerGestureHint));
 	graphics.drawFittedText(state_text, state_line,
 							juce::Justification::centredLeft, 1, 0.88f);
 }
@@ -633,10 +666,12 @@ void PhotoViewerImageComponent::mouseDoubleClick(const juce::MouseEvent&) {
 }
 
 PreviewCardButtonComponent::PreviewCardButtonComponent(
-	PreviewCardContent content_value, juce::Colour background_value)
+	PreviewCardContent content_value, juce::Colour background_value,
+	localization::Localization& localization_value)
 	: juce::Button(content_value.title)
 	, content(std::move(content_value))
-	, background(background_value) {
+	, background(background_value)
+	, localization(localization_value) {
 	setOpaque(true);
 	setBufferedToImage(true);
 }
@@ -659,7 +694,8 @@ void PreviewCardButtonComponent::paintButton(juce::Graphics& graphics,
 		area.removeFromRight(18);
 
 	draw_preview_image_slot(graphics, preview_area, content.image,
-							content.placeholder, content.state, true);
+							content.placeholder, content.state, true,
+							localization);
 
 	graphics.setColour(isEnabled() ? text_colour()
 								   : muted_text_colour().withAlpha(0.58f));
@@ -704,10 +740,12 @@ void PreviewCardButtonComponent::mouseUp(const juce::MouseEvent& event) {
 }
 
 CompactStorageCardButtonComponent::CompactStorageCardButtonComponent(
-	CompactStorageCardContent content_value, juce::Colour background_value)
+	CompactStorageCardContent content_value, juce::Colour background_value,
+	localization::Localization& localization_value)
 	: juce::Button(content_value.name)
 	, content(std::move(content_value))
-	, background(background_value) {
+	, background(background_value)
+	, localization(localization_value) {
 	setOpaque(true);
 	setBufferedToImage(true);
 	setEnabled(content.enabled);
@@ -733,7 +771,8 @@ void CompactStorageCardButtonComponent::paintButton(juce::Graphics& graphics,
 	juce::Rectangle<int> item_count_area = area.removeFromBottom(20);
 
 	draw_preview_image_slot(graphics, preview_area, content.image,
-							content.placeholder, content.state, true);
+							content.placeholder, content.state, true,
+							localization);
 
 	graphics.setColour(isEnabled() ? text_colour()
 								   : muted_text_colour().withAlpha(0.58f));
@@ -770,8 +809,10 @@ void CompactStorageCardButtonComponent::mouseUp(const juce::MouseEvent& event) {
 }
 
 CompactStorageStripComponent::CompactStorageStripComponent(
-	std::vector<CompactStorageCardContent> cards_value)
-	: card_row(std::make_unique<juce::Component>()) {
+	std::vector<CompactStorageCardContent> cards_value,
+	localization::Localization& localization_value)
+	: card_row(std::make_unique<juce::Component>())
+	, localization(localization_value) {
 	setOpaque(true);
 	setBufferedToImage(true);
 	viewport.setViewedComponent(card_row.get(), false);
@@ -783,7 +824,8 @@ CompactStorageStripComponent::CompactStorageStripComponent(
 	for (CompactStorageCardContent& card_content : cards_value) {
 		std::unique_ptr<CompactStorageCardButtonComponent> card =
 			std::make_unique<CompactStorageCardButtonComponent>(
-				std::move(card_content), elevated_surface_colour());
+				std::move(card_content), elevated_surface_colour(),
+				localization);
 		card_row->addAndMakeVisible(*card);
 		cards.push_back(std::move(card));
 	}

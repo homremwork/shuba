@@ -1,51 +1,51 @@
 #include "UI/View/ScreenText.hpp"
 
+#include "Localization/Facade.hpp"
+
 #include <algorithm>
 
 namespace shuba::ui {
-std::string status_text(domain::ItemStatus status) {
-	return std::string{domain::to_string(status)};
+std::string status_text(domain::ItemStatus status,
+						const localization::Localization& localization) {
+	return localization.item_status_label(status);
 }
 
-std::string storage_lifecycle_text(domain::StorageLifecycleStatus status) {
-	return std::string{domain::to_string(status)};
+std::string storage_lifecycle_text(
+	domain::StorageLifecycleStatus status,
+	const localization::Localization& localization) {
+	return localization.storage_lifecycle_label(status);
 }
 
-std::string photo_presence_label(catalog::PhotoPresenceState state) {
-	switch (state) {
-		case catalog::PhotoPresenceState::HasUsablePhotos:
-			return "[photo]";
-		case catalog::PhotoPresenceState::NoPhotoRecords:
-			return "[no photo]";
-		case catalog::PhotoPresenceState::OnlyBrokenPhotos:
-			return "[broken photo]";
-		case catalog::PhotoPresenceState::MixedUsableAndBrokenPhotos:
-			return "[mixed photo]";
-	}
-	return "[photo state unknown]";
+std::string photo_presence_label(
+	catalog::PhotoPresenceState state,
+	const localization::Localization& localization) {
+	return "[" + localization.photo_presence_label(state) + "]";
 }
 
-std::string photo_filter_label(catalog::SearchPhotoPresenceFilter filter) {
-	return std::string{catalog::to_string(filter)};
+std::string photo_filter_label(catalog::SearchPhotoPresenceFilter filter,
+							   const localization::Localization& localization) {
+	return localization.photo_filter_label(filter);
 }
 
-std::string field_value_summary(std::string_view label,
-								std::string_view value) {
+std::string field_value_summary(
+	std::string_view label, std::string_view value,
+	const localization::Localization& localization) {
 	if (value.empty())
-		return std::string{label} + ": —";
-	return std::string{label} + ": " + std::string{value};
+		return localization.field_value(label, "—");
+	return localization.field_value(label, value);
 }
 
-std::string tags_summary(std::span<const domain::TagRow> tags) {
+std::string tags_summary(std::span<const domain::TagRow> tags,
+						 const localization::Localization& localization) {
 	if (tags.empty())
-		return "Tags: —";
-	std::string text = "Tags: ";
+		return localization.tags_summary("—");
+	std::string text;
 	for (std::size_t index = 0; index < tags.size(); ++index) {
 		if (index > 0U)
 			text += ", ";
 		text += tags[index].key + "=" + tags[index].value;
 	}
-	return text;
+	return localization.tags_summary(text);
 }
 
 std::string money_summary(const std::optional<domain::MoneyAmount>& amount) {
@@ -54,82 +54,63 @@ std::string money_summary(const std::optional<domain::MoneyAmount>& amount) {
 	return domain::canonical_decimal_text(*amount) + " " + amount->currency;
 }
 
-std::string listing_summary(const domain::ListingData& listing) {
+std::string listing_summary(const domain::ListingData& listing,
+							const localization::Localization& localization) {
 	if (listing.empty())
-		return "Listing: no values yet";
-	std::vector<std::string> parts;
-	if (!listing.marketplace.empty())
-		parts.push_back("market=" + listing.marketplace);
-	if (!listing.url.empty())
-		parts.emplace_back("url set");
-	if (listing.price)
-		parts.push_back("price=" + money_summary(listing.price));
-	if (!listing.note.empty())
-		parts.push_back("note=" + listing.note);
-	std::string text = "Listing: ";
-	for (std::size_t index = 0; index < parts.size(); ++index) {
-		if (index > 0U)
-			text += " · ";
-		text += parts[index];
-	}
-	return text;
+		return localization.text(localization::MessageId::ScreenListingEmpty);
+	return localization.listing_summary(
+		listing.marketplace, listing.url,
+		listing.price ? money_summary(listing.price) : std::string{},
+		listing.note);
 }
 
 std::string finance_summary(const domain::AcquisitionData& acquisition,
-							const domain::FinanceData& finance) {
+							const domain::FinanceData& finance,
+							const localization::Localization& localization) {
 	if (acquisition.empty() && finance.empty())
-		return "Finance: no values yet";
-	std::vector<std::string> parts;
-	if (!acquisition.source.empty())
-		parts.push_back("source=" + acquisition.source);
-	if (acquisition.cost)
-		parts.push_back("cost=" + money_summary(acquisition.cost));
-	if (finance.real_sale_price)
-		parts.push_back("sale=" + money_summary(finance.real_sale_price));
-	if (finance.expenses_total)
-		parts.push_back("expenses=" + money_summary(finance.expenses_total));
-	if (const std::optional<domain::MoneyAmount> profit =
-			domain::calculate_profit(acquisition, finance)) {
-		parts.push_back("profit=" + money_summary(profit));
-	}
-	std::string text = "Finance: ";
-	for (std::size_t index = 0; index < parts.size(); ++index) {
-		if (index > 0U)
-			text += " · ";
-		text += parts[index];
-	}
-	return text;
+		return localization.text(localization::MessageId::ScreenFinanceEmpty);
+	const std::optional<domain::MoneyAmount> profit =
+		domain::calculate_profit(acquisition, finance);
+	return localization.finance_summary(
+		acquisition.source,
+		acquisition.cost ? money_summary(acquisition.cost) : std::string{},
+		finance.real_sale_price ? money_summary(finance.real_sale_price)
+								: std::string{},
+		finance.expenses_total ? money_summary(finance.expenses_total)
+							   : std::string{},
+		profit ? money_summary(profit) : std::string{});
 }
 
 std::string storage_label(
 	const catalog::CatalogRepositoryState& repository,
-	const std::optional<core::StableIdentifier>& storage_id) {
+	const std::optional<core::StableIdentifier>& storage_id,
+	const localization::Localization& localization) {
 	if (!storage_id)
-		return "Unassigned storage";
+		return localization.text(
+			localization::MessageId::StorageLabelUnassigned);
 	const persistence::StorageEnvelope* storage =
 		catalog::find_storage_envelope(repository, *storage_id);
 	if (storage == nullptr)
-		return "Missing storage: " + storage_id->value();
+		return localization.missing_storage_label(storage_id->value());
 	return storage->record.display_name;
 }
 
 std::string storage_choice_label(
 	const catalog::CatalogRepositoryState& repository,
-	const persistence::StorageEnvelope& storage) {
-	std::string text = storage.record.display_name;
-	if (!storage.record.storage_type.empty())
-		text += " · " + storage.record.storage_type;
-
+	const persistence::StorageEnvelope& storage,
+	const localization::Localization& localization) {
 	const std::map<std::string, catalog::StorageProjection>::const_iterator
 		projection =
 			repository.storage_projections.find(storage.record.id.value());
+	std::string location;
 	if (projection != repository.storage_projections.end()
 		&& !projection->second.path_label.empty()) {
-		text += " · " + projection->second.path_label;
+		location = projection->second.path_label;
 	} else if (!storage.record.location.empty()) {
-		text += " · " + storage.record.location;
+		location = storage.record.location;
 	}
-	return text;
+	return localization.storage_choice(storage.record.display_name,
+									   storage.record.storage_type, location);
 }
 
 std::optional<core::StableIdentifier> next_storage_choice(
@@ -184,20 +165,11 @@ std::string core_diagnostic_summary(
 	return text;
 }
 
-std::string progress_summary(std::span<const platform::ProgressEvent> events) {
+std::string progress_summary(std::span<const platform::ProgressEvent> events,
+							 const localization::Localization& localization) {
 	if (events.empty())
-		return "Progress: no events reported yet.";
-	const platform::ProgressEvent& latest = events.back();
-	std::string text					  = "Progress: " + latest.phase;
-	if (!latest.message.empty())
-		text += " · " + latest.message;
-	if (latest.current_units.has_value()) {
-		text += " · " + std::to_string(*latest.current_units);
-		if (latest.total_units.has_value())
-			text += "/" + std::to_string(*latest.total_units);
-	}
-	text += latest.cancellable ? " · cancellable" : " · not cancellable";
-	return text;
+		return localization.progress_no_events();
+	return localization.progress_summary(events.back());
 }
 
 std::string pending_photo_summary(
@@ -295,46 +267,50 @@ bool has_ready_pending_photo(
 	});
 }
 
-std::string recovery_action_summary(std::span<const std::string> actions) {
-	if (actions.empty())
-		return "Safe actions: —";
-	std::string text = "Safe actions: ";
-	for (std::size_t index = 0; index < actions.size(); ++index) {
-		if (index > 0U)
-			text += " · ";
-		text += actions[index];
-	}
-	return text;
+std::string recovery_action_summary(
+	std::span<const RecoveryAction> actions,
+	const localization::Localization& localization) {
+	return localization.recovery_actions(actions);
 }
 
-std::string recovery_counts_summary(const CatalogRecoveryUiSummary& summary) {
-	std::string text =
-		"Accepted: items=" + std::to_string(summary.accepted_item_count);
-	text += " · storages=" + std::to_string(summary.accepted_storage_count);
-	text += " · photos=" + std::to_string(summary.accepted_photo_count);
-	text +=
-		" · skipped lines: items=" + std::to_string(summary.skipped_item_count);
-	text += " storages=" + std::to_string(summary.skipped_storage_count);
-	text += " photos=" + std::to_string(summary.skipped_photo_count);
-	text += " · broken refs=" + std::to_string(summary.broken_reference_count);
-	text += " · orphan media=" + std::to_string(summary.orphan_media_count);
-	return text;
+std::string recovery_counts_summary(
+	const CatalogRecoveryUiSummary& summary,
+	const localization::Localization& localization) {
+	return localization.recovery_counts(localization::RecoveryCountsFields{
+		.accepted_items	   = summary.accepted_item_count,
+		.accepted_storages = summary.accepted_storage_count,
+		.accepted_photos   = summary.accepted_photo_count,
+		.skipped_items	   = summary.skipped_item_count,
+		.skipped_storages  = summary.skipped_storage_count,
+		.skipped_photos	   = summary.skipped_photo_count,
+		.broken_references = summary.broken_reference_count,
+		.orphan_media	   = summary.orphan_media_count});
 }
 
 std::string import_validation_summary(
-	const catalog::StagedCatalogValidationResult& validation) {
-	std::string text = "Staged import: ";
-	text += std::string{persistence::to_string(validation.load_status)};
-	text += " · items=" + std::to_string(validation.items_accepted);
-	text += " · storages=" + std::to_string(validation.storages_accepted);
-	text += " · photos=" + std::to_string(validation.photos_accepted);
-	text += " · broken refs="
-			+ std::to_string(
-				validation.derived_recovery_summary.broken_reference_count);
-	text += " · orphan media="
-			+ std::to_string(
-				validation.derived_recovery_summary.orphan_media_count);
-	return text;
+	const catalog::StagedCatalogValidationResult& validation,
+	const localization::Localization& localization) {
+	return localization.import_validation_summary(
+		localization::ImportValidationFields{
+			.load_status =
+				localization.catalog_load_status_label(validation.load_status),
+			.accepted_items	   = validation.items_accepted,
+			.accepted_storages = validation.storages_accepted,
+			.accepted_photos   = validation.photos_accepted,
+			.broken_references =
+				validation.derived_recovery_summary.broken_reference_count,
+			.orphan_media =
+				validation.derived_recovery_summary.orphan_media_count});
+}
+
+std::string recovery_summary(const CatalogRecoveryUiSummary& summary,
+							 const localization::Localization& localization) {
+	if (summary.fatal())
+		return localization.text(localization::MessageId::RecoverySummaryFatal);
+	if (summary.degraded())
+		return localization.text(
+			localization::MessageId::RecoverySummaryDegraded);
+	return localization.text(localization::MessageId::RecoverySummaryNormal);
 }
 
 bool has_diagnostics(std::span<const core::Diagnostic> diagnostics) noexcept {
@@ -505,57 +481,30 @@ bool has_catalog_filters(
 
 std::string active_filter_summary(
 	const catalog::CatalogSearchFilters& filters,
-	const catalog::CatalogRepositoryState& repository) {
-	std::vector<std::string> parts;
-	if (!filters.categories.empty()) {
-		std::string categories = "categories=";
-		for (std::size_t index = 0; index < filters.categories.size();
-			 ++index) {
-			if (index > 0U)
-				categories += ",";
-			categories += filters.categories[index];
-		}
-		parts.push_back(std::move(categories));
-	}
-	if (!filters.statuses.empty()) {
-		std::string statuses = "statuses=";
-		for (std::size_t index = 0; index < filters.statuses.size(); ++index) {
-			if (index > 0U)
-				statuses += ",";
-			statuses += status_text(filters.statuses[index]);
-		}
-		parts.push_back(std::move(statuses));
-	}
-	if (filters.storage_unassigned_only)
-		parts.emplace_back("storage=unassigned");
+	const catalog::CatalogRepositoryState& repository,
+	const localization::Localization& localization) {
+	localization::CatalogFilterSummaryFields fields{
+		.categories				= filters.categories,
+		.storage_unassigned		= filters.storage_unassigned_only,
+		.include_nested_storage = filters.include_nested_storage,
+		.listed_shortcut		= filters.listed_only,
+		.sold_shortcut			= filters.sold_only,
+		.include_archived		= filters.include_archived};
+	fields.statuses.reserve(filters.statuses.size());
+	for (const domain::ItemStatus status : filters.statuses)
+		fields.statuses.push_back(localization.item_status_label(status));
+
 	if (filters.storage_id) {
 		const persistence::StorageEnvelope* storage =
 			catalog::find_storage_envelope(repository, *filters.storage_id);
-		parts.push_back("storage="
-						+ (storage != nullptr ? storage->record.display_name
-											  : filters.storage_id->value()));
-		if (filters.include_nested_storage)
-			parts.emplace_back("nested=on");
+		fields.storage = storage != nullptr ? storage->record.display_name
+											: filters.storage_id->value();
 	}
-	if (filters.photo_presence != catalog::SearchPhotoPresenceFilter::Any)
-		parts.push_back("photos=" + photo_filter_label(filters.photo_presence));
-	if (filters.listed_only)
-		parts.emplace_back("listed shortcut");
-	if (filters.sold_only)
-		parts.emplace_back("sold shortcut");
-	if (filters.include_archived)
-		parts.emplace_back("include archived");
-
-	if (parts.empty())
-		return "No active filters";
-
-	std::string summary;
-	for (std::size_t index = 0; index < parts.size(); ++index) {
-		if (index > 0U)
-			summary += " · ";
-		summary += parts[index];
+	if (filters.photo_presence != catalog::SearchPhotoPresenceFilter::Any) {
+		fields.photo_presence =
+			localization.photo_filter_label(filters.photo_presence);
 	}
-	return summary;
+	return localization.catalog_filter_clauses(fields);
 }
 
 std::string first_note_or_tag_summary(const persistence::ItemEnvelope* item) {
@@ -583,20 +532,27 @@ std::string first_storage_note_or_tag_summary(
 	return {};
 }
 
-std::string warning_summary(const catalog::SearchWarningMarkers& warnings) {
+std::string warning_summary(const catalog::SearchWarningMarkers& warnings,
+							const localization::Localization& localization) {
 	std::vector<std::string> parts;
 	if (warnings.no_photo_records)
-		parts.emplace_back("no photo");
+		parts.push_back(localization.catalog_warning_label(
+			localization::CatalogWarning::NoPhoto));
 	if (warnings.broken_photos)
-		parts.emplace_back("broken photos");
+		parts.push_back(localization.catalog_warning_label(
+			localization::CatalogWarning::BrokenPhotos));
 	if (warnings.broken_storage_reference)
-		parts.emplace_back("broken storage");
+		parts.push_back(localization.catalog_warning_label(
+			localization::CatalogWarning::BrokenStorage));
 	if (warnings.broken_parent_reference)
-		parts.emplace_back("broken parent");
+		parts.push_back(localization.catalog_warning_label(
+			localization::CatalogWarning::BrokenParent));
 	if (warnings.archived_record)
-		parts.emplace_back("archived");
+		parts.push_back(localization.catalog_warning_label(
+			localization::CatalogWarning::Archived));
 	if (warnings.archived_storage)
-		parts.emplace_back("archived storage");
+		parts.push_back(localization.catalog_warning_label(
+			localization::CatalogWarning::ArchivedStorage));
 
 	std::string text;
 	for (std::size_t index = 0; index < parts.size(); ++index) {
@@ -607,48 +563,105 @@ std::string warning_summary(const catalog::SearchWarningMarkers& warnings) {
 	return text;
 }
 
-juce::String item_result_text(const catalog::SearchResult& result,
-							  const CatalogSessionState& session) {
-	const persistence::ItemEnvelope* item =
-		catalog::find_item_envelope(session.repository, result.record_id);
-	std::string text = photo_presence_label(result.photo_presence) + " "
-					   + result.display_title + " · " + result.category;
-	if (result.item_status)
-		text += " · " + status_text(*result.item_status);
-	if (!result.location_text.empty())
-		text += " · " + result.location_text;
-	const std::string details = first_note_or_tag_summary(item);
-	if (!details.empty())
-		text += " · " + details;
-	const std::string warnings = warning_summary(result.warnings);
-	if (!warnings.empty())
-		text += " · ⚠ " + warnings;
-	return juce_text(text);
+std::string item_detail_header(const persistence::ItemEnvelope& item,
+							   const catalog::ItemProjection& projection,
+							   const localization::Localization& localization) {
+	catalog::SearchWarningMarkers warning_markers{
+		.broken_storage_reference = projection.broken_storage_reference,
+		.archived_storage		  = projection.storage_archived};
+	const std::string warnings = warning_summary(warning_markers, localization);
+	const std::string photo_state =
+		localization.photo_presence_label(projection.photo_presence);
+	const std::string status =
+		localization.item_status_label(item.record.status);
+	return localization.item_header(localization::ItemHeaderFields{
+		.name		  = item.record.display_name,
+		.photo_state  = photo_state,
+		.category	  = item.record.category,
+		.status		  = status,
+		.storage_path = projection.storage_path_label,
+		.warnings	  = warnings});
 }
 
-juce::String storage_result_text(const catalog::SearchResult& result,
-								 const CatalogSessionState& session) {
+std::string storage_detail_header(
+	const persistence::StorageEnvelope& storage,
+	const catalog::StorageProjection& projection,
+	const localization::Localization& localization) {
+	catalog::SearchWarningMarkers warning_markers{
+		.broken_parent_reference = projection.parent_reference_state
+								   == domain::ReferenceState::Broken};
+	const std::string warnings = warning_summary(warning_markers, localization);
+	return localization.storage_header(
+		localization::StorageHeaderFields{.name = storage.record.display_name,
+										  .type = storage.record.storage_type,
+										  .path = projection.path_label,
+										  .location = storage.record.location,
+										  .notes	= storage.record.notes,
+										  .warnings = warnings});
+}
+
+juce::String item_result_text(const catalog::SearchResult& result,
+							  const CatalogSessionState& session,
+							  const localization::Localization& localization) {
+	const persistence::ItemEnvelope* item =
+		catalog::find_item_envelope(session.repository, result.record_id);
+	const std::string photo_state =
+		localization.photo_presence_label(result.photo_presence);
+	const std::string status =
+		result.item_status.has_value()
+			? localization.item_status_label(*result.item_status)
+			: std::string{"—"};
+	const std::string details  = first_note_or_tag_summary(item);
+	const std::string warnings = warning_summary(result.warnings, localization);
+	return juce_text(
+		localization.item_result_card(localization::ItemResultFields{
+			.title		 = result.display_title.empty()
+							   ? std::string_view{"—"}
+							   : std::string_view{result.display_title},
+			.photo_state = photo_state,
+			.category	 = result.category.empty()
+							   ? std::string_view{"—"}
+							   : std::string_view{result.category},
+			.status		 = status,
+			.location	 = result.location_text.empty()
+							   ? std::string_view{"—"}
+							   : std::string_view{result.location_text},
+			.details	 = details.empty() ? std::string_view{"—"}
+										   : std::string_view{details},
+			.warnings	 = warnings.empty() ? std::string_view{"—"}
+											: std::string_view{warnings}}));
+}
+
+juce::String storage_result_text(
+	const catalog::SearchResult& result, const CatalogSessionState& session,
+	const localization::Localization& localization) {
 	const persistence::StorageEnvelope* storage =
 		catalog::find_storage_envelope(session.repository, result.record_id);
-	std::string text = "[storage] " + result.display_title;
-	if (!result.storage_type.empty())
-		text += " · " + result.storage_type;
-	if (result.storage_lifecycle_status) {
-		text +=
-			" · " + storage_lifecycle_text(*result.storage_lifecycle_status);
-	}
-	if (!result.location_text.empty())
-		text += " · " + result.location_text;
-	text += " · child storages=" + std::to_string(result.direct_child_count);
-	text += " · items=" + std::to_string(result.direct_item_count) + "/"
-			+ std::to_string(result.nested_item_count);
-	const std::string details = first_storage_note_or_tag_summary(storage);
-	if (!details.empty())
-		text += " · " + details;
-	const std::string warnings = warning_summary(result.warnings);
-	if (!warnings.empty())
-		text += " · ⚠ " + warnings;
-	return juce_text(text);
+	const std::string lifecycle = result.storage_lifecycle_status.has_value()
+									  ? localization.storage_lifecycle_label(
+											*result.storage_lifecycle_status)
+									  : std::string{"—"};
+	const std::string details	= first_storage_note_or_tag_summary(storage);
+	const std::string warnings = warning_summary(result.warnings, localization);
+	return juce_text(
+		localization.storage_result_card(localization::StorageResultFields{
+			.title			 = result.display_title.empty()
+								   ? std::string_view{"—"}
+								   : std::string_view{result.display_title},
+			.type			 = result.storage_type.empty()
+								   ? std::string_view{"—"}
+								   : std::string_view{result.storage_type},
+			.lifecycle		 = lifecycle,
+			.location		 = result.location_text.empty()
+								   ? std::string_view{"—"}
+								   : std::string_view{result.location_text},
+			.direct_children = result.direct_child_count,
+			.direct_items	 = result.direct_item_count,
+			.nested_items	 = result.nested_item_count,
+			.details		 = details.empty() ? std::string_view{"—"}
+											   : std::string_view{details},
+			.warnings		 = warnings.empty() ? std::string_view{"—"}
+												: std::string_view{warnings}}));
 }
 
 std::vector<std::string> distinct_categories(

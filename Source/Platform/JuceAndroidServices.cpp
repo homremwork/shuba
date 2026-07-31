@@ -183,6 +183,7 @@ constexpr std::size_t copy_buffer_size = 32768U;
 		ProgressEvent{.operation_id	  = context.operation_id,
 					  .operation_type = context.operation_type,
 					  .phase		  = "copy-started",
+					  .message_id	  = ProgressMessageId::CopyStarted,
 					  .current_units  = std::uint64_t{0},
 					  .total_units	  = total_units,
 					  .message		  = "Copy started.",
@@ -213,6 +214,7 @@ constexpr std::size_t copy_buffer_size = 32768U;
 			ProgressEvent{.operation_id	  = context.operation_id,
 						  .operation_type = context.operation_type,
 						  .phase		  = "copying",
+						  .message_id	  = ProgressMessageId::Copying,
 						  .current_units  = copied,
 						  .total_units	  = total_units,
 						  .message		  = "Copying content.",
@@ -224,6 +226,7 @@ constexpr std::size_t copy_buffer_size = 32768U;
 		ProgressEvent{.operation_id	  = context.operation_id,
 					  .operation_type = context.operation_type,
 					  .phase		  = "copy-completed",
+					  .message_id	  = ProgressMessageId::CopyCompleted,
 					  .current_units  = copied,
 					  .total_units	  = total_units,
 					  .message		  = "Copy completed.",
@@ -694,6 +697,7 @@ JuceAndroidSourceImageDecodeService::decode_source_image(
 		ProgressEvent{.operation_id	  = context.operation_id,
 					  .operation_type = context.operation_type,
 					  .phase		  = "source-decode-started",
+					  .message_id	  = ProgressMessageId::SourceDecodeStarted,
 					  .current_units  = std::uint64_t{0},
 					  .message		  = "Source image decode started.",
 					  .cancellable	  = true});
@@ -853,10 +857,11 @@ JuceAndroidSourceImageDecodeService::decode_source_image(
 		ProgressEvent{.operation_id	  = context.operation_id,
 					  .operation_type = context.operation_type,
 					  .phase		  = "source-decode-completed",
-					  .current_units  = validation.actual_byte_count,
-					  .total_units	  = validation.expected_byte_count,
-					  .message		  = "Source image decode completed.",
-					  .cancellable	  = false});
+					  .message_id	 = ProgressMessageId::SourceDecodeCompleted,
+					  .current_units = validation.actual_byte_count,
+					  .total_units	 = validation.expected_byte_count,
+					  .message		 = "Source image decode completed.",
+					  .cancellable	 = false});
 	return platform_value_success(std::move(decoded));
 #else
 	(void)request;

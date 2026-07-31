@@ -33,18 +33,25 @@ public:
 										 juce::String placeholder, int height);
 	PhotoCarouselComponent& add_photo_carousel(
 		std::vector<PhotoCarouselSlide> slides, std::size_t selected_index,
+		localization::Localization& localization,
 		std::function<void(std::size_t)> select_handler,
 		std::function<void()> activate_handler, int height);
 	PhotoViewerImageComponent& add_photo_viewer_image(
 		PhotoViewerImageModel model, PhotoViewerImageHandlers handlers,
+		localization::Localization& localization, int height);
+	PreviewCardButtonComponent& add_preview_card(
+		PreviewCardContent content, localization::Localization& localization,
 		int height);
-	PreviewCardButtonComponent& add_preview_card(PreviewCardContent content,
-												 int height);
 	CompactStorageStripComponent& add_compact_storage_strip(
-		std::vector<CompactStorageCardContent> cards, int height);
+		std::vector<CompactStorageCardContent> cards,
+		localization::Localization& localization, int height);
 	InlineButtonRowComponent& add_inline_buttons(
 		juce::String title,
 		std::vector<InlineButtonRowComponent::Action> actions, int height);
+	DirectChoiceGridComponent& add_direct_choice_grid(
+		juce::String title,
+		std::vector<DirectChoiceGridComponent::Choice> choices,
+		int height = DirectChoiceGridComponent::preferred_height());
 	ButtonGridComponent& add_button_grid(
 		juce::String title, std::vector<ButtonGridComponent::Action> actions,
 		int column_count, int height);
@@ -58,9 +65,10 @@ public:
 										 int height);
 	ManagedPhotoDeckComponent& add_managed_photo_deck(
 		ManagedPhotoDeckModel model, ManagedPhotoDeckHandlers handlers,
-		int height);
+		localization::Localization& localization, int height);
 	TagRowEditorComponent& add_tag_editor_row(
 		std::size_t row_index, const domain::TagRow& tag,
+		localization::Localization& localization,
 		std::function<void(std::size_t, domain::TagRow)> change_handler,
 		std::function<void(std::size_t)> remove_handler, int height);
 	juce::ToggleButton& add_toggle(const juce::String& text, bool state,

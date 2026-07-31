@@ -1,5 +1,6 @@
 #include "UI/View/Primitives/PhotoManagement.hpp"
 
+#include "Localization/Facade.hpp"
 #include "UI/View/Primitives/Palette.hpp"
 
 #include <algorithm>
@@ -74,11 +75,13 @@ public:
 	ManagedPhotoDeckSelectorComponent(
 		std::span<const CurrentPhotoCardEntry> current_entries,
 		std::span<const StagedPhotoCardEntry> staged_entries,
-		bool staged_selected, std::size_t selected_index,
+		localization::Localization& localization_value, bool staged_selected,
+		std::size_t selected_index,
 		std::function<void(std::size_t)> select_current_handler,
 		std::function<void(std::size_t)> select_staged_handler)
 		: current_count(current_entries.size())
 		, staged_count(staged_entries.size())
+		, localization(localization_value)
 		, selected_flat_index(staged_selected
 								  ? current_entries.size() + selected_index
 								  : selected_index)
@@ -178,21 +181,13 @@ private:
 	}
 
 	[[nodiscard]] juce::String summary_text() const {
-		juce::String text;
-		if (selected_flat_index < current_count) {
-			text = juce::String{"Current "}
-				   + juce::String(static_cast<int>(selected_flat_index + 1U))
-				   + "/" + juce::String(static_cast<int>(current_count));
-		} else {
-			const std::size_t staged_index =
-				selected_flat_index - current_count;
-			text = juce::String{"Staged "}
-				   + juce::String(static_cast<int>(staged_index + 1U)) + "/"
-				   + juce::String(static_cast<int>(staged_count));
-		}
-		text += juce::String{" · total "}
-				+ juce::String(static_cast<int>(current_count + staged_count));
-		return text;
+		const bool staged = selected_flat_index >= current_count;
+		const std::size_t position =
+			staged ? selected_flat_index - current_count + 1U
+				   : selected_flat_index + 1U;
+		const std::size_t count = staged ? staged_count : current_count;
+		return juce_text(localization.photo_deck_selection_summary(
+			staged, position, count, current_count + staged_count));
 	}
 
 	void select_flat_index(std::size_t flat_index) {
@@ -207,17 +202,21 @@ private:
 	std::size_t current_count{};
 	std::size_t staged_count{};
 	std::size_t selected_flat_index{};
+	localization::Localization& localization;
 	std::function<void(std::size_t)> select_current;
 	std::function<void(std::size_t)> select_staged;
 };
 
 ManagedPhotoDeckComponent::ManagedPhotoDeckComponent(
-	ManagedPhotoDeckModel model_value, ManagedPhotoDeckHandlers handlers_value)
+	ManagedPhotoDeckModel model_value, ManagedPhotoDeckHandlers handlers_value,
+	localization::Localization& localization_value)
 	: model(std::move(model_value))
 	, handlers(std::move(handlers_value))
+	, localization(localization_value)
 	, selector(std::make_unique<ManagedPhotoDeckSelectorComponent>(
-		  model.current_entries, model.staged_entries, selected_staged(),
-		  selected_index(), handlers.select_current, handlers.select_staged)) {
+		  model.current_entries, model.staged_entries, localization,
+		  selected_staged(), selected_index(), handlers.select_current,
+		  handlers.select_staged)) {
 	setOpaque(true);
 	setBufferedToImage(true);
 	style_text_button(current_button);
@@ -351,12 +350,22 @@ const StagedPhotoCardEntry* ManagedPhotoDeckComponent::selected_staged_entry()
 }
 
 void ManagedPhotoDeckComponent::refresh_button_state() {
-	current_button.setButtonText(
-		juce::String{"Current "}
-		+ juce::String(static_cast<int>(model.current_entries.size())));
-	staged_button.setButtonText(
-		juce::String{"Staged "}
-		+ juce::String(static_cast<int>(model.staged_entries.size())));
+	add_button.setButtonText(
+		juce_text(localization.text(localization::MessageId::PhotoAdd)));
+	clear_button.setButtonText(juce_text(
+		localization.text(localization::MessageId::PhotoClearStaged)));
+	previous_button.setButtonText(
+		juce_text(localization.text(localization::MessageId::Previous)));
+	next_button.setButtonText(
+		juce_text(localization.text(localization::MessageId::Next)));
+	cancel_delete_button.setButtonText(
+		juce_text(localization.text(localization::MessageId::Cancel)));
+	remove_staged_button.setButtonText(
+		juce_text(localization.text(localization::MessageId::RemoveStaged)));
+	current_button.setButtonText(juce_text(
+		localization.photo_deck_tab(false, model.current_entries.size())));
+	staged_button.setButtonText(juce_text(
+		localization.photo_deck_tab(true, model.staged_entries.size())));
 	current_button.setEnabled(!model.current_entries.empty()
 							  && selected_staged());
 	staged_button.setEnabled(!model.staged_entries.empty()
@@ -380,20 +389,24 @@ void ManagedPhotoDeckComponent::refresh_button_state() {
 									&& current->delete_confirmation_requested);
 	remove_staged_button.setVisible(staged != nullptr);
 	if (current != nullptr) {
-		set_main_button.setButtonText(current->is_main ? "Main" : "Set main");
+		set_main_button.setButtonText(juce_text(localization.text(
+			current->is_main ? localization::MessageId::PhotoMain
+							 : localization::MessageId::SetMain)));
 		set_main_button.setEnabled(
 			!current->is_main && static_cast<bool>(handlers.set_main_current));
-		delete_button.setButtonText(current->delete_confirmation_requested
-										? "Confirm delete"
-										: "Delete");
+		delete_button.setButtonText(juce_text(
+			localization.text(current->delete_confirmation_requested
+								  ? localization::MessageId::ConfirmDelete
+								  : localization::MessageId::Delete)));
 		delete_button.setEnabled(
 			current->delete_confirmation_requested
 				? static_cast<bool>(handlers.confirm_delete_current)
 				: static_cast<bool>(handlers.request_delete_current));
 	} else {
 		if (staged != nullptr && staged->can_set_main_after_save) {
-			set_main_button.setButtonText(
-				staged->main_after_save ? "Main after save" : "Set main");
+			set_main_button.setButtonText(juce_text(localization.text(
+				staged->main_after_save ? localization::MessageId::MainAfterSave
+										: localization::MessageId::SetMain)));
 			set_main_button.setEnabled(
 				!staged->main_after_save
 				&& static_cast<bool>(handlers.set_main_staged));
@@ -508,31 +521,34 @@ void ManagedPhotoDeckComponent::paint(juce::Graphics& graphics) {
 	PreviewImageVisualState state = PreviewImageVisualState::Empty;
 
 	if (const CurrentPhotoCardEntry* current = selected_current_entry()) {
-		image = current->image;
-		title = current_photo_card_text(*current, selected_index() + 1U);
-		caption =
-			juce::String{"Stored photo "}
-			+ juce::String(static_cast<int>(selected_index() + 1U)) + "/"
-			+ juce::String(static_cast<int>(model.current_entries.size()));
+		image		= current->image;
+		title		= current_photo_card_text(*current, selected_index() + 1U);
+		caption		= juce_text(localization.photo_position(
+			false, selected_index() + 1U, model.current_entries.size()));
 		placeholder = current->placeholder;
 		state		= current->state;
 	} else if (const StagedPhotoCardEntry* staged = selected_staged_entry()) {
 		image = staged->image;
 		title = juce_text(
 			pending_photo_card_text(staged->source, selected_index() + 1U));
-		caption = juce::String{"Staged photo "}
-				  + juce::String(static_cast<int>(selected_index() + 1U)) + "/"
-				  + juce::String(static_cast<int>(model.staged_entries.size()));
+		caption		= juce_text(localization.photo_position(
+			true, selected_index() + 1U, model.staged_entries.size()));
 		placeholder = staged->placeholder;
 		state		= staged->state;
 	} else if (selected_staged()) {
-		title		= "No staged photos";
-		caption		= "Use Add photos to stage images before saving.";
-		placeholder = "No staged photos yet.";
+		title = juce_text(
+			localization.text(localization::MessageId::NoStagedPhotosTitle));
+		caption = juce_text(
+			localization.text(localization::MessageId::NoStagedPhotosCaption));
+		placeholder = juce_text(localization.text(
+			localization::MessageId::NoStagedPhotosPlaceholder));
 	} else {
-		title		= "No current photos";
-		caption		= "Stored owner photos will appear here.";
-		placeholder = "No current owner photos yet.";
+		title = juce_text(
+			localization.text(localization::MessageId::NoCurrentPhotosTitle));
+		caption = juce_text(
+			localization.text(localization::MessageId::NoCurrentPhotosCaption));
+		placeholder = juce_text(localization.text(
+			localization::MessageId::NoCurrentPhotosPlaceholder));
 	}
 	if (!has_photo_entries()) {
 		juce::Rectangle<int> caption_area = layout.caption.reduced(4, 0);
@@ -548,7 +564,7 @@ void ManagedPhotoDeckComponent::paint(juce::Graphics& graphics) {
 	}
 
 	draw_preview_image_slot(graphics, layout.image, image, placeholder, state,
-							false);
+							false, localization);
 	juce::Rectangle<int> caption_area = layout.caption.reduced(4, 0);
 	graphics.setColour(text_colour());
 	graphics.setFont(juce::FontOptions(15.0f, juce::Font::bold));

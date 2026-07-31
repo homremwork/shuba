@@ -14,6 +14,10 @@
 #include <optional>
 #include <vector>
 
+namespace shuba::localization {
+class Localization;
+}
+
 namespace shuba::ui {
 class AppShellEditCoordinator final {
 public:
@@ -46,6 +50,7 @@ public:
 		platform::InternalPhotoCodec& internal_photo_codec;
 		platform::ProgressCollector& progress_events;
 		platform::CancellationToken& cancellation_token;
+		localization::Localization& localization;
 		Editors editors;
 		std::function<void()> cleanup_item_pending_photos;
 		std::function<void()> cleanup_storage_pending_photos;
@@ -95,6 +100,7 @@ private:
 	platform::InternalPhotoCodec& internal_photo_codec;
 	platform::ProgressCollector& progress_events;
 	platform::CancellationToken& cancellation_token;
+	localization::Localization& localization;
 	juce::TextEditor& item_name_editor;
 	juce::TextEditor& item_category_editor;
 	juce::TextEditor& item_notes_editor;

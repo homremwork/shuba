@@ -322,8 +322,9 @@ PhotoExportResult PhotoExportUseCase::export_photo_as_jpeg(
 	}
 
 	platform::ScopedPlatformOperation& operation = *operation_start.operation;
-	operation.publish_progress("jpeg-export-started", std::uint64_t{0},
-							   std::uint64_t{4}, "JPEG export started.", true);
+	operation.publish_progress(
+		"jpeg-export-started", platform::ProgressMessageId::JpegExportStarted,
+		std::uint64_t{0}, std::uint64_t{4}, "JPEG export started.", true);
 
 	const persistence::PhotoEnvelope* photo =
 		find_photo_envelope(request.current_state, request.photo_id);
@@ -379,8 +380,9 @@ PhotoExportResult PhotoExportUseCase::export_photo_as_jpeg(
 		return result;
 	}
 
-	operation.publish_progress("jpeg-export-decoding", std::uint64_t{1},
-							   std::uint64_t{4},
+	operation.publish_progress("jpeg-export-decoding",
+							   platform::ProgressMessageId::JpegExportDecoding,
+							   std::uint64_t{1}, std::uint64_t{4},
 							   "Decoding internal JPEG XL photo.", true);
 	platform::PlatformValueResult<platform::ImagePixels> decoded =
 		codec.decode_internal_photo(
@@ -399,9 +401,11 @@ PhotoExportResult PhotoExportUseCase::export_photo_as_jpeg(
 	const std::filesystem::path jpeg_path = temp_jpeg_path(
 		request.paths, operation.context().operation_id, request.photo_id);
 	result.temp_jpeg_path = jpeg_path;
-	operation.publish_progress("jpeg-export-writing-temp", std::uint64_t{2},
-							   std::uint64_t{4},
-							   "Writing temporary JPEG export.", true);
+	operation.publish_progress(
+		"jpeg-export-writing-temp",
+		platform::ProgressMessageId::JpegExportWritingTemporary,
+		std::uint64_t{2}, std::uint64_t{4}, "Writing temporary JPEG export.",
+		true);
 	platform::PlatformValueResult<platform::MediaWriteResult> written =
 		jpeg_writer.write_jpeg(
 			platform::JpegExportRequest{.pixels		 = *decoded.value,
@@ -436,8 +440,9 @@ PhotoExportResult PhotoExportUseCase::export_photo_as_jpeg(
 		return result;
 	}
 
-	operation.publish_progress("jpeg-export-copying", std::uint64_t{3},
-							   std::uint64_t{4},
+	operation.publish_progress("jpeg-export-copying",
+							   platform::ProgressMessageId::JpegExportCopying,
+							   std::uint64_t{3}, std::uint64_t{4},
 							   "Copying JPEG to selected destination.", true);
 	core::OperationResult copied = document_exporter.copy_file_to_destination(
 		platform::DocumentCopyRequest{.temp_source_path = jpeg_path,
@@ -457,9 +462,10 @@ PhotoExportResult PhotoExportUseCase::export_photo_as_jpeg(
 	result.status			  = PhotoExportStatus::Exported;
 	result.category			  = core::OperationResultCategory::Success;
 	result.destination_copied = true;
-	operation.publish_progress("jpeg-export-completed", std::uint64_t{4},
-							   std::uint64_t{4}, "JPEG export completed.",
-							   false);
+	operation.publish_progress("jpeg-export-completed",
+							   platform::ProgressMessageId::JpegExportCompleted,
+							   std::uint64_t{4}, std::uint64_t{4},
+							   "JPEG export completed.", false);
 	return result;
 }
 }	 // namespace shuba::catalog

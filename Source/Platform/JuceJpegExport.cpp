@@ -144,6 +144,7 @@ PlatformValueResult<MediaWriteResult> JuceJpegExportService::write_jpeg(
 		.operation_id	= context.operation_id,
 		.operation_type = context.operation_type,
 		.phase			= "jpeg-write-started",
+		.message_id		= ProgressMessageId::JpegWriteStarted,
 		.current_units	= std::uint64_t{0},
 		.total_units = static_cast<std::uint64_t>(request.pixels.bytes.size()),
 		.message	 = "JPEG write started.",
@@ -217,6 +218,7 @@ PlatformValueResult<MediaWriteResult> JuceJpegExportService::write_jpeg(
 		.operation_id	= context.operation_id,
 		.operation_type = context.operation_type,
 		.phase			= "jpeg-write-completed",
+		.message_id		= ProgressMessageId::JpegWriteCompleted,
 		.current_units =
 			static_cast<std::uint64_t>(request.pixels.bytes.size()),
 		.total_units = static_cast<std::uint64_t>(request.pixels.bytes.size()),

@@ -251,7 +251,8 @@ bool ScopedPlatformOperation::cancellation_requested() const noexcept {
 }
 
 void ScopedPlatformOperation::publish_progress(
-	std::string phase, std::optional<std::uint64_t> current_units,
+	std::string phase, std::optional<ProgressMessageId> message_id,
+	std::optional<std::uint64_t> current_units,
 	std::optional<std::uint64_t> total_units, std::string message,
 	bool cancellable) const {
 	if (progress == nullptr)
@@ -261,6 +262,7 @@ void ScopedPlatformOperation::publish_progress(
 		ProgressEvent{.operation_id	  = operation_context.operation_id,
 					  .operation_type = operation_context.operation_type,
 					  .phase		  = std::move(phase),
+					  .message_id	  = message_id,
 					  .current_units  = current_units,
 					  .total_units	  = total_units,
 					  .message		  = std::move(message),

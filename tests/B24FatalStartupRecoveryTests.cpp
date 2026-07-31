@@ -106,10 +106,13 @@ void write_text(const std::filesystem::path& path, std::string_view text) {
 	});
 }
 
-[[nodiscard]] bool contains_text(std::span<const std::string> values,
-								 std::string_view text) {
-	return std::ranges::any_of(
-		values, [text](const std::string& value) { return value == text; });
+[[nodiscard]] bool contains_action(
+	std::span<const shuba::ui::RecoveryAction> values,
+	shuba::ui::RecoveryAction expected) {
+	return std::ranges::any_of(values,
+							   [expected](shuba::ui::RecoveryAction value) {
+		return value == expected;
+	});
 }
 
 [[nodiscard]] bool contains_entry(const std::vector<std::string>& values,
@@ -259,14 +262,18 @@ TEST_CASE(
 	shuba::ui::CatalogRecoveryUiSummary summary =
 		shuba::ui::make_recovery_ui_summary(state);
 	REQUIRE(summary.fatal());
-	REQUIRE(summary.plain_summary_message.find("Previous launch stopped")
-			!= std::string::npos);
 	REQUIRE(summary.startup_crash_safe_mode());
-	REQUIRE(contains_text(summary.safe_actions, "Export diagnostic archive"));
-	REQUIRE(contains_text(summary.safe_actions, "Import backup ZIP"));
-	REQUIRE(contains_text(summary.safe_actions, "Show technical report"));
-	REQUIRE(contains_text(summary.safe_actions, "Retry normal launch"));
-	REQUIRE(contains_text(summary.safe_actions, "Exit"));
+	REQUIRE(
+		contains_action(summary.safe_actions,
+						shuba::ui::RecoveryAction::ExportDiagnosticArchive));
+	REQUIRE(contains_action(summary.safe_actions,
+							shuba::ui::RecoveryAction::ImportBackup));
+	REQUIRE(contains_action(summary.safe_actions,
+							shuba::ui::RecoveryAction::ShowTechnicalReport));
+	REQUIRE(contains_action(summary.safe_actions,
+							shuba::ui::RecoveryAction::RetryNormalLaunch));
+	REQUIRE(
+		contains_action(summary.safe_actions, shuba::ui::RecoveryAction::Exit));
 }
 
 TEST_CASE("B24 direct safe mode checks stale marker before startup cleanup") {
@@ -628,8 +635,11 @@ TEST_CASE("B24 guarded expected fatal load keeps catalog fatal wording") {
 
 	shuba::ui::CatalogRecoveryUiSummary summary =
 		shuba::ui::make_recovery_ui_summary(state);
-	REQUIRE(summary.plain_summary_message.find("Catalog cannot safely open")
-			!= std::string::npos);
+	REQUIRE(summary.load_status
+			== shuba::persistence::CatalogLoadStatus::Fatal);
+	REQUIRE(summary.startup_source
+			== shuba::ui::CatalogSessionStartupSource::LoadFailed);
+	REQUIRE_FALSE(summary.technical_details.empty());
 }
 
 TEST_CASE(

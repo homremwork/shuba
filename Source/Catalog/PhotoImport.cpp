@@ -435,8 +435,9 @@ PhotoImportSummary PhotoImportUseCase::import_photos(
 
 	const std::uint64_t total_sources =
 		static_cast<std::uint64_t>(request.sources.size());
-	operation.publish_progress("photo-import-started", std::uint64_t{0},
-							   total_sources, "Photo import started.", true);
+	operation.publish_progress(
+		"photo-import-started", platform::ProgressMessageId::PhotoImportStarted,
+		std::uint64_t{0}, total_sources, "Photo import started.", true);
 
 	std::vector<persistence::PhotoEnvelope> committed_photos =
 		request.current_state.photos;
@@ -458,10 +459,11 @@ PhotoImportSummary PhotoImportUseCase::import_photos(
 			break;
 		}
 
-		operation.publish_progress("photo-import-photo-started",
-								   static_cast<std::uint64_t>(index + 1U),
-								   total_sources,
-								   "Photo import source started.", true);
+		operation.publish_progress(
+			"photo-import-photo-started",
+			platform::ProgressMessageId::PhotoImportSourceStarted,
+			static_cast<std::uint64_t>(index + 1U), total_sources,
+			"Photo import source started.", true);
 
 		core::StableIdentifier photo_id = identifiers.next_stable_identifier();
 		photo_result.photo_id			= photo_id;
@@ -626,8 +628,10 @@ PhotoImportSummary PhotoImportUseCase::import_photos(
 		}
 
 		operation.publish_progress(
-			"photo-import-committing", static_cast<std::uint64_t>(index + 1U),
-			total_sources, "Photo metadata commit started.", false);
+			"photo-import-committing",
+			platform::ProgressMessageId::PhotoImportCommitting,
+			static_cast<std::uint64_t>(index + 1U), total_sources,
+			"Photo metadata commit started.", false);
 		persistence::CatalogStorageResult committed =
 			persistence::commit_metadata_file(
 				persistence::CatalogMetadataCommitRequest{
@@ -655,8 +659,10 @@ PhotoImportSummary PhotoImportUseCase::import_photos(
 		summary.photos.push_back(std::move(photo_result));
 	}
 
-	operation.publish_progress("photo-import-completed", total_sources,
-							   total_sources, "Photo import completed.", false);
+	operation.publish_progress(
+		"photo-import-completed",
+		platform::ProgressMessageId::PhotoImportCompleted, total_sources,
+		total_sources, "Photo import completed.", false);
 	summary.updated_state =
 		rebuild_state(request.current_state, committed_photos,
 					  request.paths.active_catalog_root);

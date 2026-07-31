@@ -1,11 +1,13 @@
 #include "UI/AppShellPhotoCoordinator.hpp"
 
+#include "Localization/Facade.hpp"
 #include "UI/Session/PhotoSession.hpp"
 #include "UI/View/ScreenText.hpp"
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -53,7 +55,46 @@ next_photo_selection_after_delete(
 	}
 	return next_photo_id;
 }
+
 }	 // namespace
+
+class AppShellPhotoCoordinator::CallbackLifetimeLease final {
+public:
+	[[nodiscard]] static std::optional<CallbackLifetimeLease> try_acquire(
+		const std::weak_ptr<LifetimeToken>& lifetime) {
+		const std::shared_ptr<LifetimeToken> token = lifetime.lock();
+		if (token == nullptr || !token->alive.load(std::memory_order_acquire))
+			return std::nullopt;
+
+		token->callback_count.fetch_add(1U, std::memory_order_acq_rel);
+		if (!token->alive.load(std::memory_order_acquire)) {
+			token->callback_count.fetch_sub(1U, std::memory_order_acq_rel);
+			token->callbacks_finished.notify_all();
+			return std::nullopt;
+		}
+		return CallbackLifetimeLease{token};
+	}
+
+	CallbackLifetimeLease(const CallbackLifetimeLease&)			   = delete;
+	CallbackLifetimeLease& operator=(const CallbackLifetimeLease&) = delete;
+	CallbackLifetimeLease(CallbackLifetimeLease&&) noexcept		   = default;
+	CallbackLifetimeLease& operator=(CallbackLifetimeLease&&) noexcept = delete;
+
+	~CallbackLifetimeLease() {
+		if (token == nullptr)
+			return;
+		if (token->callback_count.fetch_sub(1U, std::memory_order_acq_rel)
+			== 1U) {
+			token->callbacks_finished.notify_all();
+		}
+	}
+
+private:
+	explicit CallbackLifetimeLease(std::shared_ptr<LifetimeToken> token_value)
+		: token(std::move(token_value)) {}
+
+	std::shared_ptr<LifetimeToken> token;
+};
 
 AppShellPhotoCoordinator::AppShellPhotoCoordinator(Dependencies dependencies)
 	: session(dependencies.session)
@@ -75,6 +116,7 @@ AppShellPhotoCoordinator::AppShellPhotoCoordinator(Dependencies dependencies)
 	, internal_photo_codec(dependencies.internal_photo_codec)
 	, progress_events(dependencies.progress_events)
 	, cancellation_token(dependencies.cancellation_token)
+	, localization(dependencies.localization)
 	, invalidate_all_previews_handler(
 		  std::move(dependencies.invalidate_all_previews))
 	, invalidate_internal_photo_preview_handler(
@@ -83,27 +125,48 @@ AppShellPhotoCoordinator::AppShellPhotoCoordinator(Dependencies dependencies)
 		  std::move(dependencies.invalidate_staged_photo_preview))
 	, refresh_all_handler(std::move(dependencies.refresh_all)) {}
 
+AppShellPhotoCoordinator::~AppShellPhotoCoordinator() {
+	const std::shared_ptr<LifetimeToken> token = std::move(lifetime_token);
+	if (token == nullptr)
+		return;
+
+	token->alive.store(false, std::memory_order_release);
+	std::unique_lock<std::mutex> lock{token->mutex};
+	token->callbacks_finished.wait(lock, [&token] {
+		return token->callback_count.load(std::memory_order_acquire) == 0U;
+	});
+}
+
 void AppShellPhotoCoordinator::request_add_photos(
 	const domain::PhotoOwner& owner) {
 	progress_events.clear();
 	feedback.photo_diagnostics.clear();
-	feedback.photo_message = "Select photos to import.";
+	feedback.photo_message = localization.photo_workflow_text(
+		localization::PhotoWorkflowMessageId::SelectImport);
+	const std::weak_ptr<LifetimeToken> lifetime = lifetime_token;
 	core::OperationResult picker_started =
 		photo_selection_service.request_photo_selection(
 			platform::PhotoSelectionRequest{
 				.allow_multiple		 = true,
 				.accepted_mime_types = {"image/jpeg", "image/png", "image/webp",
 										"image/heic", "image/heif"}},
-			[this, owner](platform::PlatformValueResult<
-						  std::vector<platform::ContentSourceDescriptor>>
-							  result) mutable {
+			[this, lifetime,
+			 owner](platform::PlatformValueResult<
+					std::vector<platform::ContentSourceDescriptor>>
+						result) mutable {
+		const std::optional<CallbackLifetimeLease> callback_lease =
+			CallbackLifetimeLease::try_acquire(lifetime);
+		if (!callback_lease.has_value())
+			return;
 		if (result.was_user_cancelled()) {
-			feedback.photo_message = "Photo selection cancelled.";
+			feedback.photo_message = localization.photo_workflow_text(
+				localization::PhotoWorkflowMessageId::SelectionCancelled);
 			refresh_all();
 			return;
 		}
 		if (result.failed()) {
-			feedback.photo_message	   = "Photo selection failed.";
+			feedback.photo_message = localization.photo_workflow_text(
+				localization::PhotoWorkflowMessageId::SelectionFailed);
 			feedback.photo_diagnostics = std::move(result.diagnostics);
 			refresh_all();
 			return;
@@ -124,7 +187,8 @@ void AppShellPhotoCoordinator::request_add_photos(
 		apply_photo_import_result(std::move(import_result));
 	});
 	if (picker_started.failed()) {
-		feedback.photo_message	   = "Photo picker could not be opened.";
+		feedback.photo_message = localization.photo_workflow_text(
+			localization::PhotoWorkflowMessageId::PickerUnavailable);
 		feedback.photo_diagnostics = picker_started.diagnostics();
 		refresh_all();
 	}
@@ -144,30 +208,42 @@ void AppShellPhotoCoordinator::request_add_pending_photos(
 	feedback.photo_diagnostics.clear();
 	feedback.photo_message =
 		target == PendingPhotoDraftTarget::Item
-			? "Select photos to stage before saving the item."
-			: "Select photos to stage before saving the storage.";
+			? localization.photo_workflow_text(
+				  localization::PhotoWorkflowMessageId::SelectPendingItem)
+			: localization.photo_workflow_text(
+				  localization::PhotoWorkflowMessageId::SelectPendingStorage);
+	const std::weak_ptr<LifetimeToken> lifetime = lifetime_token;
 	core::OperationResult picker_started =
 		photo_selection_service.request_photo_selection(
 			platform::PhotoSelectionRequest{
 				.allow_multiple		 = true,
 				.accepted_mime_types = {"image/jpeg", "image/png", "image/webp",
 										"image/heic", "image/heif"}},
-			[this, target](platform::PlatformValueResult<
-						   std::vector<platform::ContentSourceDescriptor>>
-							   result) mutable {
+			[this, lifetime,
+			 target](platform::PlatformValueResult<
+					 std::vector<platform::ContentSourceDescriptor>>
+						 result) mutable {
+		const std::optional<CallbackLifetimeLease> callback_lease =
+			CallbackLifetimeLease::try_acquire(lifetime);
+		if (!callback_lease.has_value())
+			return;
 		if (result.was_user_cancelled()) {
-			feedback.photo_message = "Pending photo selection cancelled.";
+			feedback.photo_message = localization.photo_workflow_text(
+				localization::PhotoWorkflowMessageId::
+					PendingSelectionCancelled);
 			refresh_all();
 			return;
 		}
 		if (result.failed()) {
-			feedback.photo_message	   = "Pending photo selection failed.";
+			feedback.photo_message = localization.photo_workflow_text(
+				localization::PhotoWorkflowMessageId::PendingSelectionFailed);
 			feedback.photo_diagnostics = std::move(result.diagnostics);
 			refresh_all();
 			return;
 		}
 		if (result.value->empty()) {
-			feedback.photo_message = "No photos selected for pending staging.";
+			feedback.photo_message = localization.photo_workflow_text(
+				localization::PhotoWorkflowMessageId::PendingNoneSelected);
 			refresh_all();
 			return;
 		}
@@ -187,7 +263,8 @@ void AppShellPhotoCoordinator::request_add_pending_photos(
 		apply_pending_photo_staging_result(std::move(staging_result), target);
 	});
 	if (picker_started.failed()) {
-		feedback.photo_message = "Pending photo picker could not be opened.";
+		feedback.photo_message = localization.photo_workflow_text(
+			localization::PhotoWorkflowMessageId::PendingPickerUnavailable);
 		feedback.photo_diagnostics = picker_started.diagnostics();
 		refresh_all();
 	}
@@ -226,22 +303,29 @@ void AppShellPhotoCoordinator::request_export_photo(
 	feedback.photo_diagnostics.clear();
 	const std::string suggested_name =
 		catalog::suggested_jpeg_export_file_name(session.repository, photo_id);
+	const std::weak_ptr<LifetimeToken> lifetime = lifetime_token;
 	core::OperationResult destination_started =
 		document_export_service.request_export_destination_selection(
 			platform::DocumentExportRequest{
 				.suggested_file_name = suggested_name,
 				.mime_type			 = "image/jpeg",
 				.purpose			 = "photo JPEG export"},
-			[this, photo_id](platform::PlatformValueResult<
-							 platform::DocumentDestinationDescriptor>
-								 result) mutable {
+			[this, lifetime, photo_id](platform::PlatformValueResult<
+									   platform::DocumentDestinationDescriptor>
+										   result) mutable {
+		const std::optional<CallbackLifetimeLease> callback_lease =
+			CallbackLifetimeLease::try_acquire(lifetime);
+		if (!callback_lease.has_value())
+			return;
 		if (result.was_user_cancelled()) {
-			feedback.photo_message = "JPEG export destination cancelled.";
+			feedback.photo_message = localization.photo_workflow_text(
+				localization::PhotoWorkflowMessageId::JpegDestinationCancelled);
 			refresh_all();
 			return;
 		}
 		if (result.failed()) {
-			feedback.photo_message	   = "JPEG export destination failed.";
+			feedback.photo_message = localization.photo_workflow_text(
+				localization::PhotoWorkflowMessageId::JpegDestinationFailed);
 			feedback.photo_diagnostics = std::move(result.diagnostics);
 			refresh_all();
 			return;
@@ -260,18 +344,19 @@ void AppShellPhotoCoordinator::request_export_photo(
 				progress_events, cancellation_token);
 		feedback.photo_diagnostics = std::move(exported.diagnostics);
 		if (exported.succeeded())
-			feedback.photo_message = "JPEG export completed: "
-									 + std::to_string(exported.bytes_written)
-									 + " bytes.";
+			feedback.photo_message =
+				localization.jpeg_export_completed(exported.bytes_written);
 		else if (exported.was_user_cancelled())
-			feedback.photo_message = "JPEG export cancelled.";
+			feedback.photo_message = localization.photo_workflow_text(
+				localization::PhotoWorkflowMessageId::JpegCancelled);
 		else
-			feedback.photo_message = "JPEG export failed.";
+			feedback.photo_message = localization.photo_workflow_text(
+				localization::PhotoWorkflowMessageId::JpegFailed);
 		refresh_all();
 	});
 	if (destination_started.failed()) {
-		feedback.photo_message =
-			"JPEG export destination picker could not be opened.";
+		feedback.photo_message = localization.photo_workflow_text(
+			localization::PhotoWorkflowMessageId::JpegPickerUnavailable);
 		feedback.photo_diagnostics = destination_started.diagnostics();
 		refresh_all();
 	}
@@ -280,14 +365,15 @@ void AppShellPhotoCoordinator::request_export_photo(
 void AppShellPhotoCoordinator::request_delete_photo_confirmation(
 	const core::StableIdentifier& photo_id) {
 	photo_display.pending_delete_photo_id = photo_id;
-	feedback.photo_message =
-		"Tap Confirm delete to remove the selected photo metadata first.";
+	feedback.photo_message				  = localization.photo_workflow_text(
+		localization::PhotoWorkflowMessageId::DeleteInstruction);
 	refresh_all();
 }
 
 void AppShellPhotoCoordinator::cancel_delete_photo_confirmation() {
 	photo_display.pending_delete_photo_id.reset();
-	feedback.photo_message = "Photo deletion cancelled.";
+	feedback.photo_message = localization.photo_workflow_text(
+		localization::PhotoWorkflowMessageId::DeleteCancelled);
 	refresh_all();
 }
 
@@ -334,14 +420,16 @@ void AppShellPhotoCoordinator::apply_pending_photo_staging_result(
 	}
 
 	if (result.succeeded()) {
-		feedback.photo_message =
-			"Pending photo staging completed: "
-			+ std::to_string(result.staged_count) + " staged, "
-			+ std::to_string(result.failure_count) + " failed.";
+		feedback.photo_message = localization.pending_photo_staging_completed(
+			localization::PendingPhotoStagingCompletion{
+				.staged_count = result.staged_count,
+				.failed_count = result.failure_count});
 	} else if (result.was_user_cancelled()) {
-		feedback.photo_message = "Pending photo staging cancelled.";
+		feedback.photo_message = localization.photo_workflow_text(
+			localization::PhotoWorkflowMessageId::PendingStagingCancelled);
 	} else {
-		feedback.photo_message = "Pending photo staging failed.";
+		feedback.photo_message = localization.photo_workflow_text(
+			localization::PhotoWorkflowMessageId::PendingStagingFailed);
 	}
 	refresh_all();
 }
@@ -362,17 +450,19 @@ void AppShellPhotoCoordinator::apply_photo_import_result(
 			invalidate_all_previews_handler();
 		else
 			preview_cache.clear();
-		feedback.photo_message =
-			"Photo import completed: "
-			+ std::to_string(result.summary.success_count) + " imported, "
-			+ std::to_string(result.summary.failure_count) + " failed.";
+		feedback.photo_message = localization.photo_import_completed(
+			localization::PhotoImportCompletion{
+				.imported_count = result.summary.success_count,
+				.failed_count	= result.summary.failure_count});
 		if (!result.imported_photo_ids.empty())
 			route.selected_photo_id = result.imported_photo_ids.front();
 		photo_display.displayed_photo_id.reset();
 	} else if (result.was_user_cancelled()) {
-		feedback.photo_message = "Photo import cancelled.";
+		feedback.photo_message = localization.photo_workflow_text(
+			localization::PhotoWorkflowMessageId::ImportCancelled);
 	} else {
-		feedback.photo_message = "Photo import failed.";
+		feedback.photo_message = localization.photo_workflow_text(
+			localization::PhotoWorkflowMessageId::ImportFailed);
 	}
 	refresh_all();
 }
@@ -382,7 +472,8 @@ void AppShellPhotoCoordinator::apply_photo_edit_result(
 	const core::StableIdentifier& selected_photo_id_value) {
 	copy_entity_diagnostics_to_photo_feedback(feedback, result.diagnostics);
 	if (result.failed()) {
-		feedback.photo_message = "Photo metadata update failed.";
+		feedback.photo_message = localization.photo_workflow_text(
+			localization::PhotoWorkflowMessageId::MetadataUpdateFailed);
 		refresh_all();
 		return;
 	}
@@ -393,8 +484,10 @@ void AppShellPhotoCoordinator::apply_photo_edit_result(
 		preview_cache.remove_internal_photo(selected_photo_id_value);
 	route.selected_photo_id = selected_photo_id_value;
 	photo_display.displayed_photo_id.reset();
-	feedback.photo_message = result.metadata_changed ? "Main photo updated."
-													 : "Main photo unchanged.";
+	feedback.photo_message = localization.photo_workflow_text(
+		result.metadata_changed
+			? localization::PhotoWorkflowMessageId::MainUpdated
+			: localization::PhotoWorkflowMessageId::MainUnchanged);
 	refresh_all();
 }
 
@@ -403,7 +496,8 @@ void AppShellPhotoCoordinator::apply_photo_delete_result(
 	std::optional<core::StableIdentifier> next_photo_id) {
 	copy_entity_diagnostics_to_photo_feedback(feedback, result.diagnostics);
 	if (result.failed()) {
-		feedback.photo_message = "Photo deletion failed.";
+		feedback.photo_message = localization.photo_workflow_text(
+			localization::PhotoWorkflowMessageId::DeleteFailed);
 		refresh_all();
 		return;
 	}
@@ -417,11 +511,13 @@ void AppShellPhotoCoordinator::apply_photo_delete_result(
 	photo_display.displayed_photo_id.reset();
 	photo_display.result	= catalog::PhotoDisplayResult{};
 	route.selected_photo_id = std::move(next_photo_id);
-	feedback.photo_message	= result.metadata_changed
-								  ? "Photo deleted."
-								  : "Photo deletion made no changes.";
-	if (!feedback.photo_diagnostics.empty())
-		feedback.photo_message += " Media cleanup needs attention.";
+	feedback.photo_message =
+		localization.photo_deletion_outcome(localization::PhotoDeletionOutcome{
+			.state = result.metadata_changed
+						 ? localization::PhotoDeletionState::Deleted
+						 : localization::PhotoDeletionState::NoChanges,
+			.media_cleanup_needs_attention =
+				!feedback.photo_diagnostics.empty()});
 	refresh_all();
 }
 
@@ -456,9 +552,10 @@ void AppShellPhotoCoordinator::cleanup_pending_photos(
 		photo_deck.selected_index =
 			pending_photos.empty() ? 0U : pending_photos.size() - 1U;
 	}
-	feedback.photo_message =
-		cleanup.failed() ? "Some pending staged photos could not be cleaned."
-						 : "Pending photos cleared.";
+	feedback.photo_message = localization.photo_workflow_text(
+		cleanup.failed()
+			? localization::PhotoWorkflowMessageId::PendingCleanupPartial
+			: localization::PhotoWorkflowMessageId::PendingCleared);
 }
 
 void AppShellPhotoCoordinator::remove_item_pending_photo(
@@ -499,8 +596,8 @@ void AppShellPhotoCoordinator::remove_pending_photo(
 		source.diagnostics.insert(source.diagnostics.end(),
 								  cleanup.diagnostics.begin(),
 								  cleanup.diagnostics.end());
-		feedback.photo_message =
-			"Pending photo cleanup needs attention; source kept for retry.";
+		feedback.photo_message = localization.photo_workflow_text(
+			localization::PhotoWorkflowMessageId::PendingCleanupRetry);
 		refresh_all();
 		return;
 	}
@@ -518,7 +615,8 @@ void AppShellPhotoCoordinator::remove_pending_photo(
 		photo_deck.selected_index =
 			pending_photos.empty() ? 0U : pending_photos.size() - 1U;
 	}
-	feedback.photo_message = "Pending photo removed.";
+	feedback.photo_message = localization.photo_workflow_text(
+		localization::PhotoWorkflowMessageId::PendingRemoved);
 	refresh_all();
 }
 

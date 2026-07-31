@@ -1,5 +1,6 @@
 #include "UI/View/AppShellChromeComponent.hpp"
 
+#include "Localization/Facade.hpp"
 #include "UI/View/Primitives/Palette.hpp"
 #include "UI/View/ScreenText.hpp"
 
@@ -7,8 +8,9 @@
 #include <utility>
 
 namespace shuba::ui {
-AppShellChromeComponent::AppShellChromeComponent(Callbacks callbacks_value)
-	: callbacks(std::move(callbacks_value)) {
+AppShellChromeComponent::AppShellChromeComponent(
+	Callbacks callbacks_value, localization::Localization& localization_value)
+	: callbacks(std::move(callbacks_value)), localization(localization_value) {
 	setOpaque(false);
 
 	title_label.setJustificationType(juce::Justification::centredLeft);
@@ -30,8 +32,9 @@ AppShellChromeComponent::AppShellChromeComponent(Callbacks callbacks_value)
 		juce::FontOptions(14.5f, juce::Font::plain));
 	addAndMakeVisible(catalog_draft_count_label);
 
-	catalog_search_editor.setTextToShowWhenEmpty("Search catalog",
-												 muted_text_colour());
+	catalog_search_editor.setTextToShowWhenEmpty(
+		juce_text(localization.text(localization::MessageId::SearchCatalog)),
+		muted_text_colour());
 	style_text_editor(catalog_search_editor);
 	catalog_search_editor.onTextChange = [this] {
 		if (callbacks.catalog_search_changed)
@@ -39,8 +42,9 @@ AppShellChromeComponent::AppShellChromeComponent(Callbacks callbacks_value)
 	};
 	addAndMakeVisible(catalog_search_editor);
 
-	storage_search_editor.setTextToShowWhenEmpty("Search storages",
-												 muted_text_colour());
+	storage_search_editor.setTextToShowWhenEmpty(
+		juce_text(localization.text(localization::MessageId::SearchStorages)),
+		muted_text_colour());
 	style_text_editor(storage_search_editor);
 	storage_search_editor.onTextChange = [this] {
 		if (callbacks.storage_search_changed)
@@ -93,6 +97,22 @@ AppShellChromeComponent::AppShellChromeComponent(Callbacks callbacks_value)
 		style_text_button(*button);
 		addAndMakeVisible(*button);
 	}
+	catalog_clear_button.setButtonText(
+		juce_text(localization.text(localization::MessageId::Clear)));
+	catalog_filter_button.setButtonText(
+		juce_text(localization.text(localization::MessageId::Filters)));
+	catalog_apply_filters_button.setButtonText(
+		juce_text(localization.text(localization::MessageId::ApplyFilters)));
+	catalog_clear_filters_button.setButtonText(
+		juce_text(localization.text(localization::MessageId::ClearFilters)));
+	catalog_close_filters_button.setButtonText(
+		juce_text(localization.text(localization::MessageId::Close)));
+	storage_clear_button.setButtonText(
+		juce_text(localization.text(localization::MessageId::StorageClear)));
+	back_button.setButtonText(
+		juce_text(localization.text(localization::MessageId::Back)));
+	form_cancel_button.setButtonText(
+		juce_text(localization.text(localization::MessageId::Cancel)));
 
 	catalog_nav_button.onClick = [this] {
 		if (callbacks.select_catalog)
@@ -115,6 +135,14 @@ AppShellChromeComponent::AppShellChromeComponent(Callbacks callbacks_value)
 		style_text_button(*button);
 		addAndMakeVisible(*button);
 	}
+	catalog_nav_button.setButtonText(juce_text(
+		localization.text(localization::MessageId::NavigationCatalog)));
+	storages_nav_button.setButtonText(juce_text(
+		localization.text(localization::MessageId::NavigationStorages)));
+	add_nav_button.setButtonText(
+		juce_text(localization.text(localization::MessageId::NavigationAdd)));
+	more_nav_button.setButtonText(
+		juce_text(localization.text(localization::MessageId::NavigationMore)));
 }
 
 void AppShellChromeComponent::update_model(const Model& model) {
@@ -124,10 +152,11 @@ void AppShellChromeComponent::update_model(const Model& model) {
 	catalog_draft_count_label.setText(current_model.catalog_draft_result_count,
 									  juce::dontSendNotification);
 	form_save_button.setButtonText(
-		current_model.destination == RootDestination::ItemForm ? "Save item"
+		current_model.destination == RootDestination::ItemForm
+			? juce_text(localization.text(localization::MessageId::SaveItem))
 		: current_model.destination == RootDestination::StorageForm
-			? "Save storage"
-			: "Save");
+			? juce_text(localization.text(localization::MessageId::SaveStorage))
+			: juce_text(localization.text(localization::MessageId::Save)));
 
 	catalog_nav_button.setEnabled(!current_model.session_fatal);
 	storages_nav_button.setEnabled(!current_model.session_fatal);

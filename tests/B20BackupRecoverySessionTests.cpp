@@ -154,8 +154,6 @@ TEST_CASE("B20 recovery summary exposes degraded load safe actions") {
 	REQUIRE(summary.accepted_item_count == 1U);
 	REQUIRE(summary.skipped_item_count == 1U);
 	REQUIRE_FALSE(summary.safe_actions.empty());
-	REQUIRE(summary.plain_summary_message.find("Accepted records")
-			!= std::string::npos);
 	REQUIRE_FALSE(summary.technical_details.empty());
 }
 
@@ -306,8 +304,11 @@ TEST_CASE(
 	shuba::ui::CatalogRecoveryUiSummary summary =
 		shuba::ui::make_recovery_ui_summary(result.session);
 	REQUIRE(summary.fatal());
-	REQUIRE(summary.plain_summary_message.find("cannot safely open")
-			!= std::string::npos);
+	REQUIRE(summary.load_status
+			== shuba::persistence::CatalogLoadStatus::Fatal);
+	REQUIRE(summary.startup_source
+			== shuba::ui::CatalogSessionStartupSource::LoadFailed);
+	REQUIRE_FALSE(summary.safe_actions.empty());
 	REQUIRE(read_text(session.paths->active_catalog_root / "data/items.jsonl")
 				.find("Fatal replacement item")
 			!= std::string::npos);

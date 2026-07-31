@@ -9,6 +9,10 @@
 #include <memory>
 #include <vector>
 
+namespace shuba::localization {
+class Localization;
+}
+
 namespace shuba::ui {
 enum class PreviewImageVisualState : std::uint8_t {
 	Empty,
@@ -22,7 +26,8 @@ void draw_preview_image_slot(juce::Graphics& graphics,
 							 juce::Rectangle<int> bounds,
 							 const juce::Image& image,
 							 const juce::String& placeholder,
-							 PreviewImageVisualState state, bool compact);
+							 PreviewImageVisualState state, bool compact,
+							 const localization::Localization& localization);
 
 class ImagePanelComponent final : public juce::Component {
 public:
@@ -52,6 +57,7 @@ class PhotoCarouselComponent final : public juce::Component {
 public:
 	PhotoCarouselComponent(std::vector<PhotoCarouselSlide> slides_value,
 						   std::size_t selected_index_value,
+						   localization::Localization& localization_value,
 						   std::function<void(std::size_t)> select_handler,
 						   std::function<void()> activate_handler);
 
@@ -77,11 +83,12 @@ private:
 
 	std::vector<PhotoCarouselSlide> slides;
 	std::size_t selected_slide_index{};
+	localization::Localization& localization;
 	std::function<void(std::size_t)> on_select;
 	std::function<void()> on_activate;
-	juce::TextButton previous_button{"Previous"};
-	juce::TextButton next_button{"Next"};
-	juce::TextButton slide_action_button{"Action"};
+	juce::TextButton previous_button;
+	juce::TextButton next_button;
+	juce::TextButton slide_action_button;
 	bool tracking_pointer{};
 	bool horizontal_gesture{};
 	bool vertical_gesture{};
@@ -105,7 +112,8 @@ struct PhotoViewerImageHandlers final {
 class PhotoViewerImageComponent final : public juce::Component {
 public:
 	PhotoViewerImageComponent(PhotoViewerImageModel model_value,
-							  PhotoViewerImageHandlers handlers_value);
+							  PhotoViewerImageHandlers handlers_value,
+							  localization::Localization& localization_value);
 
 	void paint(juce::Graphics& graphics) override;
 
@@ -133,6 +141,7 @@ private:
 
 	PhotoViewerImageModel model;
 	PhotoViewerImageHandlers handlers;
+	localization::Localization& localization;
 	float zoom_scale{minimum_zoom_scale};
 	juce::Point<float> pan_offset;
 	juce::Point<float> drag_start_pan;
@@ -153,7 +162,8 @@ struct PreviewCardContent final {
 class PreviewCardButtonComponent final : public juce::Button {
 public:
 	PreviewCardButtonComponent(PreviewCardContent content_value,
-							   juce::Colour background_value);
+							   juce::Colour background_value,
+							   localization::Localization& localization_value);
 
 	void paintButton(juce::Graphics& graphics, bool highlighted,
 					 bool down) override;
@@ -165,6 +175,7 @@ private:
 
 	PreviewCardContent content;
 	juce::Colour background;
+	localization::Localization& localization;
 	TouchScrollActivationGuard touch_activation_guard;
 };
 
@@ -180,8 +191,9 @@ struct CompactStorageCardContent final {
 
 class CompactStorageCardButtonComponent final : public juce::Button {
 public:
-	CompactStorageCardButtonComponent(CompactStorageCardContent content_value,
-									  juce::Colour background_value);
+	CompactStorageCardButtonComponent(
+		CompactStorageCardContent content_value, juce::Colour background_value,
+		localization::Localization& localization_value);
 
 	void paintButton(juce::Graphics& graphics, bool highlighted,
 					 bool down) override;
@@ -193,13 +205,15 @@ private:
 
 	CompactStorageCardContent content;
 	juce::Colour background;
+	localization::Localization& localization;
 	TouchScrollActivationGuard touch_activation_guard;
 };
 
 class CompactStorageStripComponent final : public juce::Component {
 public:
 	explicit CompactStorageStripComponent(
-		std::vector<CompactStorageCardContent> cards_value);
+		std::vector<CompactStorageCardContent> cards_value,
+		localization::Localization& localization_value);
 
 	[[nodiscard]] static int preferred_height() noexcept;
 
@@ -214,6 +228,7 @@ private:
 
 	std::unique_ptr<juce::Component> card_row;
 	std::vector<std::unique_ptr<CompactStorageCardButtonComponent>> cards;
+	localization::Localization& localization;
 	juce::Viewport viewport{"storage-strip-viewport"};
 };
 }	 // namespace shuba::ui

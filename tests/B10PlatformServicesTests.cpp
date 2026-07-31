@@ -447,8 +447,9 @@ TEST_CASE("B10 operation helper integrates gate progress and cancellation",
 	REQUIRE(gate.is_busy());
 	REQUIRE(started.operation.has_value());
 
-	started.operation->publish_progress(
-		"stage", std::uint64_t{1}, std::uint64_t{3}, "Staging import.", true);
+	started.operation->publish_progress("stage", std::nullopt, std::uint64_t{1},
+										std::uint64_t{3}, "Staging import.",
+										true);
 	REQUIRE(progress.events().size() == 1);
 	REQUIRE(progress.events().front().operation_id == first_operation);
 	REQUIRE(progress.events().front().operation_type

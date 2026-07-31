@@ -7,6 +7,10 @@
 #include <functional>
 #include <string>
 
+namespace shuba::localization {
+class Localization;
+}
+
 namespace shuba::ui {
 class AppShellChromeComponent final : public juce::Component {
 public:
@@ -40,7 +44,8 @@ public:
 		bool catalog_filter_panel_visible{};
 	};
 
-	explicit AppShellChromeComponent(Callbacks callbacks);
+	AppShellChromeComponent(Callbacks callbacks,
+							localization::Localization& localization_value);
 
 	void update_model(const Model& model);
 	[[nodiscard]] juce::Rectangle<int> layout_shell(
@@ -55,6 +60,7 @@ public:
 
 private:
 	Callbacks callbacks;
+	localization::Localization& localization;
 	Model current_model;
 	juce::Label title_label;
 	juce::Label status_label;

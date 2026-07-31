@@ -1,3 +1,4 @@
+#include "Localization/Facade.hpp"
 #include "UI/AppShell.hpp"
 #include "UI/Screens/AppShellScreenRenderer.hpp"
 #include "UI/View/AppShellContentComponent.hpp"
@@ -13,11 +14,9 @@
 
 namespace shuba::ui {
 namespace {
-[[nodiscard]] bool contains_action(std::span<const std::string> actions,
-								   std::string_view label) {
-	return std::ranges::any_of(actions, [label](const std::string& action) {
-		return action == label;
-	});
+[[nodiscard]] bool contains_action(std::span<const RecoveryAction> actions,
+								   RecoveryAction expected) {
+	return std::ranges::find(actions, expected) != actions.end();
 }
 }	 // namespace
 
@@ -36,12 +35,14 @@ void AppShellComponent::request_export_backup() {
 				   platform::DocumentDestinationDescriptor>
 					   result) mutable {
 		if (result.was_user_cancelled()) {
-			feedback.backup_message = "Backup export destination cancelled.";
+			feedback.backup_message = localization.text(
+				localization::MessageId::BackupExportDestinationCancelled);
 			refresh_all();
 			return;
 		}
 		if (result.failed()) {
-			feedback.backup_message		= "Backup export destination failed.";
+			feedback.backup_message = localization.text(
+				localization::MessageId::BackupExportDestinationFailed);
 			feedback.backup_diagnostics = std::move(result.diagnostics);
 			refresh_all();
 			return;
@@ -60,8 +61,8 @@ void AppShellComponent::request_export_backup() {
 		apply_backup_export_result(std::move(exported), false);
 	});
 	if (destination_started.failed()) {
-		feedback.backup_message =
-			"Backup export destination picker could not be opened.";
+		feedback.backup_message = localization.text(
+			localization::MessageId::BackupExportPickerUnavailable);
 		feedback.backup_diagnostics = destination_started.diagnostics();
 		refresh_all();
 	}
@@ -82,13 +83,14 @@ void AppShellComponent::request_export_diagnostic_archive() {
 				   platform::DocumentDestinationDescriptor>
 					   result) mutable {
 		if (result.was_user_cancelled()) {
-			feedback.backup_message =
-				"Diagnostic archive destination cancelled.";
+			feedback.backup_message = localization.text(
+				localization::MessageId::DiagnosticExportDestinationCancelled);
 			refresh_all();
 			return;
 		}
 		if (result.failed()) {
-			feedback.backup_message = "Diagnostic archive destination failed.";
+			feedback.backup_message = localization.text(
+				localization::MessageId::DiagnosticExportDestinationFailed);
 			feedback.backup_diagnostics = std::move(result.diagnostics);
 			refresh_all();
 			return;
@@ -108,8 +110,8 @@ void AppShellComponent::request_export_diagnostic_archive() {
 		apply_backup_export_result(std::move(exported), true);
 	});
 	if (destination_started.failed()) {
-		feedback.backup_message =
-			"Diagnostic archive destination picker could not be opened.";
+		feedback.backup_message = localization.text(
+			localization::MessageId::DiagnosticExportPickerUnavailable);
 		feedback.backup_diagnostics = destination_started.diagnostics();
 		refresh_all();
 	}
@@ -129,13 +131,14 @@ void AppShellComponent::request_import_backup() {
 				platform::PlatformValueResult<platform::ContentSourceDescriptor>
 					result) mutable {
 		if (result.was_user_cancelled()) {
-			feedback.backup_message =
-				"Backup import source selection cancelled.";
+			feedback.backup_message = localization.text(
+				localization::MessageId::BackupImportSourceCancelled);
 			refresh_all();
 			return;
 		}
 		if (result.failed()) {
-			feedback.backup_message = "Backup import source selection failed.";
+			feedback.backup_message = localization.text(
+				localization::MessageId::BackupImportSourceFailed);
 			feedback.backup_diagnostics = std::move(result.diagnostics);
 			refresh_all();
 			return;
@@ -155,7 +158,8 @@ void AppShellComponent::request_import_backup() {
 		apply_backup_import_staging_result(std::move(staged));
 	});
 	if (import_started.failed()) {
-		feedback.backup_message = "Backup import picker could not be opened.";
+		feedback.backup_message = localization.text(
+			localization::MessageId::BackupImportPickerUnavailable);
 		feedback.backup_diagnostics = import_started.diagnostics();
 		refresh_all();
 	}
@@ -163,8 +167,8 @@ void AppShellComponent::request_import_backup() {
 
 void AppShellComponent::retry_normal_startup() {
 	if (session.source != CatalogSessionStartupSource::StartupCrashSafeMode) {
-		feedback.backup_message =
-			"Retry normal launch is available only from startup safe mode.";
+		feedback.backup_message = localization.text(
+			localization::MessageId::RetryNormalStartupUnavailable);
 		refresh_all();
 		return;
 	}
@@ -197,9 +201,10 @@ void AppShellComponent::retry_normal_startup() {
 	feedback.photo_diagnostics.clear();
 	feedback.edit_message.clear();
 	feedback.edit_diagnostics.clear();
-	feedback.backup_message =
-		session.fatal() ? "Normal startup retry reached recovery state."
-						: "Normal startup retry completed.";
+	feedback.backup_message = localization.text(
+		session.fatal()
+			? localization::MessageId::RetryNormalStartupReachedRecovery
+			: localization::MessageId::RetryNormalStartupCompleted);
 	select_root(session.fatal() ? RootDestination::BackupRecovery
 								: RootDestination::Catalog);
 	clear_controlled_startup_attempt_marker();
@@ -209,20 +214,24 @@ void AppShellComponent::apply_backup_export_result(
 	BackupExportSessionResult result, bool diagnostic_archive) {
 	feedback.backup_diagnostics = std::move(result.diagnostics);
 	if (result.succeeded()) {
-		feedback.backup_message = diagnostic_archive
-									  ? "Diagnostic archive export completed."
-									  : "Backup ZIP export completed.";
+		feedback.backup_message = localization.text(
+			diagnostic_archive
+				? localization::MessageId::DiagnosticArchiveExportCompleted
+				: localization::MessageId::BackupZipExportCompleted);
 		if (result.degraded_backup_warning_required)
 			feedback.backup_message +=
-				" Degraded catalog state was preserved as raw files.";
+				" "
+				+ localization.text(
+					localization::MessageId::DegradedBackupPreserved);
 	} else if (result.was_user_cancelled()) {
-		feedback.backup_message = diagnostic_archive
-									  ? "Diagnostic export cancelled."
-									  : "Backup export cancelled.";
+		feedback.backup_message = localization.text(
+			diagnostic_archive
+				? localization::MessageId::DiagnosticExportCancelled
+				: localization::MessageId::BackupExportCancelled);
 	} else {
-		feedback.backup_message = diagnostic_archive
-									  ? "Diagnostic export failed."
-									  : "Backup export failed.";
+		feedback.backup_message = localization.text(
+			diagnostic_archive ? localization::MessageId::DiagnosticExportFailed
+							   : localization::MessageId::BackupExportFailed);
 	}
 	refresh_all();
 }
@@ -235,18 +244,19 @@ void AppShellComponent::apply_backup_import_staging_result(
 		feedback.backup_diagnostics =
 			backup.pending_import_staging->diagnostics;
 		backup.pending_import_degraded_acknowledged = false;
-		feedback.backup_message =
+		feedback.backup_message						= localization.text(
 			backup.pending_import_staging->validation
 					.explicit_warning_required()
-				? "Backup ZIP validated as degraded. Review summary and "
-				  "confirm degraded import before replacement."
-				: "Backup ZIP validated. Confirm replacement to import.";
+				? localization::MessageId::BackupImportValidatedDegraded
+				: localization::MessageId::BackupImportValidated);
 	} else if (result.was_user_cancelled()) {
-		feedback.backup_message = "Backup import staging cancelled.";
+		feedback.backup_message = localization.text(
+			localization::MessageId::BackupImportStagingCancelled);
 	} else {
 		feedback.backup_diagnostics = result.staging_result.diagnostics;
 		backup.pending_import_staging.reset();
-		feedback.backup_message = "Backup import rejected before replacement.";
+		feedback.backup_message =
+			localization.text(localization::MessageId::BackupImportRejected);
 	}
 	select_root(RootDestination::BackupRecovery);
 }
@@ -254,8 +264,8 @@ void AppShellComponent::apply_backup_import_staging_result(
 void AppShellComponent::confirm_staged_backup_import() {
 	if (!backup.pending_import_staging
 		|| !backup.pending_import_staging->staging_catalog_root.has_value()) {
-		feedback.backup_message =
-			"No validated staged backup is ready to import.";
+		feedback.backup_message = localization.text(
+			localization::MessageId::RecoveryImportNoStagedBackup);
 		refresh_all();
 		return;
 	}
@@ -263,9 +273,8 @@ void AppShellComponent::confirm_staged_backup_import() {
 		backup.pending_import_staging->validation.explicit_warning_required();
 	if (degraded && !backup.pending_import_degraded_acknowledged) {
 		backup.pending_import_degraded_acknowledged = true;
-		feedback.backup_message =
-			"Degraded import warning acknowledged. Press confirm again to "
-			"replace the current catalog.";
+		feedback.backup_message						= localization.text(
+			localization::MessageId::DegradedImportWarningAcknowledged);
 		refresh_all();
 		return;
 	}
@@ -294,63 +303,61 @@ void AppShellComponent::apply_backup_import_replacement_result(
 		backup.pending_import_staging.reset();
 		backup.pending_import_degraded_acknowledged = false;
 		feedback.backup_message =
-			"Backup import completed and catalog reloaded.";
+			localization.text(localization::MessageId::BackupImportCompleted);
 	} else if (result.was_user_cancelled()) {
-		feedback.backup_message = "Backup import replacement cancelled.";
+		feedback.backup_message = localization.text(
+			localization::MessageId::BackupImportReplacementCancelled);
 	} else if (result.fatal_recovery_required) {
 		session = std::move(result.session);
 		preview_cache.clear();
 		backup.pending_import_staging.reset();
-		feedback.backup_message =
-			"Catalog replacement failed and rollback failed. Fatal recovery "
-			"actions are required.";
+		feedback.backup_message = localization.text(
+			localization::MessageId::FatalReplacementRecoveryRequired);
 	} else {
 		feedback.backup_message =
-			"Backup replacement failed; current catalog was not replaced or "
-			"was rolled back.";
+			localization.text(localization::MessageId::BackupReplacementFailed);
 	}
 	select_root(RootDestination::BackupRecovery);
 }
 
 void AppShellScreenRenderer::build_add_content() {
 	content->add_label(
-		"Create metadata first. Photo import and previews are available "
-		"from item or storage details. Backup/import is in More.",
+		juce_text(localization.text(localization::MessageId::AddDescription)),
 		70, panel_colour(), true);
-	juce::Button& item	  = content->add_button("Add item", 52);
+	juce::Button& item = content->add_button(
+		localization.text(localization::MessageId::TitleAddItem), 52);
 	item.onClick		  = [this] { open_new_item_form(std::nullopt); };
-	juce::Button& storage = content->add_button("Add storage", 52);
-	storage.onClick		  = [this] { open_new_storage_form(std::nullopt); };
+	juce::Button& storage = content->add_button(
+		localization.text(localization::MessageId::TitleAddStorage), 52);
+	storage.onClick = [this] { open_new_storage_form(std::nullopt); };
 }
 
 void AppShellScreenRenderer::build_backup_recovery_content() {
 	const CatalogRecoveryUiSummary summary = make_recovery_ui_summary(session);
-	content->add_label(juce_text(summary.plain_summary_message), 86,
+	content->add_label(juce_text(recovery_summary(summary, localization)), 86,
 					   summary.fatal() || summary.degraded()
 						   ? warning_panel_colour()
 						   : panel_colour(),
 					   true);
-	content->add_label(juce_text(recovery_counts_summary(summary)), 72,
-					   surface_colour(), true);
-	content->add_label(juce_text(recovery_action_summary(summary.safe_actions)),
-					   62, panel_colour());
 	content->add_label(
-		"ZIP exports are unencrypted and may contain photos, notes, tags, "
-		"listing data, and finance values.",
-		70, warning_panel_colour(), true);
+		juce_text(recovery_counts_summary(summary, localization)), 72,
+		surface_colour(), true);
+	content->add_label(
+		juce_text(recovery_action_summary(summary.safe_actions, localization)),
+		62, panel_colour());
+	content->add_label(juce_text(localization.text(
+						   localization::MessageId::RecoveryZipWarning)),
+					   70, warning_panel_colour(), true);
 	if (session.degraded()) {
 		content->add_label(
-			"Degraded normal backup preserves raw canonical metadata files and "
-			"readable media. Export a diagnostic archive as a companion if "
-			"manual repair is needed.",
+			juce_text(localization.text(
+				localization::MessageId::RecoveryDegradedBackupGuidance)),
 			82, warning_panel_colour(), true);
 	}
 	if (session.fatal()) {
-		content->add_label(
-			"Fatal recovery never overwrites data automatically. Import backup "
-			"still uses staging, validation, and explicit replacement "
-			"confirmation.",
-			82, warning_panel_colour(), true);
+		content->add_label(juce_text(localization.text(
+							   localization::MessageId::RecoveryFatalGuidance)),
+						   82, warning_panel_colour(), true);
 	}
 
 	if (!feedback.backup_message.empty()) {
@@ -362,65 +369,73 @@ void AppShellScreenRenderer::build_backup_recovery_content() {
 			juce_text(core_diagnostic_summary(feedback.backup_diagnostics)), 86,
 			warning_panel_colour(), true);
 	}
-	content->add_label(
-		juce_text(progress_summary(last_progress_events.events())), 54,
-		panel_colour());
+	content->add_label(juce_text(progress_summary(last_progress_events.events(),
+												  localization)),
+					   54, panel_colour());
 
-	juce::Button& backup_button =
-		content->add_button("Export normal backup ZIP", 46);
+	juce::Button& backup_button = content->add_button(
+		localization.text(localization::MessageId::BackupExportButton), 46);
 	backup_button.setEnabled(!session.fatal());
-	backup_button.onClick = [this] { request_export_backup(); };
-	juce::Button& diagnostic =
-		content->add_button("Export diagnostic archive ZIP", 46);
+	backup_button.onClick	 = [this] { request_export_backup(); };
+	juce::Button& diagnostic = content->add_button(
+		localization.text(localization::MessageId::DiagnosticExportButton), 46);
 	diagnostic.setEnabled(session.paths.has_value());
-	diagnostic.onClick = [this] { request_export_diagnostic_archive(); };
-	juce::Button& import =
-		content->add_button("Import backup ZIP: select and validate", 46);
+	diagnostic.onClick	 = [this] { request_export_diagnostic_archive(); };
+	juce::Button& import = content->add_button(
+		localization.text(localization::MessageId::ImportBackupButton), 46);
 	import.setEnabled(session.paths.has_value());
 	import.onClick = [this] { request_import_backup(); };
-	if (contains_action(summary.safe_actions, "Retry normal launch")) {
-		content->add_label(
-			"Retry normal launch is explicit and one-shot. Startup cleanup and "
-			"normal catalog loading run only after this action.",
-			78, warning_panel_colour(), true);
-		juce::Button& retry = content->add_button("Retry normal launch", 46);
-		retry.onClick		= [this] { retry_normal_startup(); };
+	if (contains_action(summary.safe_actions,
+						RecoveryAction::RetryNormalLaunch)) {
+		content->add_label(juce_text(localization.text(
+							   localization::MessageId::RecoveryRetryGuidance)),
+						   78, warning_panel_colour(), true);
+		juce::Button& retry = content->add_button(
+			localization.text(localization::MessageId::RetryNormalLaunchButton),
+			46);
+		retry.onClick = [this] { retry_normal_startup(); };
 	}
 
 	if (backup.pending_import_staging) {
-		content->add_label(juce_text(import_validation_summary(
-							   backup.pending_import_staging->validation)),
-						   76, surface_colour(), true);
+		content->add_label(
+			juce_text(import_validation_summary(
+				backup.pending_import_staging->validation, localization)),
+			76, surface_colour(), true);
 		if (backup.pending_import_staging->validation
 				.explicit_warning_required()) {
 			content->add_label(
 				backup.pending_import_degraded_acknowledged
-					? "Degraded import warning is acknowledged. Confirming now "
-					  "will replace the active catalog."
-					: "Degraded staged import can replace current data only "
-					  "after explicit warning acknowledgement.",
+					? localization.text(localization::MessageId::
+											RecoveryDegradedImportAcknowledged)
+					: localization.text(localization::MessageId::
+											RecoveryDegradedImportConfirmation),
 				78, warning_panel_colour(), true);
 		}
 		juce::Button& confirm = content->add_button(
 			backup.pending_import_staging->validation
 						.explicit_warning_required()
 					&& !backup.pending_import_degraded_acknowledged
-				? "Acknowledge degraded import warning"
-				: "Confirm replacement with validated backup",
+				? localization.text(
+					  localization::MessageId::AcknowledgeDegradedImport)
+				: localization.text(localization::MessageId::
+										ConfirmValidatedBackupReplacement),
 			48);
 		confirm.onClick		= [this] { confirm_staged_backup_import(); };
-		juce::Button& clear = content->add_button("Cancel staged import", 42);
-		clear.onClick		= [this] {
+		juce::Button& clear = content->add_button(
+			localization.text(localization::MessageId::CancelStagedImport), 42);
+		clear.onClick = [this] {
 			backup.pending_import_staging.reset();
 			backup.pending_import_degraded_acknowledged = false;
-			feedback.backup_message =
-				"Validated staged import cleared. Active catalog unchanged.";
+			feedback.backup_message						= localization.text(
+				localization::MessageId::ValidatedStagedImportCleared);
 			refresh_all();
 		};
 	}
 
 	if (!summary.technical_details.empty()) {
-		content->add_label("Technical report", 38, panel_colour(), true);
+		content->add_label(
+			juce_text(localization.technical_information_heading()), 38,
+			panel_colour(), true);
 		std::string details;
 		const std::size_t max_entries =
 			std::min<std::size_t>(summary.technical_details.size(), 6U);
@@ -435,23 +450,20 @@ void AppShellScreenRenderer::build_backup_recovery_content() {
 
 void AppShellScreenRenderer::build_more_content() {
 	content->add_label(
-		"Maintenance hub for manual unencrypted ZIP backup, staged import, "
-		"diagnostics, and recovery.",
+		juce_text(localization.text(localization::MessageId::MoreDescription)),
 		82, panel_colour(), true);
-	juce::Button& maintenance =
-		content->add_button("Open backup/import/recovery", 52);
+	juce::Button& maintenance = content->add_button(
+		localization.text(localization::MessageId::MoreOpenRecovery), 52);
 	maintenance.onClick = [this] {
 		select_root(RootDestination::BackupRecovery);
 	};
 	if (session.degraded()) {
-		content->add_label(
-			"Degraded load: valid records remain usable. Open recovery to "
-			"review counts, export backup, or export diagnostic archive.",
-			78, warning_panel_colour(), true);
+		content->add_label(juce_text(localization.text(
+							   localization::MessageId::MoreDegradedGuidance)),
+						   78, warning_panel_colour(), true);
 	}
 	content->add_label(
-		"No cloud, accounts, marketplace automation, SQL, broad "
-		"media permissions, or Java/Kotlin business logic is added.",
+		juce_text(localization.text(localization::MessageId::MoreScopeNote)),
 		82);
 }
 }	 // namespace shuba::ui

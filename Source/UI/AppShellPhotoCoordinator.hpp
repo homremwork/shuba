@@ -9,11 +9,20 @@
 #include "UI/Session/CatalogSessionState.hpp"
 #include "UI/Session/ImagePreviewSession.hpp"
 
+#include <atomic>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <memory>
+#include <mutex>
+#include <optional>
 #include <vector>
+
+namespace shuba::localization {
+class Localization;
+}
 
 namespace shuba::ui {
 class AppShellPhotoCoordinator final {
@@ -38,6 +47,7 @@ public:
 		platform::InternalPhotoCodec& internal_photo_codec;
 		platform::ProgressCollector& progress_events;
 		platform::CancellationToken& cancellation_token;
+		localization::Localization& localization;
 		std::function<void()> invalidate_all_previews;
 		std::function<void(const core::StableIdentifier&)>
 			invalidate_internal_photo_preview;
@@ -47,6 +57,14 @@ public:
 	};
 
 	explicit AppShellPhotoCoordinator(Dependencies dependencies);
+	~AppShellPhotoCoordinator();
+
+	AppShellPhotoCoordinator(const AppShellPhotoCoordinator&) = delete;
+	AppShellPhotoCoordinator& operator=(const AppShellPhotoCoordinator&) =
+		delete;
+	AppShellPhotoCoordinator(AppShellPhotoCoordinator&&) noexcept = delete;
+	AppShellPhotoCoordinator& operator=(AppShellPhotoCoordinator&&) noexcept =
+		delete;
 
 	void request_add_photos(const domain::PhotoOwner& owner);
 	void request_add_pending_item_photos();
@@ -65,6 +83,14 @@ public:
 	void remove_storage_pending_photo(std::size_t pending_photo_index);
 
 private:
+	struct LifetimeToken final {
+		std::atomic_bool alive{true};
+		std::atomic_uint32_t callback_count{};
+		std::mutex mutex;
+		std::condition_variable callbacks_finished;
+	};
+	class CallbackLifetimeLease;
+
 	enum class PendingPhotoDraftTarget : std::uint8_t {
 		Item,
 		Storage,
@@ -107,11 +133,14 @@ private:
 	platform::InternalPhotoCodec& internal_photo_codec;
 	platform::ProgressCollector& progress_events;
 	platform::CancellationToken& cancellation_token;
+	localization::Localization& localization;
 	std::function<void()> invalidate_all_previews_handler;
 	std::function<void(const core::StableIdentifier&)>
 		invalidate_internal_photo_preview_handler;
 	std::function<void(const std::filesystem::path&)>
 		invalidate_staged_photo_preview_handler;
 	std::function<void()> refresh_all_handler;
+	std::shared_ptr<LifetimeToken> lifetime_token{
+		std::make_shared<LifetimeToken>()};
 };
 }	 // namespace shuba::ui

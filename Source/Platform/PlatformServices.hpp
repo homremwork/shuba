@@ -139,6 +139,60 @@ enum class ProgressOperationType : std::uint8_t {
 [[nodiscard]] std::string_view to_string(
 	ProgressOperationType operation_type) noexcept;
 
+enum class ProgressMessageId : std::uint8_t {
+	CopyStarted,
+	Copying,
+	CopyCompleted,
+	SourceFingerprintStarted,
+	SourceFingerprintCompleted,
+	SourceDecodeStarted,
+	SourceDecodeCompleted,
+	SyntheticSourceDecodeStarted,
+	SyntheticSourceDecodeCompleted,
+	InternalPhotoDecodeStarted,
+	InternalPhotoDecodeCompleted,
+	JpegWriteStarted,
+	JpegWriteCompleted,
+	JpegXlEncodeStarted,
+	JpegXlEncodeCompleted,
+	JpegXlDecodeStarted,
+	JpegXlDecodeCompleted,
+	ZipBuildStarted,
+	ZipBuildWriting,
+	ZipBuildValidating,
+	ZipInspecting,
+	ZipExtracting,
+	ZipExtractCompleted,
+	MediaWriteStarted,
+	MediaWriteCompleted,
+	PhotoImportStarted,
+	PhotoImportSourceStarted,
+	PhotoImportCommitting,
+	PhotoImportCompleted,
+	PendingPhotoStagingStarted,
+	PendingPhotoSourceStarted,
+	PendingPhotoStagingCompleted,
+	JpegExportStarted,
+	JpegExportDecoding,
+	JpegExportWritingTemporary,
+	JpegExportCopying,
+	JpegExportCompleted,
+	BackupPreparing,
+	BackupCopying,
+	BackupCompleted,
+	DiagnosticPreparing,
+	DiagnosticCompleted,
+	BackupImportStaging,
+	BackupImportValidated,
+	CatalogReplacementValidating,
+	CatalogReplacementRollbackCopy,
+	CatalogReplacementParkingActive,
+	CatalogReplacementMovingStaged,
+	CatalogReplacementLoading,
+	CatalogReplacementCompleted,
+	Count,
+};
+
 struct PlatformOperationContext final {
 	core::OperationIdentifier operation_id;
 	ProgressOperationType operation_type{ProgressOperationType::MetadataWrite};
@@ -151,6 +205,7 @@ struct ProgressEvent final {
 	core::OperationIdentifier operation_id;
 	ProgressOperationType operation_type{ProgressOperationType::MetadataWrite};
 	std::string phase;
+	std::optional<ProgressMessageId> message_id;
 	std::optional<std::uint64_t> current_units;
 	std::optional<std::uint64_t> total_units;
 	std::string message;
@@ -237,6 +292,7 @@ public:
 	[[nodiscard]] bool cancellation_requested() const noexcept;
 
 	void publish_progress(std::string phase,
+						  std::optional<ProgressMessageId> message_id,
 						  std::optional<std::uint64_t> current_units,
 						  std::optional<std::uint64_t> total_units,
 						  std::string message, bool cancellable) const;

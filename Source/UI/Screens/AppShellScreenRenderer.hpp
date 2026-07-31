@@ -21,6 +21,10 @@
 #include <span>
 #include <string>
 
+namespace shuba::localization {
+class Localization;
+}
+
 namespace shuba::ui {
 class AppShellContentComponent;
 
@@ -49,8 +53,8 @@ public:
 		std::function<void(RootDestination)> select_root;
 		std::function<void(core::StableIdentifier)> open_item_detail;
 		std::function<void(core::StableIdentifier)> open_storage_detail;
-		std::function<void(domain::PhotoOwner,
-						   std::optional<core::StableIdentifier>)>
+		std::function<void(const domain::PhotoOwner&,
+						   const std::optional<core::StableIdentifier>&)>
 			open_photo_viewer;
 		std::function<void(std::optional<core::StableIdentifier>)>
 			open_new_item_form;
@@ -58,10 +62,10 @@ public:
 		std::function<void(std::optional<core::StableIdentifier>)>
 			open_new_storage_form;
 		std::function<void(core::StableIdentifier)> open_existing_storage_form;
-		std::function<void(domain::PhotoOwner)> request_add_photos;
+		std::function<void(const domain::PhotoOwner&)> request_add_photos;
 		std::function<void()> request_add_pending_item_photos;
 		std::function<void()> request_add_pending_storage_photos;
-		std::function<void(core::StableIdentifier)> request_export_photo;
+		std::function<void(const core::StableIdentifier&)> request_export_photo;
 		std::function<void()> request_export_backup;
 		std::function<void()> request_export_diagnostic_archive;
 		std::function<void()> request_import_backup;
@@ -73,13 +77,13 @@ public:
 		std::function<void(std::size_t)> remove_storage_pending_photo;
 		std::function<void(std::size_t)> set_item_pending_photo_as_main;
 		std::function<void(std::size_t)> set_storage_pending_photo_as_main;
-		std::function<void(core::StableIdentifier)> request_delete_photo;
-		std::function<void(core::StableIdentifier)> confirm_delete_photo;
+		std::function<void(const core::StableIdentifier&)> request_delete_photo;
+		std::function<void(const core::StableIdentifier&)> confirm_delete_photo;
 		std::function<void()> cancel_delete_photo;
 		std::function<void()> apply_catalog_filters;
 		std::function<void()> reset_catalog_filters;
 		std::function<void(EntityEditResult)> apply_entity_edit_result;
-		std::function<void(EntityEditResult, core::StableIdentifier)>
+		std::function<void(EntityEditResult, const core::StableIdentifier&)>
 			apply_photo_edit_result;
 		std::function<void(core::StableIdentifier, ImagePreviewSize,
 						   ImagePreviewRequestPriority)>
@@ -115,6 +119,7 @@ public:
 		platform::DocumentExportService& document_export_service;
 		platform::ProgressCollector& last_progress_events;
 		platform::NeverCancelledToken& never_cancelled;
+		localization::Localization& localization;
 		AppShellContentComponent& content;
 		Editors editors;
 		Queries queries;
@@ -229,16 +234,16 @@ private:
 	void open_item_detail(core::StableIdentifier item_id);
 	void open_storage_detail(core::StableIdentifier storage_id);
 	void open_photo_viewer(
-		domain::PhotoOwner owner,
-		std::optional<core::StableIdentifier> requested_photo_id);
+		const domain::PhotoOwner& owner,
+		const std::optional<core::StableIdentifier>& requested_photo_id);
 	void open_new_item_form(std::optional<core::StableIdentifier> storage_id);
 	void open_existing_item_form(core::StableIdentifier item_id);
 	void open_new_storage_form(std::optional<core::StableIdentifier> parent_id);
 	void open_existing_storage_form(core::StableIdentifier storage_id);
-	void request_add_photos(domain::PhotoOwner owner);
+	void request_add_photos(const domain::PhotoOwner& owner);
 	void request_add_pending_item_photos();
 	void request_add_pending_storage_photos();
-	void request_export_photo(core::StableIdentifier photo_id);
+	void request_export_photo(const core::StableIdentifier& photo_id);
 	void request_export_backup();
 	void request_export_diagnostic_archive();
 	void request_import_backup();
@@ -250,14 +255,15 @@ private:
 	void remove_storage_pending_photo(std::size_t pending_photo_index);
 	void set_item_pending_photo_as_main(std::size_t pending_photo_index);
 	void set_storage_pending_photo_as_main(std::size_t pending_photo_index);
-	void request_delete_photo(core::StableIdentifier photo_id);
-	void confirm_delete_photo(core::StableIdentifier photo_id);
+	void request_delete_photo(const core::StableIdentifier& photo_id);
+	void confirm_delete_photo(const core::StableIdentifier& photo_id);
 	void cancel_delete_photo();
 	void apply_catalog_filters();
 	void reset_catalog_filters();
 	void apply_entity_edit_result(EntityEditResult result);
-	void apply_photo_edit_result(EntityEditResult result,
-								 core::StableIdentifier selected_photo_id);
+	void apply_photo_edit_result(
+		EntityEditResult result,
+		const core::StableIdentifier& selected_photo_id);
 	void refresh_all();
 	void refresh_content();
 
@@ -280,6 +286,7 @@ private:
 	platform::DocumentExportService& document_export_service;
 	platform::ProgressCollector& last_progress_events;
 	platform::NeverCancelledToken& never_cancelled;
+	localization::Localization& localization;
 	AppShellContentComponent* content{};
 	juce::TextEditor& item_name_editor;
 	juce::TextEditor& item_category_editor;
@@ -297,8 +304,8 @@ private:
 	std::function<void(RootDestination)> select_root_handler;
 	std::function<void(core::StableIdentifier)> open_item_detail_handler;
 	std::function<void(core::StableIdentifier)> open_storage_detail_handler;
-	std::function<void(domain::PhotoOwner,
-					   std::optional<core::StableIdentifier>)>
+	std::function<void(const domain::PhotoOwner&,
+					   const std::optional<core::StableIdentifier>&)>
 		open_photo_viewer_handler;
 	std::function<void(std::optional<core::StableIdentifier>)>
 		open_new_item_form_handler;
@@ -307,10 +314,11 @@ private:
 		open_new_storage_form_handler;
 	std::function<void(core::StableIdentifier)>
 		open_existing_storage_form_handler;
-	std::function<void(domain::PhotoOwner)> request_add_photos_handler;
+	std::function<void(const domain::PhotoOwner&)> request_add_photos_handler;
 	std::function<void()> request_add_pending_item_photos_handler;
 	std::function<void()> request_add_pending_storage_photos_handler;
-	std::function<void(core::StableIdentifier)> request_export_photo_handler;
+	std::function<void(const core::StableIdentifier&)>
+		request_export_photo_handler;
 	std::function<void()> request_export_backup_handler;
 	std::function<void()> request_export_diagnostic_archive_handler;
 	std::function<void()> request_import_backup_handler;
@@ -322,13 +330,15 @@ private:
 	std::function<void(std::size_t)> remove_storage_pending_photo_handler;
 	std::function<void(std::size_t)> set_item_pending_photo_as_main_handler;
 	std::function<void(std::size_t)> set_storage_pending_photo_as_main_handler;
-	std::function<void(core::StableIdentifier)> request_delete_photo_handler;
-	std::function<void(core::StableIdentifier)> confirm_delete_photo_handler;
+	std::function<void(const core::StableIdentifier&)>
+		request_delete_photo_handler;
+	std::function<void(const core::StableIdentifier&)>
+		confirm_delete_photo_handler;
 	std::function<void()> cancel_delete_photo_handler;
 	std::function<void()> apply_catalog_filters_handler;
 	std::function<void()> reset_catalog_filters_handler;
 	std::function<void(EntityEditResult)> apply_entity_edit_result_handler;
-	std::function<void(EntityEditResult, core::StableIdentifier)>
+	std::function<void(EntityEditResult, const core::StableIdentifier&)>
 		apply_photo_edit_result_handler;
 	std::function<void(core::StableIdentifier, ImagePreviewSize,
 					   ImagePreviewRequestPriority)>

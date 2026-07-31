@@ -1,3 +1,4 @@
+#include "Localization/Facade.hpp"
 #include "UI/Screens/AppShellScreenRenderer.hpp"
 #include "UI/View/AppShellContentComponent.hpp"
 #include "UI/View/ScreenText.hpp"
@@ -37,21 +38,22 @@ constexpr std::size_t compact_chip_label_limit = 18U;
 
 void AppShellScreenRenderer::build_catalog_content() {
 	if (session.degraded()) {
-		content->add_label(
-			"Degraded load: some records or media need attention. "
-			"Accepted records remain browsable.",
-			70, warning_panel_colour(), true);
+		content->add_label(juce_text(localization.text(
+							   localization::MessageId::CatalogBannerDegraded)),
+						   70, warning_panel_colour(), true);
 	}
 	if (session.demo_catalog_active) {
-		content->add_label(
-			"Demo catalog is active. Existing canonical catalogs "
-			"are never overwritten by debug seeding.",
-			62, accent_colour().withAlpha(0.34f), true);
+		content->add_label(juce_text(localization.text(
+							   localization::MessageId::CatalogBannerDemo)),
+						   62, accent_colour().withAlpha(0.34f), true);
 	}
 
-	content->add_label(juce_text(active_filter_summary(
-						   catalog_filter_state.applied, session.repository)),
-					   48, surface_colour(), false);
+	content->add_label(
+		juce_text(localization.catalog_filter_summary(
+			localization::CatalogFilterSummaryKind::Applied,
+			active_filter_summary(catalog_filter_state.applied,
+								  session.repository, localization))),
+		48, surface_colour(), false);
 	if (catalog_filter_state.panel_visible)
 		build_filter_panel();
 
@@ -62,28 +64,29 @@ void AppShellScreenRenderer::build_catalog_content() {
 		session.search_index, query, catalog_filter_state.applied, options);
 
 	content->add_label(
-		juce_text("Results: " + std::to_string(results.total_count)), 38,
+		juce_text(localization.catalog_result_count(results.total_count)), 38,
 		surface_colour(), true);
 
 	if (session.repository.items.empty()
 		&& session.repository.storages.empty()) {
-		content->add_label(
-			"Empty catalog. Add item and Add storage are available from Add; "
-			"backup/import/recovery are available from More.",
-			84, panel_colour(), true);
+		content->add_label(juce_text(localization.text(
+							   localization::MessageId::CatalogEmptyGuidance)),
+						   84, panel_colour(), true);
 		return;
 	}
 	if (results.total_count == 0U) {
-		content->add_label(
-			"No results. Try clearing the query or filters, "
-			"or include archived records.",
-			72, panel_colour(), true);
+		content->add_label(juce_text(localization.text(
+							   localization::MessageId::CatalogNoResults)),
+						   72, panel_colour(), true);
 		return;
 	}
 
 	std::size_t preview_candidate_count{};
 	if (!results.storage_results.empty()) {
-		content->add_label("Storages", 36, panel_colour(), true);
+		content->add_label(
+			juce_text(localization.text(
+				localization::MessageId::CatalogHeadingStorages)),
+			36, panel_colour(), true);
 		std::vector<CompactStorageCardContent> storage_cards;
 		storage_cards.reserve(results.storage_results.size());
 		for (const catalog::SearchResult& result : results.storage_results) {
@@ -100,12 +103,14 @@ void AppShellScreenRenderer::build_catalog_content() {
 			storage_cards.push_back(std::move(card));
 		}
 		content->add_compact_storage_strip(
-			std::move(storage_cards),
+			std::move(storage_cards), localization,
 			CompactStorageStripComponent::preferred_height());
 	}
 
 	if (!results.item_results.empty())
-		content->add_label("Items", 36, panel_colour(), true);
+		content->add_label(juce_text(localization.text(
+							   localization::MessageId::CatalogHeadingItems)),
+						   36, panel_colour(), true);
 	for (const catalog::SearchResult& result : results.item_results) {
 		const ImagePreviewRequestPriority preview_priority =
 			list_preview_priority(preview_candidate_count);
@@ -114,7 +119,7 @@ void AppShellScreenRenderer::build_catalog_content() {
 		PreviewCardBuildResult card =
 			build_item_result_preview_card(result, preview_priority);
 		PreviewCardButtonComponent& button = content->add_preview_card(
-			std::move(card.content), preview_result_row_height);
+			std::move(card.content), localization, preview_result_row_height);
 		core::StableIdentifier item_id = result.record_id;
 		button.onClick = [this, item_id] { open_item_detail(item_id); };
 	}
@@ -126,19 +131,23 @@ void AppShellScreenRenderer::build_filter_panel() {
 	const catalog::CatalogSearchResultSet draft_results =
 		catalog::search_catalog(session.search_index, catalog_query(),
 								catalog_filter_state.draft, options);
-	content->add_label(juce_text("Filters · Draft results: "
-								 + std::to_string(draft_results.total_count)),
-					   42, accent_colour().withAlpha(0.35f), true);
 	content->add_label(
-		juce_text("Draft: "
-				  + active_filter_summary(catalog_filter_state.draft,
-										  session.repository)),
+		juce_text(localization.draft_result_count(draft_results.total_count)),
+		42, accent_colour().withAlpha(0.35f), true);
+	content->add_label(
+		juce_text(localization.catalog_filter_summary(
+			localization::CatalogFilterSummaryKind::Draft,
+			active_filter_summary(catalog_filter_state.draft,
+								  session.repository, localization))),
 		46, surface_colour(), false);
 
 	const std::vector<std::string> categories =
 		distinct_categories(session.search_index);
 	if (categories.empty()) {
-		content->add_label("Categories: no values yet.", 34, panel_colour());
+		content->add_label(
+			juce_text(localization.text(
+				localization::MessageId::CatalogCategoriesEmpty)),
+			34, panel_colour());
 	} else {
 		std::vector<ChipGridComponent::Action> category_actions;
 		category_actions.reserve(categories.size());
@@ -155,7 +164,9 @@ void AppShellScreenRenderer::build_filter_panel() {
 		}
 		const int columns = category_chip_columns(categories);
 		content->add_chip_grid(
-			"Categories", std::move(category_actions), columns,
+			juce_text(
+				localization.text(localization::MessageId::CatalogCategories)),
+			std::move(category_actions), columns,
 			ChipGridComponent::preferred_height(
 				static_cast<int>(categories.size()), columns));
 	}
@@ -166,7 +177,7 @@ void AppShellScreenRenderer::build_filter_panel() {
 		  domain::ItemStatus::Listed, domain::ItemStatus::Sold,
 		  domain::ItemStatus::Archived}) {
 		status_actions.push_back(ChipGridComponent::Action{
-			.label = juce_text(status_text(status)),
+			.label = juce_text(localization.item_status_label(status)),
 			.selected =
 				contains_status(catalog_filter_state.draft.statuses, status),
 			.enabled = true,
@@ -175,13 +186,16 @@ void AppShellScreenRenderer::build_filter_panel() {
 			refresh_all();
 		}});
 	}
-	content->add_chip_grid("Status", std::move(status_actions), 2,
-						   ChipGridComponent::preferred_height(5, 2));
+	content->add_chip_grid(
+		juce_text(localization.text(localization::MessageId::CatalogStatus)),
+		std::move(status_actions), 2,
+		ChipGridComponent::preferred_height(5, 2));
 
 	std::vector<ChipGridComponent::Action> storage_actions;
 	storage_actions.reserve(session.search_index.storages.size() + 2U);
 	storage_actions.push_back(ChipGridComponent::Action{
-		.label	  = "Any",
+		.label = juce_text(
+			localization.text(localization::MessageId::CatalogStorageAny)),
 		.selected = !catalog_filter_state.draft.storage_id.has_value()
 					&& !catalog_filter_state.draft.storage_unassigned_only,
 		.enabled  = true,
@@ -191,7 +205,8 @@ void AppShellScreenRenderer::build_filter_panel() {
 		refresh_all();
 	}});
 	storage_actions.push_back(ChipGridComponent::Action{
-		.label	  = "Unassigned",
+		.label	  = juce_text(localization.text(
+			localization::MessageId::CatalogStorageUnassigned)),
 		.selected = catalog_filter_state.draft.storage_unassigned_only,
 		.enabled  = true,
 		.handler  = [this] {
@@ -217,15 +232,18 @@ void AppShellScreenRenderer::build_filter_panel() {
 	const int storage_columns =
 		storage_chip_columns(session.search_index.storages);
 	content->add_chip_grid(
-		"Storage", std::move(storage_actions), storage_columns,
+		juce_text(localization.text(localization::MessageId::CatalogStorage)),
+		std::move(storage_actions), storage_columns,
 		ChipGridComponent::preferred_height(
 			static_cast<int>(session.search_index.storages.size() + 2U),
 			storage_columns));
 
 	content->add_chip_grid(
-		"Storage scope",
+		juce_text(
+			localization.text(localization::MessageId::CatalogStorageScope)),
 		{ChipGridComponent::Action{
-			.label	  = "Nested contents",
+			.label	  = juce_text(localization.text(
+				localization::MessageId::CatalogNestedContents)),
 			.selected = catalog_filter_state.draft.include_nested_storage,
 			.enabled  = catalog_filter_state.draft.storage_id.has_value(),
 			.handler =
@@ -243,7 +261,7 @@ void AppShellScreenRenderer::build_filter_panel() {
 		  catalog::SearchPhotoPresenceFilter::NoPhotos,
 		  catalog::SearchPhotoPresenceFilter::BrokenPhotos}) {
 		photo_actions.push_back(ChipGridComponent::Action{
-			.label	  = juce_text(photo_filter_label(filter)),
+			.label	  = juce_text(localization.photo_filter_label(filter)),
 			.selected = catalog_filter_state.draft.photo_presence == filter,
 			.enabled  = true,
 			.handler  = [this, filter] {
@@ -251,13 +269,16 @@ void AppShellScreenRenderer::build_filter_panel() {
 			refresh_all();
 		}});
 	}
-	content->add_chip_grid("Photo presence", std::move(photo_actions), 2,
-						   ChipGridComponent::preferred_height(4, 2));
+	content->add_chip_grid(
+		juce_text(
+			localization.text(localization::MessageId::CatalogPhotoPresence)),
+		std::move(photo_actions), 2, ChipGridComponent::preferred_height(4, 2));
 
 	content->add_chip_grid(
-		"Shortcuts",
+		juce_text(localization.text(localization::MessageId::CatalogShortcuts)),
 		{ChipGridComponent::Action{
-			 .label	   = "Listed",
+			 .label	   = juce_text(localization.text(
+				 localization::MessageId::CatalogShortcutListed)),
 			 .selected = catalog_filter_state.draft.listed_only,
 			 .enabled  = true,
 			 .handler =
@@ -267,7 +288,8 @@ void AppShellScreenRenderer::build_filter_panel() {
 		refresh_all();
 	}},
 		 ChipGridComponent::Action{
-			 .label	   = "Sold",
+			 .label	   = juce_text(localization.text(
+				 localization::MessageId::CatalogShortcutSold)),
 			 .selected = catalog_filter_state.draft.sold_only,
 			 .enabled  = true,
 			 .handler =
@@ -277,7 +299,8 @@ void AppShellScreenRenderer::build_filter_panel() {
 		refresh_all();
 	}},
 		 ChipGridComponent::Action{
-			 .label	   = "Archived",
+			 .label	   = juce_text(localization.text(
+				 localization::MessageId::CatalogShortcutArchived)),
 			 .selected = catalog_filter_state.draft.include_archived,
 			 .enabled  = true,
 			 .handler =

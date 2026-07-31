@@ -10,6 +10,10 @@
 #include <memory>
 #include <vector>
 
+namespace shuba::localization {
+class Localization;
+}
+
 namespace shuba::ui {
 struct StagedPhotoCardEntry final {
 	PendingPhotoSource source;
@@ -55,7 +59,8 @@ class ManagedPhotoDeckSelectorComponent;
 class ManagedPhotoDeckComponent final : public juce::Component {
 public:
 	ManagedPhotoDeckComponent(ManagedPhotoDeckModel model_value,
-							  ManagedPhotoDeckHandlers handlers_value);
+							  ManagedPhotoDeckHandlers handlers_value,
+							  localization::Localization& localization_value);
 	~ManagedPhotoDeckComponent() override;
 
 	void resized() override;
@@ -82,16 +87,17 @@ private:
 
 	ManagedPhotoDeckModel model;
 	ManagedPhotoDeckHandlers handlers;
-	juce::TextButton current_button{"Current"};
-	juce::TextButton staged_button{"Staged"};
-	juce::TextButton add_button{"Add photos"};
-	juce::TextButton clear_button{"Clear"};
-	juce::TextButton previous_button{"Previous"};
-	juce::TextButton next_button{"Next"};
-	juce::TextButton set_main_button{"Set main"};
-	juce::TextButton delete_button{"Delete"};
-	juce::TextButton cancel_delete_button{"Cancel"};
-	juce::TextButton remove_staged_button{"Remove staged"};
+	localization::Localization& localization;
+	juce::TextButton current_button;
+	juce::TextButton staged_button;
+	juce::TextButton add_button;
+	juce::TextButton clear_button;
+	juce::TextButton previous_button;
+	juce::TextButton next_button;
+	juce::TextButton set_main_button;
+	juce::TextButton delete_button;
+	juce::TextButton cancel_delete_button;
+	juce::TextButton remove_staged_button;
 	std::unique_ptr<ManagedPhotoDeckSelectorComponent> selector;
 };
 }	 // namespace shuba::ui

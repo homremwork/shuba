@@ -24,14 +24,21 @@ add_executable(shuba_headless_tests
 	B22ImagePreviewCacheTests.cpp
 	B23UiSafeAreaTests.cpp
 	B24FatalStartupRecoveryTests.cpp
-	B25AndroidPreviousExitTests.cpp)
+	B25AndroidPreviousExitTests.cpp
+	B27LocalizationLanguageTests.cpp
+	B28LocalizationFacadeTests.cpp
+	B29PhotoCoordinatorLifetimeTests.cpp
+	C30LocalizationPresentationLayoutTests.cpp)
 
 target_compile_features(shuba_headless_tests PRIVATE cxx_std_23)
 shuba_apply_common_target_options(shuba_headless_tests)
 
 target_include_directories(shuba_headless_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/support")
 
-target_link_libraries(shuba_headless_tests PRIVATE shuba_juce_platform juce::juce_core Catch2::Catch2WithMain)
+target_link_libraries(shuba_headless_tests PRIVATE
+	shuba_juce_platform
+	juce::juce_core
+	Catch2::Catch2WithMain)
 
 include(Catch)
 catch_discover_tests(shuba_headless_tests)

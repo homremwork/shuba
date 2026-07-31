@@ -1041,43 +1041,21 @@ CatalogRecoveryUiSummary make_recovery_ui_summary(
 			session.repository.recovery_summary.orphan_media_count};
 
 	if (session.fatal()) {
-		if (session.source
-			== CatalogSessionStartupSource::StartupCrashSafeMode) {
-			summary.plain_summary_message =
-				"Previous launch stopped before startup completed. Normal "
-				"catalog load was skipped so diagnostics can be exported or a "
-				"backup can be imported before retrying.";
-		} else if (session.source
-				   == CatalogSessionStartupSource::StartupException) {
-			summary.plain_summary_message =
-				"Startup failed before catalog browsing could open. Browsing "
-				"and editing stay disabled until diagnostics are reviewed or a "
-				"backup is imported.";
-		} else {
-			summary.plain_summary_message =
-				"Catalog cannot safely open. Browsing and editing stay "
-				"disabled "
-				"until a backup is imported or the catalog is repaired.";
-		}
-		summary.safe_actions = {"Export diagnostic archive",
-								"Import backup ZIP", "Show technical report"};
+		summary.safe_actions = {RecoveryAction::ExportDiagnosticArchive,
+								RecoveryAction::ImportBackup,
+								RecoveryAction::ShowTechnicalReport};
 		if (summary.startup_crash_safe_mode())
-			summary.safe_actions.push_back("Retry normal launch");
-		summary.safe_actions.push_back("Exit");
+			summary.safe_actions.push_back(RecoveryAction::RetryNormalLaunch);
+		summary.safe_actions.push_back(RecoveryAction::Exit);
 	} else if (session.degraded()) {
-		summary.plain_summary_message =
-			"Some records or media could not be loaded. Accepted records "
-			"remain available, and backup/export can preserve the raw "
-			"damaged state.";
-		summary.safe_actions = {
-			"Export normal backup", "Export diagnostic archive",
-			"Import backup ZIP", "Continue using accepted records"};
+		summary.safe_actions = {RecoveryAction::ExportNormalBackup,
+								RecoveryAction::ExportDiagnosticArchive,
+								RecoveryAction::ImportBackup,
+								RecoveryAction::ContinueUsingAcceptedRecords};
 	} else {
-		summary.plain_summary_message =
-			"Catalog loaded normally. Backup export and staged import are "
-			"available from maintenance actions.";
-		summary.safe_actions = {"Export normal backup", "Import backup ZIP",
-								"Export diagnostic archive"};
+		summary.safe_actions = {RecoveryAction::ExportNormalBackup,
+								RecoveryAction::ImportBackup,
+								RecoveryAction::ExportDiagnosticArchive};
 	}
 
 	append_jsonl_technical_details(summary.technical_details,

@@ -91,6 +91,7 @@ namespace {
 		ProgressEvent{.operation_id	  = context.operation_id,
 					  .operation_type = context.operation_type,
 					  .phase		  = "copy-started",
+					  .message_id	  = ProgressMessageId::CopyStarted,
 					  .current_units  = std::uint64_t{0},
 					  .total_units	  = total_units,
 					  .message		  = "Copy started.",
@@ -125,6 +126,7 @@ namespace {
 			ProgressEvent{.operation_id	  = context.operation_id,
 						  .operation_type = context.operation_type,
 						  .phase		  = "copying",
+						  .message_id	  = ProgressMessageId::Copying,
 						  .current_units  = copied,
 						  .total_units	  = total_units,
 						  .message		  = "Copying content.",
@@ -154,6 +156,7 @@ namespace {
 		ProgressEvent{.operation_id	  = context.operation_id,
 					  .operation_type = context.operation_type,
 					  .phase		  = "copy-completed",
+					  .message_id	  = ProgressMessageId::CopyCompleted,
 					  .current_units  = copied,
 					  .total_units	  = total_units,
 					  .message		  = "Copy completed.",
@@ -204,6 +207,7 @@ namespace {
 		ProgressEvent{.operation_id	  = context.operation_id,
 					  .operation_type = context.operation_type,
 					  .phase		  = "media-write-started",
+					  .message_id	  = ProgressMessageId::MediaWriteStarted,
 					  .current_units  = std::uint64_t{0},
 					  .total_units = static_cast<std::uint64_t>(marker.size()),
 					  .message	   = "Media write started.",
@@ -224,6 +228,7 @@ namespace {
 		.operation_id	= context.operation_id,
 		.operation_type = context.operation_type,
 		.phase			= "media-write-completed",
+		.message_id		= ProgressMessageId::MediaWriteCompleted,
 		.current_units	= static_cast<std::uint64_t>(marker.size()),
 		.total_units	= static_cast<std::uint64_t>(marker.size()),
 		.message		= "Media write completed.",
@@ -549,14 +554,15 @@ SyntheticSourceImageDecodeService::decode_source_image(
 	if (cancellation_token.cancellation_requested())
 		return platform_value_user_cancelled<ImagePixels>();
 
-	progress_sink.publish_progress(
-		ProgressEvent{.operation_id	  = context.operation_id,
-					  .operation_type = context.operation_type,
-					  .phase		  = "decode-started",
-					  .current_units  = std::uint64_t{0},
-					  .total_units	  = std::uint64_t{1},
-					  .message		  = "Source image decode started.",
-					  .cancellable	  = true});
+	progress_sink.publish_progress(ProgressEvent{
+		.operation_id	= context.operation_id,
+		.operation_type = context.operation_type,
+		.phase			= "decode-started",
+		.message_id		= ProgressMessageId::SyntheticSourceDecodeStarted,
+		.current_units	= std::uint64_t{0},
+		.total_units	= std::uint64_t{1},
+		.message		= "Source image decode started.",
+		.cancellable	= true});
 
 	if (!decoded_pixels.has_value()) {
 		return platform_value_failure<ImagePixels>(
@@ -568,14 +574,15 @@ SyntheticSourceImageDecodeService::decode_source_image(
 	}
 
 	ImagePixels pixels = *decoded_pixels;
-	progress_sink.publish_progress(
-		ProgressEvent{.operation_id	  = context.operation_id,
-					  .operation_type = context.operation_type,
-					  .phase		  = "decode-completed",
-					  .current_units  = std::uint64_t{1},
-					  .total_units	  = std::uint64_t{1},
-					  .message		  = "Source image decode completed.",
-					  .cancellable	  = false});
+	progress_sink.publish_progress(ProgressEvent{
+		.operation_id	= context.operation_id,
+		.operation_type = context.operation_type,
+		.phase			= "decode-completed",
+		.message_id		= ProgressMessageId::SyntheticSourceDecodeCompleted,
+		.current_units	= std::uint64_t{1},
+		.total_units	= std::uint64_t{1},
+		.message		= "Source image decode completed.",
+		.cancellable	= false});
 
 	return platform_value_success(std::move(pixels));
 }
@@ -602,14 +609,15 @@ MarkerInternalPhotoCodec::decode_internal_photo(
 	if (cancellation_token.cancellation_requested())
 		return platform_value_user_cancelled<ImagePixels>();
 
-	progress_sink.publish_progress(
-		ProgressEvent{.operation_id	  = context.operation_id,
-					  .operation_type = context.operation_type,
-					  .phase		  = "internal-decode-started",
-					  .current_units  = std::uint64_t{0},
-					  .total_units	  = std::uint64_t{1},
-					  .message		  = "Internal photo decode started.",
-					  .cancellable	  = true});
+	progress_sink.publish_progress(ProgressEvent{
+		.operation_id	= context.operation_id,
+		.operation_type = context.operation_type,
+		.phase			= "internal-decode-started",
+		.message_id		= ProgressMessageId::InternalPhotoDecodeStarted,
+		.current_units	= std::uint64_t{0},
+		.total_units	= std::uint64_t{1},
+		.message		= "Internal photo decode started.",
+		.cancellable	= true});
 
 	const std::map<std::filesystem::path, ImagePixels>::const_iterator found =
 		encoded_pixels_by_path.find(request.input_path);
@@ -622,14 +630,15 @@ MarkerInternalPhotoCodec::decode_internal_photo(
 							request.input_path.string()));
 	}
 
-	progress_sink.publish_progress(
-		ProgressEvent{.operation_id	  = context.operation_id,
-					  .operation_type = context.operation_type,
-					  .phase		  = "internal-decode-completed",
-					  .current_units  = std::uint64_t{1},
-					  .total_units	  = std::uint64_t{1},
-					  .message		  = "Internal photo decode completed.",
-					  .cancellable	  = false});
+	progress_sink.publish_progress(ProgressEvent{
+		.operation_id	= context.operation_id,
+		.operation_type = context.operation_type,
+		.phase			= "internal-decode-completed",
+		.message_id		= ProgressMessageId::InternalPhotoDecodeCompleted,
+		.current_units	= std::uint64_t{1},
+		.total_units	= std::uint64_t{1},
+		.message		= "Internal photo decode completed.",
+		.cancellable	= false});
 
 	return platform_value_success(found->second);
 }

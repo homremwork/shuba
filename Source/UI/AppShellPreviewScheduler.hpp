@@ -12,6 +12,10 @@
 #include <memory>
 #include <optional>
 
+namespace shuba::localization {
+class Localization;
+}
+
 namespace shuba::ui {
 class AppShellPreviewScheduler final {
 public:
@@ -23,6 +27,7 @@ public:
 		platform::SourceImageDecodeService& source_decode_service;
 		platform::JpegExportService& jpeg_export_service;
 		platform::DocumentExportService& document_export_service;
+		localization::Localization& localization;
 		std::function<void()> refresh_content;
 	};
 

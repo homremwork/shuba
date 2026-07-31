@@ -27,8 +27,8 @@ public:
 	void open_item_detail(core::StableIdentifier item_id);
 	void open_storage_detail(core::StableIdentifier storage_id);
 	void open_photo_viewer(
-		domain::PhotoOwner owner,
-		std::optional<core::StableIdentifier> requested_photo_id);
+		const domain::PhotoOwner& owner,
+		const std::optional<core::StableIdentifier>& requested_photo_id);
 
 private:
 	CatalogSessionState& session;

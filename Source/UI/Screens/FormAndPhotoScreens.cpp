@@ -1,3 +1,4 @@
+#include "Localization/Facade.hpp"
 #include "UI/Screens/AppShellScreenRenderer.hpp"
 #include "UI/View/AppShellContentComponent.hpp"
 #include "UI/View/ScreenText.hpp"
@@ -19,56 +20,62 @@ constexpr ImagePreviewSize viewer_preview_target_size{.max_width  = 640U,
 template<typename Content>
 void add_status_rows(
 	Content& content, domain::ItemStatus selected_status,
+	localization::Localization& localization,
 	const std::function<void(domain::ItemStatus)>& choose_status) {
-	content.add_inline_buttons(
-		"Status",
-		{InlineButtonRowComponent::Action{
-			 .label = selected_status == domain::ItemStatus::Draft ? "* Draft"
-																   : "Draft",
+	content.add_direct_choice_grid(
+		juce_text(localization.text(localization::MessageId::FormsItemStatus)),
+		{DirectChoiceGridComponent::Choice{
+			 .label	   = juce_text(localization.text(
+				 localization::MessageId::FormsItemStatusDraft)),
+			 .selected = selected_status == domain::ItemStatus::Draft,
 			 .handler =
 				 [choose_status] { choose_status(domain::ItemStatus::Draft); }},
-		 InlineButtonRowComponent::Action{
-			 .label = selected_status == domain::ItemStatus::Planned ? "* Plan"
-																	 : "Plan",
+		 DirectChoiceGridComponent::Choice{
+			 .label	   = juce_text(localization.text(
+				 localization::MessageId::FormsItemStatusPlannedShort)),
+			 .selected = selected_status == domain::ItemStatus::Planned,
 			 .handler =
 				 [choose_status] {
 		choose_status(domain::ItemStatus::Planned);
 	}},
-		 InlineButtonRowComponent::Action{
-			 .label = selected_status == domain::ItemStatus::Listed ? "* List"
-																	: "List",
+		 DirectChoiceGridComponent::Choice{
+			 .label	   = juce_text(localization.text(
+				 localization::MessageId::FormsItemStatusListedShort)),
+			 .selected = selected_status == domain::ItemStatus::Listed,
 			 .handler =
 				 [choose_status] {
 		choose_status(domain::ItemStatus::Listed);
 	}},
-		 InlineButtonRowComponent::Action{
-			 .label = selected_status == domain::ItemStatus::Sold ? "* Sold"
-																  : "Sold",
+		 DirectChoiceGridComponent::Choice{
+			 .label	   = juce_text(localization.text(
+				 localization::MessageId::FormsItemStatusSold)),
+			 .selected = selected_status == domain::ItemStatus::Sold,
 			 .handler =
 				 [choose_status] { choose_status(domain::ItemStatus::Sold); }},
-		 InlineButtonRowComponent::Action{
-			 .label = selected_status == domain::ItemStatus::Archived ? "* Arch"
-																	  : "Arch",
+		 DirectChoiceGridComponent::Choice{
+			 .label	   = juce_text(localization.text(
+				 localization::MessageId::FormsItemStatusArchivedShort)),
+			 .selected = selected_status == domain::ItemStatus::Archived,
 			 .handler =
 				 [choose_status] {
 		choose_status(domain::ItemStatus::Archived);
 	}}},
-		42);
+		DirectChoiceGridComponent::preferred_height());
 }
 template<typename Content>
 void add_tag_rows(Content& content, std::vector<domain::TagRow>& tags,
+				  localization::Localization& localization,
 				  const std::function<void()>& refresh) {
 	content.add_label(juce_text(tag_row_count_summary(tags)), 38,
 					  panel_colour(), true);
 	if (tags.empty())
-		content.add_label(
-			"No tags yet. Add a row for brand, size, condition, or any custom "
-			"fact.",
-			50, panel_colour());
+		content.add_label(juce_text(localization.text(
+							  localization::MessageId::FormsTagsEmpty)),
+						  50, panel_colour());
 
 	for (std::size_t index = 0; index < tags.size(); ++index) {
 		content.add_tag_editor_row(
-			index, tags[index],
+			index, tags[index], localization,
 			[&tags](std::size_t changed_index, domain::TagRow changed_tag) {
 			if (changed_index < tags.size())
 				tags[changed_index] = std::move(changed_tag);
@@ -82,20 +89,24 @@ void add_tag_rows(Content& content, std::vector<domain::TagRow>& tags,
 	}
 
 	content.add_inline_buttons(
-		"Tags",
-		{InlineButtonRowComponent::Action{.label = "Add row",
-										  .handler =
-											  [&tags, refresh] {
+		juce_text(localization.text(localization::MessageId::FormsTagsTitle)),
+		{InlineButtonRowComponent::Action{
+			 .label = juce_text(
+				 localization.text(localization::MessageId::FormsTagsAddRow)),
+			 .handler =
+				 [&tags, refresh] {
 		tags.push_back(domain::TagRow{});
 		refresh();
 	}},
-		 InlineButtonRowComponent::Action{.label = "Clear all",
-										  .handler =
-											  [&tags, refresh] {
+		 InlineButtonRowComponent::Action{
+			 .label = juce_text(
+				 localization.text(localization::MessageId::FormsTagsClearAll)),
+			 .handler =
+				 [&tags, refresh] {
 		tags.clear();
 		refresh();
 	},
-										  .enabled = !tags.empty()}},
+			 .enabled = !tags.empty()}},
 		40);
 }
 }	 // namespace
@@ -115,8 +126,14 @@ void AppShellScreenRenderer::build_item_form_content() {
 		remove_item_pending_photo(index);
 	}, [this](std::size_t index) { set_item_pending_photo_as_main(index); });
 
-	content->add_editor_pair(item_name_editor, "Display name (required)",
-							 item_category_editor, "Category (required)", 54);
+	content->add_editor_pair(
+		item_name_editor,
+		juce_text(
+			localization.text(localization::MessageId::FormsItemDisplayName)),
+		item_category_editor,
+		juce_text(
+			localization.text(localization::MessageId::FormsItemCategory)),
+		54);
 	item_name_editor.onTextChange = [this] {
 		item_form.draft.display_name = item_name_editor.getText().toStdString();
 	};
@@ -125,13 +142,15 @@ void AppShellScreenRenderer::build_item_form_content() {
 	};
 
 	content->add_inline_buttons(
-		juce_text(
-			"Storage: "
-			+ storage_label(session.repository, item_form.draft.storage_id)),
+		juce_text(localization.item_storage_field(storage_label(
+			session.repository, item_form.draft.storage_id, localization))),
 		{InlineButtonRowComponent::Action{
-			 .label = item_form.storage_candidates_expanded ? "Hide choices"
-					  : item_form.draft.storage_id			? "Change"
-															: "Choose",
+			 .label = juce_text(localization.text(
+				 item_form.storage_candidates_expanded
+					 ? localization::MessageId::FormsChoiceHide
+				 : item_form.draft.storage_id
+					 ? localization::MessageId::FormsChoiceChange
+					 : localization::MessageId::FormsChoiceChoose)),
 			 .handler =
 				 [this] {
 		item_form.storage_candidates_expanded =
@@ -139,7 +158,8 @@ void AppShellScreenRenderer::build_item_form_content() {
 		refresh_all();
 	}},
 		 InlineButtonRowComponent::Action{
-			 .label = "Clear",
+			 .label =
+				 juce_text(localization.text(localization::MessageId::Clear)),
 			 .handler =
 				 [this] {
 		item_form.draft.storage_id.reset();
@@ -152,7 +172,9 @@ void AppShellScreenRenderer::build_item_form_content() {
 	if (item_form.storage_candidates_expanded) {
 		std::vector<ButtonGridComponent::Action> storage_actions;
 		storage_actions.push_back(ButtonGridComponent::Action{
-			.label = "Unassigned storage", .handler = [this] {
+			.label	 = juce_text(localization.text(
+				localization::MessageId::FormsStorageUnassigned)),
+			.handler = [this] {
 			item_form.draft.storage_id.reset();
 			item_form.storage_candidates_expanded = false;
 			refresh_all();
@@ -161,8 +183,8 @@ void AppShellScreenRenderer::build_item_form_content() {
 			 session.repository.storages) {
 			const core::StableIdentifier storage_id = storage.record.id;
 			storage_actions.push_back(ButtonGridComponent::Action{
-				.label = juce_text(
-					storage_choice_label(session.repository, storage)),
+				.label = juce_text(storage_choice_label(session.repository,
+														storage, localization)),
 				.handler = [this, storage_id] {
 				item_form.draft.storage_id			  = storage_id;
 				item_form.storage_candidates_expanded = false;
@@ -172,11 +194,13 @@ void AppShellScreenRenderer::build_item_form_content() {
 		const int storage_choices_height =
 			ButtonGridComponent::preferred_height(
 				static_cast<int>(storage_actions.size()), 2);
-		content->add_button_grid("Storage choices", std::move(storage_actions),
-								 2, storage_choices_height);
+		content->add_button_grid(
+			juce_text(localization.text(
+				localization::MessageId::FormsStorageChoices)),
+			std::move(storage_actions), 2, storage_choices_height);
 	}
 
-	add_status_rows(*content, item_form.draft.status,
+	add_status_rows(*content, item_form.draft.status, localization,
 					[this](domain::ItemStatus status) {
 		item_form.draft.status = status;
 		refresh_all();
@@ -184,22 +208,27 @@ void AppShellScreenRenderer::build_item_form_content() {
 
 	content->add_inline_buttons(
 		juce_text(tag_row_count_summary(item_form.draft.tags)),
-		{InlineButtonRowComponent::Action{.label = "Add row",
-										  .handler =
-											  [this] {
+		{InlineButtonRowComponent::Action{
+			 .label = juce_text(
+				 localization.text(localization::MessageId::FormsTagsAddRow)),
+			 .handler =
+				 [this] {
 		item_form.draft.tags.push_back(domain::TagRow{});
 		refresh_all();
 	}},
 		 InlineButtonRowComponent::Action{
-			 .label =
-				 item_form.tag_candidates_expanded ? "Hide keys" : "Key hints",
+			 .label = juce_text(localization.text(
+				 item_form.tag_candidates_expanded
+					 ? localization::MessageId::FormsChoiceHide
+					 : localization::MessageId::FormsTagsKeyHints)),
 			 .handler =
 				 [this] {
 		item_form.tag_candidates_expanded = !item_form.tag_candidates_expanded;
 		refresh_all();
 	}},
 		 InlineButtonRowComponent::Action{
-			 .label = "Clear",
+			 .label =
+				 juce_text(localization.text(localization::MessageId::Clear)),
 			 .handler =
 				 [this] {
 		item_form.draft.tags.clear();
@@ -212,8 +241,10 @@ void AppShellScreenRenderer::build_item_form_content() {
 		const TagKeyCandidateGroups groups =
 			derive_tag_key_candidate_groups(session.repository);
 		if (groups.item_keys.empty() && groups.storage_keys.empty()) {
-			content->add_label("No reusable tag keys in this catalog yet.", 34,
-							   panel_colour());
+			content->add_label(
+				juce_text(localization.text(
+					localization::MessageId::FormsTagsReusableKeysEmpty)),
+				34, panel_colour());
 		}
 		if (!groups.item_keys.empty()) {
 			std::vector<ButtonGridComponent::Action> item_key_actions;
@@ -227,9 +258,10 @@ void AppShellScreenRenderer::build_item_form_content() {
 			}
 			const int item_key_height = ButtonGridComponent::preferred_height(
 				static_cast<int>(item_key_actions.size()), 3);
-			content->add_button_grid("Item tag keys",
-									 std::move(item_key_actions), 3,
-									 item_key_height);
+			content->add_button_grid(
+				juce_text(localization.text(
+					localization::MessageId::FormsTagsItemKeys)),
+				std::move(item_key_actions), 3, item_key_height);
 		}
 		if (!groups.storage_keys.empty()) {
 			std::vector<ButtonGridComponent::Action> storage_key_actions;
@@ -244,18 +276,20 @@ void AppShellScreenRenderer::build_item_form_content() {
 			const int storage_key_height =
 				ButtonGridComponent::preferred_height(
 					static_cast<int>(storage_key_actions.size()), 3);
-			content->add_button_grid("Storage tag keys",
-									 std::move(storage_key_actions), 3,
-									 storage_key_height);
+			content->add_button_grid(
+				juce_text(localization.text(
+					localization::MessageId::FormsTagsStorageKeys)),
+				std::move(storage_key_actions), 3, storage_key_height);
 		}
 	}
 
 	if (item_form.draft.tags.empty())
-		content->add_label("No tags yet. Use Key hints or Add row.", 34,
-						   panel_colour());
+		content->add_label(juce_text(localization.text(
+							   localization::MessageId::FormsTagsEmptyHint)),
+						   34, panel_colour());
 	for (std::size_t index = 0; index < item_form.draft.tags.size(); ++index) {
 		content->add_tag_editor_row(
-			index, item_form.draft.tags[index],
+			index, item_form.draft.tags[index], localization,
 			[this](std::size_t changed_index, domain::TagRow changed_tag) {
 			if (changed_index < item_form.draft.tags.size())
 				item_form.draft.tags[changed_index] = std::move(changed_tag);
@@ -269,47 +303,69 @@ void AppShellScreenRenderer::build_item_form_content() {
 		}, 52);
 	}
 
-	content->add_editor(item_notes_editor, "Notes", 80, true).onTextChange =
-		[this] {
+	content
+		->add_editor(
+			item_notes_editor,
+			juce_text(localization.text(localization::MessageId::FormsNotes)),
+			80, true)
+		.onTextChange = [this] {
 		item_form.draft.notes = item_notes_editor.getText().toStdString();
 	};
 
-	content->add_label(juce_text(listing_summary(item_form.draft.listing)), 46,
-					   panel_colour(), !item_form.draft.listing.empty());
+	content->add_label(
+		juce_text(listing_summary(item_form.draft.listing, localization)), 46,
+		panel_colour(), !item_form.draft.listing.empty());
 	juce::Button& listing_toggle = content->add_button(
-		item_form.listing_expanded ? "Collapse listing details"
-								   : "Add listing details",
+		juce_text(localization.text(
+			item_form.listing_expanded
+				? localization::MessageId::FormsListingCollapse
+				: localization::MessageId::FormsListingExpand)),
 		38);
 	listing_toggle.onClick = [this] {
 		item_form.listing_expanded = !item_form.listing_expanded;
 		refresh_all();
 	};
 	if (item_form.listing_expanded) {
-		content->add_editor(item_listing_marketplace_editor, "Marketplace", 44)
+		content
+			->add_editor(item_listing_marketplace_editor,
+						 juce_text(localization.text(
+							 localization::MessageId::FormsListingMarketplace)),
+						 44)
 			.onTextChange = [this] {
 			item_form.draft.listing.marketplace =
 				item_listing_marketplace_editor.getText().toStdString();
 		};
-		content->add_editor(item_listing_url_editor, "Listing URL", 44)
+		content
+			->add_editor(item_listing_url_editor,
+						 juce_text(localization.text(
+							 localization::MessageId::FormsListingUrl)),
+						 44)
 			.onTextChange = [this] {
 			item_form.draft.listing.url =
 				item_listing_url_editor.getText().toStdString();
 		};
-		content->add_editor(item_listing_note_editor, "Listing note", 70, true)
+		content
+			->add_editor(item_listing_note_editor,
+						 juce_text(localization.text(
+							 localization::MessageId::FormsListingNote)),
+						 70, true)
 			.onTextChange = [this] {
 			item_form.draft.listing.note =
 				item_listing_note_editor.getText().toStdString();
 		};
 	}
 
-	content->add_label(juce_text(finance_summary(item_form.draft.acquisition,
-												 item_form.draft.finance)),
-					   46, panel_colour(),
-					   !item_form.draft.acquisition.empty()
-						   || !item_form.draft.finance.empty());
+	content->add_label(
+		juce_text(finance_summary(item_form.draft.acquisition,
+								  item_form.draft.finance, localization)),
+		46, panel_colour(),
+		!item_form.draft.acquisition.empty()
+			|| !item_form.draft.finance.empty());
 	juce::Button& finance_toggle = content->add_button(
-		item_form.finance_expanded ? "Collapse finance details"
-								   : "Add finance details",
+		juce_text(localization.text(
+			item_form.finance_expanded
+				? localization::MessageId::FormsFinanceCollapse
+				: localization::MessageId::FormsFinanceExpand)),
 		38);
 	finance_toggle.onClick = [this] {
 		item_form.finance_expanded = !item_form.finance_expanded;
@@ -317,22 +373,29 @@ void AppShellScreenRenderer::build_item_form_content() {
 	};
 	if (item_form.finance_expanded) {
 		content
-			->add_editor(item_acquisition_source_editor, "Acquisition source",
-						 44)
+			->add_editor(
+				item_acquisition_source_editor,
+				juce_text(localization.text(
+					localization::MessageId::FormsFinanceAcquisitionSource)),
+				44)
 			.onTextChange = [this] {
 			item_form.draft.acquisition.source =
 				item_acquisition_source_editor.getText().toStdString();
 		};
-		content->add_label(
-			"Money fields stay omitted from this compact JUCE form pass; "
-			"existing values are preserved when editing.",
-			52, panel_colour());
+		content->add_label(juce_text(localization.text(
+							   localization::MessageId::FormsFinanceMoneyNote)),
+						   52, panel_colour());
 	}
 
 	if (item_form.mode == FormMode::Edit) {
-		content->add_label("Edit-only actions", 34, panel_colour(), true);
-		juce::Button& archive = content->add_button("Archive item", 42);
-		archive.onClick		  = [this] {
+		content->add_label(juce_text(localization.text(
+							   localization::MessageId::FormsEditOnlyActions)),
+						   34, panel_colour(), true);
+		juce::Button& archive = content->add_button(
+			juce_text(
+				localization.text(localization::MessageId::FormsArchiveItem)),
+			42);
+		archive.onClick = [this] {
 			if (!item_form.draft.existing_id)
 				return;
 			EntityEditResult result = archive_item_in_session(
@@ -343,7 +406,9 @@ void AppShellScreenRenderer::build_item_form_content() {
 			apply_entity_edit_result(std::move(result));
 		};
 		juce::Button& hard_delete = content->add_button(
-			"Hard delete disabled until deletion sequence tests pass", 46);
+			juce_text(localization.text(
+				localization::MessageId::FormsHardDeleteDisabled)),
+			46);
 		hard_delete.setEnabled(false);
 	}
 }
@@ -362,9 +427,13 @@ void AppShellScreenRenderer::build_storage_form_content() {
 		remove_storage_pending_photo(index);
 	}, [this](std::size_t index) { set_storage_pending_photo_as_main(index); });
 
-	content->add_editor_pair(storage_name_editor, "Display name (required)",
-							 storage_type_editor, "Storage type (required)",
-							 54);
+	content->add_editor_pair(
+		storage_name_editor,
+		juce_text(localization.text(
+			localization::MessageId::FormsStorageDisplayName)),
+		storage_type_editor,
+		juce_text(localization.text(localization::MessageId::FormsStorageType)),
+		54);
 	storage_name_editor.onTextChange = [this] {
 		storage_form.draft.display_name =
 			storage_name_editor.getText().toStdString();
@@ -375,13 +444,16 @@ void AppShellScreenRenderer::build_storage_form_content() {
 	};
 
 	content->add_inline_buttons(
-		juce_text("Parent: "
-				  + storage_label(session.repository,
-								  storage_form.draft.parent_storage_id)),
+		juce_text(localization.parent_storage_field(
+			storage_label(session.repository,
+						  storage_form.draft.parent_storage_id, localization))),
 		{InlineButtonRowComponent::Action{
-			 .label = storage_form.parent_candidates_expanded ? "Hide choices"
-					  : storage_form.draft.parent_storage_id  ? "Change"
-															  : "Choose",
+			 .label = juce_text(localization.text(
+				 storage_form.parent_candidates_expanded
+					 ? localization::MessageId::FormsChoiceHide
+				 : storage_form.draft.parent_storage_id
+					 ? localization::MessageId::FormsChoiceChange
+					 : localization::MessageId::FormsChoiceChoose)),
 			 .handler =
 				 [this] {
 		storage_form.parent_candidates_expanded =
@@ -389,7 +461,8 @@ void AppShellScreenRenderer::build_storage_form_content() {
 		refresh_all();
 	}},
 		 InlineButtonRowComponent::Action{
-			 .label = "Clear",
+			 .label =
+				 juce_text(localization.text(localization::MessageId::Clear)),
 			 .handler =
 				 [this] {
 		storage_form.draft.parent_storage_id.reset();
@@ -402,7 +475,9 @@ void AppShellScreenRenderer::build_storage_form_content() {
 	if (storage_form.parent_candidates_expanded) {
 		std::vector<ButtonGridComponent::Action> parent_actions;
 		parent_actions.push_back(ButtonGridComponent::Action{
-			.label = "No parent storage", .handler = [this] {
+			.label	 = juce_text(localization.text(
+				localization::MessageId::FormsStorageNoParent)),
+			.handler = [this] {
 			storage_form.draft.parent_storage_id.reset();
 			storage_form.parent_candidates_expanded = false;
 			refresh_all();
@@ -415,8 +490,8 @@ void AppShellScreenRenderer::build_storage_form_content() {
 			}
 			const core::StableIdentifier storage_id = storage.record.id;
 			parent_actions.push_back(ButtonGridComponent::Action{
-				.label = juce_text(
-					storage_choice_label(session.repository, storage)),
+				.label = juce_text(storage_choice_label(session.repository,
+														storage, localization)),
 				.handler = [this, storage_id] {
 				storage_form.draft.parent_storage_id	= storage_id;
 				storage_form.parent_candidates_expanded = false;
@@ -425,11 +500,17 @@ void AppShellScreenRenderer::build_storage_form_content() {
 		}
 		const int parent_choices_height = ButtonGridComponent::preferred_height(
 			static_cast<int>(parent_actions.size()), 2);
-		content->add_button_grid("Parent choices", std::move(parent_actions), 2,
-								 parent_choices_height);
+		content->add_button_grid(
+			juce_text(localization.text(
+				localization::MessageId::FormsStorageParentChoices)),
+			std::move(parent_actions), 2, parent_choices_height);
 	}
 
-	content->add_editor(storage_location_editor, "Physical location", 46)
+	content
+		->add_editor(storage_location_editor,
+					 juce_text(localization.text(
+						 localization::MessageId::FormsStorageLocation)),
+					 46)
 		.onTextChange = [this] {
 		storage_form.draft.location =
 			storage_location_editor.getText().toStdString();
@@ -437,15 +518,19 @@ void AppShellScreenRenderer::build_storage_form_content() {
 
 	content->add_inline_buttons(
 		juce_text(tag_row_count_summary(storage_form.draft.tags)),
-		{InlineButtonRowComponent::Action{.label = "Add row",
-										  .handler =
-											  [this] {
+		{InlineButtonRowComponent::Action{
+			 .label = juce_text(
+				 localization.text(localization::MessageId::FormsTagsAddRow)),
+			 .handler =
+				 [this] {
 		storage_form.draft.tags.push_back(domain::TagRow{});
 		refresh_all();
 	}},
 		 InlineButtonRowComponent::Action{
-			 .label = storage_form.tag_candidates_expanded ? "Hide keys"
-														   : "Key hints",
+			 .label = juce_text(localization.text(
+				 storage_form.tag_candidates_expanded
+					 ? localization::MessageId::FormsChoiceHide
+					 : localization::MessageId::FormsTagsKeyHints)),
 			 .handler =
 				 [this] {
 		storage_form.tag_candidates_expanded =
@@ -453,7 +538,8 @@ void AppShellScreenRenderer::build_storage_form_content() {
 		refresh_all();
 	}},
 		 InlineButtonRowComponent::Action{
-			 .label = "Clear",
+			 .label =
+				 juce_text(localization.text(localization::MessageId::Clear)),
 			 .handler =
 				 [this] {
 		storage_form.draft.tags.clear();
@@ -466,8 +552,10 @@ void AppShellScreenRenderer::build_storage_form_content() {
 		const TagKeyCandidateGroups groups =
 			derive_tag_key_candidate_groups(session.repository);
 		if (groups.item_keys.empty() && groups.storage_keys.empty()) {
-			content->add_label("No reusable tag keys in this catalog yet.", 34,
-							   panel_colour());
+			content->add_label(
+				juce_text(localization.text(
+					localization::MessageId::FormsTagsReusableKeysEmpty)),
+				34, panel_colour());
 		}
 		if (!groups.item_keys.empty()) {
 			std::vector<ButtonGridComponent::Action> item_key_actions;
@@ -482,9 +570,10 @@ void AppShellScreenRenderer::build_storage_form_content() {
 			const int storage_form_item_key_height =
 				ButtonGridComponent::preferred_height(
 					static_cast<int>(item_key_actions.size()), 3);
-			content->add_button_grid("Item tag keys",
-									 std::move(item_key_actions), 3,
-									 storage_form_item_key_height);
+			content->add_button_grid(
+				juce_text(localization.text(
+					localization::MessageId::FormsTagsItemKeys)),
+				std::move(item_key_actions), 3, storage_form_item_key_height);
 		}
 		if (!groups.storage_keys.empty()) {
 			std::vector<ButtonGridComponent::Action> storage_key_actions;
@@ -499,19 +588,22 @@ void AppShellScreenRenderer::build_storage_form_content() {
 			const int storage_form_storage_key_height =
 				ButtonGridComponent::preferred_height(
 					static_cast<int>(storage_key_actions.size()), 3);
-			content->add_button_grid("Storage tag keys",
-									 std::move(storage_key_actions), 3,
-									 storage_form_storage_key_height);
+			content->add_button_grid(
+				juce_text(localization.text(
+					localization::MessageId::FormsTagsStorageKeys)),
+				std::move(storage_key_actions), 3,
+				storage_form_storage_key_height);
 		}
 	}
 
 	if (storage_form.draft.tags.empty())
-		content->add_label("No tags yet. Use Key hints or Add row.", 34,
-						   panel_colour());
+		content->add_label(juce_text(localization.text(
+							   localization::MessageId::FormsTagsEmptyHint)),
+						   34, panel_colour());
 	for (std::size_t index = 0; index < storage_form.draft.tags.size();
 		 ++index) {
 		content->add_tag_editor_row(
-			index, storage_form.draft.tags[index],
+			index, storage_form.draft.tags[index], localization,
 			[this](std::size_t changed_index, domain::TagRow changed_tag) {
 			if (changed_index < storage_form.draft.tags.size())
 				storage_form.draft.tags[changed_index] = std::move(changed_tag);
@@ -525,17 +617,25 @@ void AppShellScreenRenderer::build_storage_form_content() {
 		}, 52);
 	}
 
-	content->add_editor(storage_notes_editor, "Notes", 80, true).onTextChange =
-		[this] {
+	content
+		->add_editor(
+			storage_notes_editor,
+			juce_text(localization.text(localization::MessageId::FormsNotes)),
+			80, true)
+		.onTextChange = [this] {
 		storage_form.draft.notes = storage_notes_editor.getText().toStdString();
 	};
 	if (storage_form.mode == FormMode::Edit) {
-		content->add_label("Edit-only actions", 34, panel_colour(), true);
+		content->add_label(juce_text(localization.text(
+							   localization::MessageId::FormsEditOnlyActions)),
+						   34, panel_colour(), true);
 		juce::Button& archive = content->add_button(
 			storage_form.draft.lifecycle_status
 					== domain::StorageLifecycleStatus::Archived
-				? "Storage archived"
-				: "Archive storage",
+				? juce_text(localization.text(
+					  localization::MessageId::FormsStorageArchived))
+				: juce_text(localization.text(
+					  localization::MessageId::FormsStorageArchive)),
 			42);
 		archive.onClick = [this] {
 			storage_form.draft.lifecycle_status =
@@ -545,7 +645,8 @@ void AppShellScreenRenderer::build_storage_form_content() {
 			refresh_all();
 		};
 		juce::ToggleButton& acknowledge = content->add_toggle(
-			"Confirm archive-with-contents warning if shown",
+			juce_text(localization.text(
+				localization::MessageId::FormsStorageArchiveContentsAck)),
 			storage_form.archive_warning_acknowledged, 38);
 		acknowledge.onClick = [this] {
 			storage_form.archive_warning_acknowledged =
@@ -555,7 +656,9 @@ void AppShellScreenRenderer::build_storage_form_content() {
 			refresh_all();
 		};
 		juce::Button& hard_delete = content->add_button(
-			"Hard delete disabled until deletion sequence tests pass", 46);
+			juce_text(localization.text(
+				localization::MessageId::FormsHardDeleteDisabled)),
+			46);
 		hard_delete.setEnabled(false);
 	}
 }
@@ -576,8 +679,10 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 			"No photo records for this owner yet. Add photos to import into "
 			"app-private JPEG XL storage.",
 			70, panel_colour(), true);
-		juce::Button& add_photo = content->add_button("Add photos", 42);
-		add_photo.onClick		= [this, owner] { request_add_photos(owner); };
+		juce::Button& add_photo = content->add_button(
+			juce_text(localization.text(localization::MessageId::PhotoAdd)),
+			42);
+		add_photo.onClick = [this, owner] { request_add_photos(owner); };
 		return;
 	}
 
@@ -622,7 +727,8 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 	}
 
 	juce::Image image;
-	juce::String placeholder{"Loading full photo in background."};
+	juce::String placeholder = juce_text(
+		localization.text(localization::MessageId::PreviewViewerLoading));
 	PreviewImageVisualState viewer_state{PreviewImageVisualState::Loading};
 	if (photo_display.result.succeeded()
 		&& photo_display.result.pixels.has_value()) {
@@ -631,7 +737,8 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 			placeholder	 = "";
 			viewer_state = PreviewImageVisualState::Loaded;
 		} else {
-			placeholder	 = "Decoded image cannot be displayed.";
+			placeholder	 = juce_text(localization.text(
+				localization::MessageId::PreviewViewerDecodeUnavailable));
 			viewer_state = PreviewImageVisualState::Broken;
 		}
 	} else {
@@ -647,7 +754,9 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 			viewer_state = PreviewImageVisualState::Loaded;
 		} else if (viewer_state == PreviewImageVisualState::Broken) {
 			placeholder = preview.placeholder.isEmpty()
-							  ? "Cached preview cannot be displayed."
+							  ? juce_text(localization.text(
+									localization::MessageId::
+										PreviewViewerCachedUnavailable))
 							  : preview.placeholder;
 		}
 
@@ -676,12 +785,12 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 		placeholder	 = juce_text(photo_display.result.placeholder->message);
 		viewer_state = PreviewImageVisualState::Broken;
 	} else if (photo_display.result.was_user_cancelled()) {
-		placeholder	 = "Photo display was cancelled.";
+		placeholder = juce_text(
+			localization.text(localization::MessageId::PreviewViewerCancelled));
 		viewer_state = PreviewImageVisualState::Broken;
 	} else {
-		placeholder =
-			"Photo preview placeholder. Full decode is only attempted "
-			"for this viewer, not for result lists.";
+		placeholder = juce_text(localization.text(
+			localization::MessageId::PreviewViewerPlaceholder));
 	}
 
 	std::function<void(int)> select_adjacent = [this, owner](int direction) {
@@ -711,8 +820,8 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 	viewer_model.image	 = image;
 	viewer_model.title	 = juce_text(photo_summary(*photo, position, total));
 	viewer_model.caption = juce_text(
-		owner_caption(session.repository, owner)
-		+ " · double-tap to zoom, drag when zoomed, swipe when fitted");
+		owner_caption(session.repository, owner) + " · "
+		+ localization.text(localization::MessageId::PreviewViewerGestureHint));
 	viewer_model.placeholder = placeholder;
 	viewer_model.state		 = viewer_state;
 	viewer_model.rotation_quarter_turns =
@@ -724,29 +833,36 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 	const int viewer_height =
 		std::max(360, content->viewport_height_hint() - 12);
 	content->add_photo_viewer_image(std::move(viewer_model),
-									std::move(viewer_handlers), viewer_height);
+									std::move(viewer_handlers), localization,
+									viewer_height);
 
 	const bool multiple_photos = total > 1U;
 	const bool rotate_enabled  = image.isValid();
 	std::vector<ButtonGridComponent::Action> viewer_actions;
 	viewer_actions.push_back(ButtonGridComponent::Action{
-		.label = "Previous", .handler = [select_adjacent] {
-		select_adjacent(-1);
-	}, .enabled = multiple_photos});
+		.label =
+			juce_text(localization.text(localization::MessageId::Previous)),
+		.handler = [select_adjacent] { select_adjacent(-1); },
+		.enabled = multiple_photos});
 	viewer_actions.push_back(ButtonGridComponent::Action{
-		.label = "Next", .handler = [select_adjacent] {
-		select_adjacent(1);
-	}, .enabled = multiple_photos});
+		.label	 = juce_text(localization.text(localization::MessageId::Next)),
+		.handler = [select_adjacent] { select_adjacent(1); },
+		.enabled = multiple_photos});
 	viewer_actions.push_back(ButtonGridComponent::Action{
-		.label = "Rotate left", .handler = [rotate_viewer] {
-		rotate_viewer(-1);
-	}, .enabled = rotate_enabled});
+		.label	 = juce_text(localization.text(
+			localization::MessageId::PreviewViewerRotateLeft)),
+		.handler = [rotate_viewer] { rotate_viewer(-1); },
+		.enabled = rotate_enabled});
 	viewer_actions.push_back(ButtonGridComponent::Action{
-		.label = "Rotate right", .handler = [rotate_viewer] {
-		rotate_viewer(1);
-	}, .enabled = rotate_enabled});
-	content->add_button_grid("Viewer controls", std::move(viewer_actions), 2,
-							 ButtonGridComponent::preferred_height(4, 2));
+		.label	 = juce_text(localization.text(
+			localization::MessageId::PreviewViewerRotateRight)),
+		.handler = [rotate_viewer] { rotate_viewer(1); },
+		.enabled = rotate_enabled});
+	content->add_button_grid(
+		juce_text(
+			localization.text(localization::MessageId::PreviewViewerControls)),
+		std::move(viewer_actions), 2,
+		ButtonGridComponent::preferred_height(4, 2));
 
 	if (!feedback.photo_message.empty()) {
 		content->add_label(juce_text(feedback.photo_message), 54,
@@ -762,12 +878,16 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 							   photo_display.result.diagnostics)),
 						   76, warning_panel_colour(), true);
 	}
-	content->add_label(
-		juce_text(progress_summary(last_progress_events.events())), 50,
-		panel_colour());
+	content->add_label(juce_text(progress_summary(last_progress_events.events(),
+												  localization)),
+					   50, panel_colour());
 
 	juce::Button& set_main = content->add_button(
-		photo->record.is_main ? "Already main photo" : "Set as main", 42);
+		photo->record.is_main
+			? juce_text(
+				  localization.text(localization::MessageId::PhotoAlreadyMain))
+			: juce_text(localization.text(localization::MessageId::SetMain)),
+		42);
 	set_main.setEnabled(!photo->record.is_main);
 	set_main.onClick = [this, photo_id = *route.selected_photo_id] {
 		EntityEditResult result = set_main_photo_in_session(
@@ -777,8 +897,9 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 			photo_id);
 		apply_photo_edit_result(std::move(result), photo_id);
 	};
-	juce::Button& export_button =
-		content->add_button("Export current photo as JPEG", 42);
+	juce::Button& export_button = content->add_button(
+		juce_text(localization.text(localization::MessageId::PhotoExportJpeg)),
+		42);
 	export_button.setEnabled(photo_display.result.succeeded());
 	export_button.onClick = [this, photo_id = *route.selected_photo_id] {
 		request_export_photo(photo_id);
@@ -786,9 +907,11 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 	if (photo_display.pending_delete_photo_id.has_value()
 		&& *photo_display.pending_delete_photo_id == *route.selected_photo_id) {
 		content->add_inline_buttons(
-			"Delete selected photo? Metadata is removed first.",
+			juce_text(
+				localization.text(localization::MessageId::PhotoDeletePrompt)),
 			{InlineButtonRowComponent::Action{
-				 .label = "Confirm delete",
+				 .label = juce_text(
+					 localization.text(localization::MessageId::ConfirmDelete)),
 				 .handler =
 					 [this, photo_id = *route.selected_photo_id] {
 			confirm_delete_photo(photo_id);
@@ -798,14 +921,18 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 				 .handler = [this] { cancel_delete_photo(); }}},
 			44);
 	} else {
-		juce::Button& delete_button =
-			content->add_button("Delete current photo", 42);
+		juce::Button& delete_button = content->add_button(
+			juce_text(
+				localization.text(localization::MessageId::PhotoDeleteCurrent)),
+			42);
 		delete_button.onClick = [this, photo_id = *route.selected_photo_id] {
 			request_delete_photo(photo_id);
 		};
 	}
-	juce::Button& add_photo = content->add_button("Add more photos", 42);
-	add_photo.onClick		= [this, owner] { request_add_photos(owner); };
+	juce::Button& add_photo = content->add_button(
+		juce_text(localization.text(localization::MessageId::PhotoAddMore)),
+		42);
+	add_photo.onClick = [this, owner] { request_add_photos(owner); };
 }
 
 }	 // namespace shuba::ui

@@ -70,12 +70,13 @@ ImagePanelComponent& AppShellContentComponent::add_image_panel(
 
 PhotoCarouselComponent& AppShellContentComponent::add_photo_carousel(
 	std::vector<PhotoCarouselSlide> slides, std::size_t selected_index,
+	localization::Localization& localization,
 	std::function<void(std::size_t)> select_handler,
 	std::function<void()> activate_handler, int height) {
 	std::unique_ptr<PhotoCarouselComponent> carousel =
 		std::make_unique<PhotoCarouselComponent>(
-			std::move(slides), selected_index, std::move(select_handler),
-			std::move(activate_handler));
+			std::move(slides), selected_index, localization,
+			std::move(select_handler), std::move(activate_handler));
 	PhotoCarouselComponent& reference = *carousel;
 	add_row(std::move(carousel), height);
 	return reference;
@@ -83,20 +84,21 @@ PhotoCarouselComponent& AppShellContentComponent::add_photo_carousel(
 
 PhotoViewerImageComponent& AppShellContentComponent::add_photo_viewer_image(
 	PhotoViewerImageModel model, PhotoViewerImageHandlers handlers,
-	int height) {
+	localization::Localization& localization, int height) {
 	std::unique_ptr<PhotoViewerImageComponent> viewer =
-		std::make_unique<PhotoViewerImageComponent>(std::move(model),
-													std::move(handlers));
+		std::make_unique<PhotoViewerImageComponent>(
+			std::move(model), std::move(handlers), localization);
 	PhotoViewerImageComponent& reference = *viewer;
 	add_row(std::move(viewer), height);
 	return reference;
 }
 
 PreviewCardButtonComponent& AppShellContentComponent::add_preview_card(
-	PreviewCardContent content, int height) {
+	PreviewCardContent content, localization::Localization& localization,
+	int height) {
 	std::unique_ptr<PreviewCardButtonComponent> card =
-		std::make_unique<PreviewCardButtonComponent>(std::move(content),
-													 elevated_surface_colour());
+		std::make_unique<PreviewCardButtonComponent>(
+			std::move(content), elevated_surface_colour(), localization);
 	PreviewCardButtonComponent& reference = *card;
 	add_row(std::move(card), height);
 	return reference;
@@ -104,9 +106,11 @@ PreviewCardButtonComponent& AppShellContentComponent::add_preview_card(
 
 CompactStorageStripComponent&
 AppShellContentComponent::add_compact_storage_strip(
-	std::vector<CompactStorageCardContent> cards, int height) {
+	std::vector<CompactStorageCardContent> cards,
+	localization::Localization& localization, int height) {
 	std::unique_ptr<CompactStorageStripComponent> strip =
-		std::make_unique<CompactStorageStripComponent>(std::move(cards));
+		std::make_unique<CompactStorageStripComponent>(std::move(cards),
+													   localization);
 	CompactStorageStripComponent& reference = *strip;
 	add_row(std::move(strip), height);
 	return reference;
@@ -120,6 +124,17 @@ InlineButtonRowComponent& AppShellContentComponent::add_inline_buttons(
 												   std::move(actions));
 	InlineButtonRowComponent& reference = *row;
 	add_row(std::move(row), height);
+	return reference;
+}
+
+DirectChoiceGridComponent& AppShellContentComponent::add_direct_choice_grid(
+	juce::String title, std::vector<DirectChoiceGridComponent::Choice> choices,
+	int height) {
+	std::unique_ptr<DirectChoiceGridComponent> grid =
+		std::make_unique<DirectChoiceGridComponent>(std::move(title),
+													std::move(choices));
+	DirectChoiceGridComponent& reference = *grid;
+	add_row(std::move(grid), height);
 	return reference;
 }
 
@@ -159,10 +174,10 @@ EditorPairComponent& AppShellContentComponent::add_editor_pair(
 
 ManagedPhotoDeckComponent& AppShellContentComponent::add_managed_photo_deck(
 	ManagedPhotoDeckModel model, ManagedPhotoDeckHandlers handlers,
-	int height) {
+	localization::Localization& localization, int height) {
 	std::unique_ptr<ManagedPhotoDeckComponent> deck =
-		std::make_unique<ManagedPhotoDeckComponent>(std::move(model),
-													std::move(handlers));
+		std::make_unique<ManagedPhotoDeckComponent>(
+			std::move(model), std::move(handlers), localization);
 	ManagedPhotoDeckComponent& reference = *deck;
 	add_row(std::move(deck), height);
 	return reference;
@@ -170,10 +185,11 @@ ManagedPhotoDeckComponent& AppShellContentComponent::add_managed_photo_deck(
 
 TagRowEditorComponent& AppShellContentComponent::add_tag_editor_row(
 	std::size_t row_index, const domain::TagRow& tag,
+	localization::Localization& localization,
 	std::function<void(std::size_t, domain::TagRow)> change_handler,
 	std::function<void(std::size_t)> remove_handler, int height) {
 	std::unique_ptr<TagRowEditorComponent> row =
-		std::make_unique<TagRowEditorComponent>(row_index, tag,
+		std::make_unique<TagRowEditorComponent>(row_index, tag, localization,
 												std::move(change_handler),
 												std::move(remove_handler));
 	TagRowEditorComponent& reference = *row;

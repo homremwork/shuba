@@ -42,7 +42,6 @@ struct CatalogRecoveryUiSummary final {
 		persistence::CatalogLoadStatus::Fatal};
 	CatalogSessionStartupSource startup_source{
 		CatalogSessionStartupSource::PathResolutionFailed};
-	std::string plain_summary_message;
 	std::uint64_t accepted_item_count{};
 	std::uint64_t accepted_storage_count{};
 	std::uint64_t accepted_photo_count{};
@@ -51,7 +50,7 @@ struct CatalogRecoveryUiSummary final {
 	std::uint64_t skipped_photo_count{};
 	std::uint64_t broken_reference_count{};
 	std::uint64_t orphan_media_count{};
-	std::vector<std::string> safe_actions;
+	std::vector<RecoveryAction> safe_actions;
 	std::vector<std::string> technical_details;
 
 	[[nodiscard]] bool fatal() const noexcept;

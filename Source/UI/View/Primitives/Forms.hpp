@@ -8,6 +8,10 @@
 #include <memory>
 #include <vector>
 
+namespace shuba::localization {
+class Localization;
+}
+
 namespace shuba::ui {
 class InlineButtonRowComponent final : public juce::Component {
 public:
@@ -19,6 +23,32 @@ public:
 
 	InlineButtonRowComponent(juce::String title_value,
 							 std::vector<Action> actions_value);
+
+	void resized() override;
+	void paint(juce::Graphics& graphics) override;
+
+private:
+	juce::String title;
+	std::vector<std::unique_ptr<juce::TextButton>> buttons;
+};
+
+class DirectChoiceGridComponent final : public juce::Component {
+public:
+	struct Choice final {
+		juce::String label;
+		bool selected{};
+		bool enabled{true};
+		std::function<void()> handler;
+	};
+
+	DirectChoiceGridComponent(juce::String title_value,
+							  std::vector<Choice> choices_value);
+
+	[[nodiscard]] static constexpr int preferred_height() noexcept {
+		return 86;
+	}
+	[[nodiscard]] static std::vector<juce::Rectangle<int>> choice_bounds(
+		juce::Rectangle<int> bounds, bool has_title, std::size_t choice_count);
 
 	void resized() override;
 	void paint(juce::Graphics& graphics) override;
@@ -82,6 +112,7 @@ class TagRowEditorComponent final : public juce::Component {
 public:
 	TagRowEditorComponent(
 		std::size_t row_index_value, const domain::TagRow& tag_value,
+		localization::Localization& localization_value,
 		std::function<void(std::size_t, domain::TagRow)> change_handler,
 		std::function<void(std::size_t)> remove_handler);
 
@@ -94,9 +125,10 @@ private:
 	std::size_t row_index{};
 	std::function<void(std::size_t, domain::TagRow)> on_change;
 	std::function<void(std::size_t)> on_remove;
+	localization::Localization& localization;
 	juce::TextEditor key_editor;
 	juce::TextEditor value_editor;
-	juce::TextButton remove_button{"Remove"};
+	juce::TextButton remove_button;
 };
 
 class EditorPairComponent final : public juce::Component {

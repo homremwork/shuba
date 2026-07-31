@@ -91,8 +91,8 @@ void AppShellRouteCoordinator::open_storage_detail(
 }
 
 void AppShellRouteCoordinator::open_photo_viewer(
-	domain::PhotoOwner owner,
-	std::optional<core::StableIdentifier> requested_photo_id) {
+	const domain::PhotoOwner& owner,
+	const std::optional<core::StableIdentifier>& requested_photo_id) {
 	route.selected_photo_owner = owner;
 	route.selected_photo_id =
 		requested_photo_id.has_value()

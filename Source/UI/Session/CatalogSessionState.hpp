@@ -27,6 +27,16 @@ enum class CatalogSessionStartupSource : std::uint8_t {
 	StartupCrashSafeMode,
 };
 
+enum class RecoveryAction : std::uint8_t {
+	ExportNormalBackup,
+	ExportDiagnosticArchive,
+	ImportBackup,
+	ShowTechnicalReport,
+	ContinueUsingAcceptedRecords,
+	RetryNormalLaunch,
+	Exit,
+};
+
 [[nodiscard]] std::string_view to_string(
 	CatalogSessionStartupSource source) noexcept;
 

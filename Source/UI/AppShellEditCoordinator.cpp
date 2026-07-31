@@ -1,5 +1,7 @@
 #include "UI/AppShellEditCoordinator.hpp"
 
+#include "Localization/Facade.hpp"
+
 #include "Catalog/CatalogRepository.hpp"
 #include "UI/Session/PhotoSession.hpp"
 #include "UI/View/ScreenText.hpp"
@@ -37,6 +39,7 @@ AppShellEditCoordinator::AppShellEditCoordinator(Dependencies dependencies)
 	, internal_photo_codec(dependencies.internal_photo_codec)
 	, progress_events(dependencies.progress_events)
 	, cancellation_token(dependencies.cancellation_token)
+	, localization(dependencies.localization)
 	, item_name_editor(dependencies.editors.item_name_editor)
 	, item_category_editor(dependencies.editors.item_category_editor)
 	, item_notes_editor(dependencies.editors.item_notes_editor)
@@ -393,40 +396,45 @@ void AppShellEditCoordinator::apply_item_save_with_pending_photos_result(
 			feedback.photo_diagnostics.end(),
 			result.cleanup_result.diagnostics.begin(),
 			result.cleanup_result.diagnostics.end());
-		if (result.import_result.succeeded()) {
-			feedback.photo_message =
-				"Pending photo import completed: "
-				+ std::to_string(result.import_result.summary.success_count)
-				+ " imported, "
-				+ std::to_string(result.import_result.summary.failure_count)
-				+ " failed.";
-		} else if (result.import_result.was_user_cancelled()) {
-			feedback.photo_message =
-				"Item saved, pending photo import cancelled.";
-		} else {
-			feedback.photo_message =
-				"Item saved, but pending photo import failed.";
+		if (result.main_selection_attempted) {
+			append_entity_diagnostics_to_core_feedback(
+				feedback.photo_diagnostics,
+				result.main_selection_result.diagnostics);
 		}
-		if (result.cleanup_attempted && result.cleanup_result.failed())
-			feedback.photo_message +=
-				" Pending source cleanup needs attention.";
+
+		const localization::PendingSavePhotoImportState import_state =
+			result.import_result.succeeded()
+				? localization::PendingSavePhotoImportState::Completed
+			: result.import_result.was_user_cancelled()
+				? localization::PendingSavePhotoImportState::Cancelled
+				: localization::PendingSavePhotoImportState::Failed;
+		const localization::PendingSaveCleanupState cleanup_state =
+			result.cleanup_attempted && result.cleanup_result.failed()
+				? localization::PendingSaveCleanupState::NeedsAttention
+				: localization::PendingSaveCleanupState::Clear;
+		const localization::PendingSaveMainPhotoState main_photo_state =
+			result.main_selection_attempted
+				? result.main_selected_photo_id.has_value()
+					  ? localization::PendingSaveMainPhotoState::Applied
+					  : localization::PendingSaveMainPhotoState::NotApplied
+				: localization::PendingSaveMainPhotoState::NotSelected;
+		feedback.photo_message = localization.pending_save_photo_outcome(
+			localization::PendingSavePhotoOutcome{
+				.owner			  = localization::PendingSavePhotoOwner::Item,
+				.import_state	  = import_state,
+				.imported_count	  = result.import_result.summary.success_count,
+				.failed_count	  = result.import_result.summary.failure_count,
+				.cleanup_state	  = cleanup_state,
+				.main_photo_state = main_photo_state});
 		if (result.main_selected_photo_id.has_value())
 			route.selected_photo_id = result.main_selected_photo_id;
 		else if (!result.import_result.imported_photo_ids.empty())
 			route.selected_photo_id =
 				result.import_result.imported_photo_ids.front();
-		if (result.main_selection_attempted) {
-			append_entity_diagnostics_to_core_feedback(
-				feedback.photo_diagnostics,
-				result.main_selection_result.diagnostics);
-			feedback.photo_message +=
-				result.main_selected_photo_id.has_value()
-					? " Main staged photo applied."
-					: " Main staged photo was not applied.";
-		}
 	} else if (!item_form.pending_photos.empty()) {
-		feedback.photo_message =
-			"Item saved, but no staged pending photos were ready.";
+		feedback.photo_message = localization.pending_save_photo_outcome(
+			localization::PendingSavePhotoOutcome{
+				.owner = localization::PendingSavePhotoOwner::Item});
 	}
 
 	session = std::move(result.session);
@@ -476,40 +484,45 @@ void AppShellEditCoordinator::apply_storage_save_with_pending_photos_result(
 			feedback.photo_diagnostics.end(),
 			result.cleanup_result.diagnostics.begin(),
 			result.cleanup_result.diagnostics.end());
-		if (result.import_result.succeeded()) {
-			feedback.photo_message =
-				"Pending storage photo import completed: "
-				+ std::to_string(result.import_result.summary.success_count)
-				+ " imported, "
-				+ std::to_string(result.import_result.summary.failure_count)
-				+ " failed.";
-		} else if (result.import_result.was_user_cancelled()) {
-			feedback.photo_message =
-				"Storage saved, pending photo import cancelled.";
-		} else {
-			feedback.photo_message =
-				"Storage saved, but pending photo import failed.";
+		if (result.main_selection_attempted) {
+			append_entity_diagnostics_to_core_feedback(
+				feedback.photo_diagnostics,
+				result.main_selection_result.diagnostics);
 		}
-		if (result.cleanup_attempted && result.cleanup_result.failed())
-			feedback.photo_message +=
-				" Pending source cleanup needs attention.";
+
+		const localization::PendingSavePhotoImportState import_state =
+			result.import_result.succeeded()
+				? localization::PendingSavePhotoImportState::Completed
+			: result.import_result.was_user_cancelled()
+				? localization::PendingSavePhotoImportState::Cancelled
+				: localization::PendingSavePhotoImportState::Failed;
+		const localization::PendingSaveCleanupState cleanup_state =
+			result.cleanup_attempted && result.cleanup_result.failed()
+				? localization::PendingSaveCleanupState::NeedsAttention
+				: localization::PendingSaveCleanupState::Clear;
+		const localization::PendingSaveMainPhotoState main_photo_state =
+			result.main_selection_attempted
+				? result.main_selected_photo_id.has_value()
+					  ? localization::PendingSaveMainPhotoState::Applied
+					  : localization::PendingSaveMainPhotoState::NotApplied
+				: localization::PendingSaveMainPhotoState::NotSelected;
+		feedback.photo_message = localization.pending_save_photo_outcome(
+			localization::PendingSavePhotoOutcome{
+				.owner			= localization::PendingSavePhotoOwner::Storage,
+				.import_state	= import_state,
+				.imported_count = result.import_result.summary.success_count,
+				.failed_count	= result.import_result.summary.failure_count,
+				.cleanup_state	= cleanup_state,
+				.main_photo_state = main_photo_state});
 		if (result.main_selected_photo_id.has_value())
 			route.selected_photo_id = result.main_selected_photo_id;
 		else if (!result.import_result.imported_photo_ids.empty())
 			route.selected_photo_id =
 				result.import_result.imported_photo_ids.front();
-		if (result.main_selection_attempted) {
-			append_entity_diagnostics_to_core_feedback(
-				feedback.photo_diagnostics,
-				result.main_selection_result.diagnostics);
-			feedback.photo_message +=
-				result.main_selected_photo_id.has_value()
-					? " Main staged photo applied."
-					: " Main staged photo was not applied.";
-		}
 	} else if (!storage_form.pending_photos.empty()) {
-		feedback.photo_message =
-			"Storage saved, but no staged pending photos were ready.";
+		feedback.photo_message = localization.pending_save_photo_outcome(
+			localization::PendingSavePhotoOutcome{
+				.owner = localization::PendingSavePhotoOwner::Storage});
 	}
 
 	session = std::move(result.session);

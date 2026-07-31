@@ -1,4 +1,5 @@
 #include "Catalog/CatalogRepository.hpp"
+#include "Localization/Facade.hpp"
 #include "Platform/LinuxFakes.hpp"
 #include "UI/Session/ImagePreviewSession.hpp"
 #include "UI/View/Primitives/PhotoManagement.hpp"
@@ -282,6 +283,9 @@ TEST_CASE(
 	std::vector<shuba::core::StableIdentifier> request_delete_calls;
 	std::vector<shuba::core::StableIdentifier> confirm_delete_calls;
 	std::uint32_t cancel_delete_calls{};
+	shuba::localization::Localization localization =
+		shuba::localization::make_localization(
+			shuba::localization::Language::English, {});
 	shuba::ui::ManagedPhotoDeckComponent deck{
 		shuba::ui::ManagedPhotoDeckModel{
 			.current_entries = std::move(current_entries),
@@ -311,9 +315,9 @@ TEST_CASE(
 					shuba::core::StableIdentifier photo_id) {
 		confirm_delete_calls.push_back(std::move(photo_id));
 	},
-			.cancel_delete_current = [&cancel_delete_calls] {
-		++cancel_delete_calls;
-	}}};
+			.cancel_delete_current =
+				[&cancel_delete_calls] { ++cancel_delete_calls; }},
+		localization};
 
 	deck.setSize(420, 410);
 	deck.resized();

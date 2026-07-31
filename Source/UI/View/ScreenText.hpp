@@ -18,34 +18,50 @@
 #include <string_view>
 #include <vector>
 
+namespace shuba::localization {
+class Localization;
+}
+
 namespace shuba::ui {
 struct TagKeyCandidateGroups final {
 	std::vector<std::string> item_keys;
 	std::vector<std::string> storage_keys;
 };
 
-[[nodiscard]] std::string status_text(domain::ItemStatus status);
+[[nodiscard]] std::string status_text(
+	domain::ItemStatus status, const localization::Localization& localization);
 [[nodiscard]] std::string storage_lifecycle_text(
-	domain::StorageLifecycleStatus status);
+	domain::StorageLifecycleStatus status,
+	const localization::Localization& localization);
 [[nodiscard]] std::string photo_presence_label(
-	catalog::PhotoPresenceState state);
+	catalog::PhotoPresenceState state,
+	const localization::Localization& localization);
 [[nodiscard]] std::string photo_filter_label(
-	catalog::SearchPhotoPresenceFilter filter);
-[[nodiscard]] std::string field_value_summary(std::string_view label,
-											  std::string_view value);
-[[nodiscard]] std::string tags_summary(std::span<const domain::TagRow> tags);
+	catalog::SearchPhotoPresenceFilter filter,
+	const localization::Localization& localization);
+[[nodiscard]] std::string field_value_summary(
+	std::string_view label, std::string_view value,
+	const localization::Localization& localization);
+[[nodiscard]] std::string tags_summary(
+	std::span<const domain::TagRow> tags,
+	const localization::Localization& localization);
 [[nodiscard]] std::string money_summary(
 	const std::optional<domain::MoneyAmount>& amount);
-[[nodiscard]] std::string listing_summary(const domain::ListingData& listing);
+[[nodiscard]] std::string listing_summary(
+	const domain::ListingData& listing,
+	const localization::Localization& localization);
 [[nodiscard]] std::string finance_summary(
 	const domain::AcquisitionData& acquisition,
-	const domain::FinanceData& finance);
+	const domain::FinanceData& finance,
+	const localization::Localization& localization);
 [[nodiscard]] std::string storage_label(
 	const catalog::CatalogRepositoryState& repository,
-	const std::optional<core::StableIdentifier>& storage_id);
+	const std::optional<core::StableIdentifier>& storage_id,
+	const localization::Localization& localization);
 [[nodiscard]] std::string storage_choice_label(
 	const catalog::CatalogRepositoryState& repository,
-	const persistence::StorageEnvelope& storage);
+	const persistence::StorageEnvelope& storage,
+	const localization::Localization& localization);
 [[nodiscard]] std::optional<core::StableIdentifier> next_storage_choice(
 	const catalog::CatalogRepositoryState& repository,
 	const std::optional<core::StableIdentifier>& current,
@@ -55,7 +71,8 @@ struct TagKeyCandidateGroups final {
 [[nodiscard]] std::string core_diagnostic_summary(
 	std::span<const core::Diagnostic> diagnostics);
 [[nodiscard]] std::string progress_summary(
-	std::span<const platform::ProgressEvent> events);
+	std::span<const platform::ProgressEvent> events,
+	const localization::Localization& localization);
 [[nodiscard]] std::string pending_photo_summary(
 	std::span<const PendingPhotoSource> pending_sources);
 [[nodiscard]] std::string pending_photo_source_summary(
@@ -72,11 +89,17 @@ void apply_tag_key_candidate(std::vector<domain::TagRow>& tags,
 [[nodiscard]] bool has_ready_pending_photo(
 	std::span<const PendingPhotoSource> pending_sources) noexcept;
 [[nodiscard]] std::string recovery_action_summary(
-	std::span<const std::string> actions);
+	std::span<const RecoveryAction> actions,
+	const localization::Localization& localization);
 [[nodiscard]] std::string recovery_counts_summary(
-	const CatalogRecoveryUiSummary& summary);
+	const CatalogRecoveryUiSummary& summary,
+	const localization::Localization& localization);
 [[nodiscard]] std::string import_validation_summary(
-	const catalog::StagedCatalogValidationResult& validation);
+	const catalog::StagedCatalogValidationResult& validation,
+	const localization::Localization& localization);
+[[nodiscard]] std::string recovery_summary(
+	const CatalogRecoveryUiSummary& summary,
+	const localization::Localization& localization);
 [[nodiscard]] bool has_diagnostics(
 	std::span<const core::Diagnostic> diagnostics) noexcept;
 [[nodiscard]] std::string photo_summary(const persistence::PhotoEnvelope& photo,
@@ -111,17 +134,29 @@ void toggle_status(std::vector<domain::ItemStatus>& values,
 	const catalog::CatalogSearchFilters& filters) noexcept;
 [[nodiscard]] std::string active_filter_summary(
 	const catalog::CatalogSearchFilters& filters,
-	const catalog::CatalogRepositoryState& repository);
+	const catalog::CatalogRepositoryState& repository,
+	const localization::Localization& localization);
 [[nodiscard]] std::string first_note_or_tag_summary(
 	const persistence::ItemEnvelope* item);
 [[nodiscard]] std::string first_storage_note_or_tag_summary(
 	const persistence::StorageEnvelope* storage);
 [[nodiscard]] std::string warning_summary(
-	const catalog::SearchWarningMarkers& warnings);
-[[nodiscard]] juce::String item_result_text(const catalog::SearchResult& result,
-											const CatalogSessionState& session);
+	const catalog::SearchWarningMarkers& warnings,
+	const localization::Localization& localization);
+[[nodiscard]] std::string item_detail_header(
+	const persistence::ItemEnvelope& item,
+	const catalog::ItemProjection& projection,
+	const localization::Localization& localization);
+[[nodiscard]] std::string storage_detail_header(
+	const persistence::StorageEnvelope& storage,
+	const catalog::StorageProjection& projection,
+	const localization::Localization& localization);
+[[nodiscard]] juce::String item_result_text(
+	const catalog::SearchResult& result, const CatalogSessionState& session,
+	const localization::Localization& localization);
 [[nodiscard]] juce::String storage_result_text(
-	const catalog::SearchResult& result, const CatalogSessionState& session);
+	const catalog::SearchResult& result, const CatalogSessionState& session,
+	const localization::Localization& localization);
 [[nodiscard]] std::vector<std::string> distinct_categories(
 	const catalog::SearchIndex& index);
 [[nodiscard]] std::set<std::string> storage_filter_id_set(

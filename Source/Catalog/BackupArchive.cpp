@@ -959,8 +959,9 @@ BackupExportResult BackupArchiveUseCase::export_normal_backup(
 		return result;
 	}
 	platform::ScopedPlatformOperation& operation = *operation_start.operation;
-	operation.publish_progress("backup-preparing", std::uint64_t{0},
-							   std::nullopt, "Preparing normal backup.", true);
+	operation.publish_progress(
+		"backup-preparing", platform::ProgressMessageId::BackupPreparing,
+		std::uint64_t{0}, std::nullopt, "Preparing normal backup.", true);
 
 	if (request.current_load_status
 		== persistence::CatalogLoadStatus::Degraded) {
@@ -1039,8 +1040,9 @@ BackupExportResult BackupArchiveUseCase::export_normal_backup(
 	}
 	result.temp_zip_validated = true;
 
-	operation.publish_progress("backup-copying", std::nullopt, std::nullopt,
-							   "Copying backup ZIP to destination.", true);
+	operation.publish_progress(
+		"backup-copying", platform::ProgressMessageId::BackupCopying,
+		std::nullopt, std::nullopt, "Copying backup ZIP to destination.", true);
 	core::OperationResult copied = document_exporter.copy_file_to_destination(
 		platform::DocumentCopyRequest{.temp_source_path = *result.temp_zip_path,
 									  .destination		= request.destination},
@@ -1063,8 +1065,9 @@ BackupExportResult BackupArchiveUseCase::export_normal_backup(
 	result.category			  = core::OperationResultCategory::Success;
 	if (!request.keep_temp_zip)
 		cleanup_path(result.temp_zip_path, result.temp_cleanup_attempted);
-	operation.publish_progress("backup-done", std::nullopt, std::nullopt,
-							   "Normal backup export completed.", false);
+	operation.publish_progress(
+		"backup-done", platform::ProgressMessageId::BackupCompleted,
+		std::nullopt, std::nullopt, "Normal backup export completed.", false);
 	return result;
 }
 
@@ -1091,9 +1094,10 @@ BackupExportResult BackupArchiveUseCase::export_diagnostic_archive(
 		return result;
 	}
 	platform::ScopedPlatformOperation& operation = *operation_start.operation;
-	operation.publish_progress("diagnostic-preparing", std::uint64_t{0},
-							   std::nullopt, "Preparing diagnostic archive.",
-							   true);
+	operation.publish_progress("diagnostic-preparing",
+							   platform::ProgressMessageId::DiagnosticPreparing,
+							   std::uint64_t{0}, std::nullopt,
+							   "Preparing diagnostic archive.", true);
 
 	std::vector<platform::ZipArchiveEntrySource> entries;
 	if (!collect_diagnostic_archive_entries(
@@ -1147,7 +1151,9 @@ BackupExportResult BackupArchiveUseCase::export_diagnostic_archive(
 	result.category			  = core::OperationResultCategory::Success;
 	if (!request.keep_temp_zip)
 		cleanup_path(result.temp_zip_path, result.temp_cleanup_attempted);
-	operation.publish_progress("diagnostic-done", std::nullopt, std::nullopt,
+	operation.publish_progress("diagnostic-done",
+							   platform::ProgressMessageId::DiagnosticCompleted,
+							   std::nullopt, std::nullopt,
 							   "Diagnostic archive export completed.", false);
 	return result;
 }
@@ -1174,9 +1180,10 @@ BackupImportStagingResult BackupArchiveUseCase::stage_and_validate_import(
 		return result;
 	}
 	platform::ScopedPlatformOperation& operation = *operation_start.operation;
-	operation.publish_progress("backup-import-staging", std::uint64_t{0},
-							   std::nullopt, "Staging backup ZIP for import.",
-							   true);
+	operation.publish_progress("backup-import-staging",
+							   platform::ProgressMessageId::BackupImportStaging,
+							   std::uint64_t{0}, std::nullopt,
+							   "Staging backup ZIP for import.", true);
 
 	const std::filesystem::path staged_zip_directory =
 		request.paths.operation_tmp_root / "imports";
@@ -1244,8 +1251,9 @@ BackupImportStagingResult BackupArchiveUseCase::stage_and_validate_import(
 		cleanup_path(result.staging_catalog_root,
 					 result.extracted_catalog_cleanup_attempted);
 	operation.publish_progress(
-		"backup-import-validated", std::nullopt, std::nullopt,
-		"Backup ZIP staging validation completed.", false);
+		"backup-import-validated",
+		platform::ProgressMessageId::BackupImportValidated, std::nullopt,
+		std::nullopt, "Backup ZIP staging validation completed.", false);
 	return result;
 }
 }	 // namespace shuba::catalog

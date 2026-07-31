@@ -1111,9 +1111,11 @@ PendingPhotoStagingResult stage_pending_photos_for_session(
 	platform::ScopedPlatformOperation& operation = *operation_start.operation;
 	const std::uint64_t total_sources =
 		static_cast<std::uint64_t>(request.sources.size());
-	operation.publish_progress("pending-photo-staging-started",
-							   std::uint64_t{0}, total_sources,
-							   "Pending photo staging started.", true);
+	operation.publish_progress(
+		"pending-photo-staging-started",
+		platform::ProgressMessageId::PendingPhotoStagingStarted,
+		std::uint64_t{0}, total_sources, "Pending photo staging started.",
+		true);
 
 	for (std::size_t index = 0; index < request.sources.size(); ++index) {
 		const platform::ContentSourceDescriptor& source =
@@ -1132,6 +1134,7 @@ PendingPhotoStagingResult stage_pending_photos_for_session(
 
 		operation.publish_progress(
 			"pending-photo-source-started",
+			platform::ProgressMessageId::PendingPhotoSourceStarted,
 			static_cast<std::uint64_t>(index + 1U), total_sources,
 			"Pending photo source staging started.", true);
 		const std::string staged_name = platform::make_staged_content_file_name(
@@ -1205,9 +1208,11 @@ PendingPhotoStagingResult stage_pending_photos_for_session(
 		result.sources.push_back(std::move(pending_source));
 	}
 
-	operation.publish_progress("pending-photo-staging-completed", total_sources,
-							   total_sources,
-							   "Pending photo staging completed.", false);
+	operation.publish_progress(
+		"pending-photo-staging-completed",
+		platform::ProgressMessageId::PendingPhotoStagingCompleted,
+		total_sources, total_sources, "Pending photo staging completed.",
+		false);
 	finalize_pending_staging_result(result);
 	return result;
 }

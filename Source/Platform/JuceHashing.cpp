@@ -64,23 +64,25 @@ JuceMd5SourceByteFingerprintService::fingerprint_source_bytes(
 		ProgressEvent{.operation_id	  = context.operation_id,
 					  .operation_type = context.operation_type,
 					  .phase		  = "source-fingerprint-started",
-					  .current_units  = std::uint64_t{0},
-					  .total_units	  = total_units,
-					  .message		  = "Source-byte fingerprint started.",
-					  .cancellable	  = false});
+					  .message_id = ProgressMessageId::SourceFingerprintStarted,
+					  .current_units = std::uint64_t{0},
+					  .total_units	 = total_units,
+					  .message		 = "Source-byte fingerprint started.",
+					  .cancellable	 = false});
 
 	juce::MD5 md5{input};
 	if (cancellation_token.cancellation_requested())
 		return platform_value_user_cancelled<SourceByteFingerprint>();
 
-	progress_sink.publish_progress(
-		ProgressEvent{.operation_id	  = context.operation_id,
-					  .operation_type = context.operation_type,
-					  .phase		  = "source-fingerprint-completed",
-					  .current_units  = total_units,
-					  .total_units	  = total_units,
-					  .message		  = "Source-byte fingerprint completed.",
-					  .cancellable	  = false});
+	progress_sink.publish_progress(ProgressEvent{
+		.operation_id	= context.operation_id,
+		.operation_type = context.operation_type,
+		.phase			= "source-fingerprint-completed",
+		.message_id		= ProgressMessageId::SourceFingerprintCompleted,
+		.current_units	= total_units,
+		.total_units	= total_units,
+		.message		= "Source-byte fingerprint completed.",
+		.cancellable	= false});
 	return platform_value_success(
 		SourceByteFingerprint{.source_md5 = md5.toHexString().toStdString()});
 }

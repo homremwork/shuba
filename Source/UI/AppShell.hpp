@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Catalog/PhotoExport.hpp"
+#include "Localization/Facade.hpp"
 #include "Platform/AndroidPreviousExit.hpp"
 #include "Platform/JuceAndroidServices.hpp"
 #include "Platform/JuceHashing.hpp"
@@ -51,6 +52,7 @@ public:
 		platform::InternalPhotoCodec& internal_photo_codec;
 		platform::AppPrivatePathProvider& path_provider;
 		platform::AndroidPreviousExitService& android_previous_exit_service;
+		localization::Localization& localization;
 		std::string app_version;
 		std::string platform_name;
 		bool debug_demo_seed_enabled{};
@@ -83,14 +85,15 @@ private:
 	void open_item_detail(core::StableIdentifier item_id);
 	void open_storage_detail(core::StableIdentifier storage_id);
 	void open_photo_viewer(
-		domain::PhotoOwner owner,
-		std::optional<core::StableIdentifier> requested_photo_id);
-	void request_add_photos(domain::PhotoOwner owner);
+		const domain::PhotoOwner& owner,
+		const std::optional<core::StableIdentifier>& requested_photo_id);
+	void request_add_photos(const domain::PhotoOwner& owner);
 	void request_add_pending_item_photos();
 	void request_add_pending_storage_photos();
-	void request_export_photo(core::StableIdentifier photo_id);
-	void request_delete_photo_confirmation(core::StableIdentifier photo_id);
-	void confirm_delete_photo(core::StableIdentifier photo_id);
+	void request_export_photo(const core::StableIdentifier& photo_id);
+	void request_delete_photo_confirmation(
+		const core::StableIdentifier& photo_id);
+	void confirm_delete_photo(const core::StableIdentifier& photo_id);
 	void cancel_delete_photo_confirmation();
 	void request_export_backup();
 	void request_export_diagnostic_archive();
@@ -103,8 +106,9 @@ private:
 	void confirm_staged_backup_import();
 	void apply_backup_import_replacement_result(
 		BackupImportReplacementSessionResult result);
-	void apply_photo_edit_result(EntityEditResult result,
-								 core::StableIdentifier selected_photo_id);
+	void apply_photo_edit_result(
+		EntityEditResult result,
+		const core::StableIdentifier& selected_photo_id);
 	void cleanup_item_pending_photos();
 	void cleanup_storage_pending_photos();
 	void remove_item_pending_photo(std::size_t pending_photo_index);
@@ -152,6 +156,7 @@ private:
 	ShellClock edit_clock;
 	platform::AppPrivatePathProvider& path_provider;
 	platform::AndroidPreviousExitService& android_previous_exit_service;
+	localization::Localization& localization;
 	std::string app_version;
 	std::string platform_name;
 	bool debug_demo_seed_enabled{};

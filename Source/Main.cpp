@@ -1,5 +1,8 @@
 #include "Core/Clock.hpp"
 #include "Core/Identifier.hpp"
+#include "Localization/EmbeddedCatalog.hpp"
+#include "Localization/Facade.hpp"
+#include "Localization/Language.hpp"
 #include "Platform/JpegXlPhotoCodec.hpp"
 #include "Platform/JuceAndroidPreviousExit.hpp"
 #include "Platform/JuceAndroidServices.hpp"
@@ -58,12 +61,13 @@ namespace {
 [[nodiscard]] shuba::ui::AppShellComponent::PlatformServices shell_services(
 	shuba::platform::InternalPhotoCodec& internal_photo_codec,
 	shuba::platform::AppPrivatePathProvider& path_provider,
-	shuba::platform::AndroidPreviousExitService&
-		android_previous_exit_service) {
+	shuba::platform::AndroidPreviousExitService& android_previous_exit_service,
+	shuba::localization::Localization& localization) {
 	return shuba::ui::AppShellComponent::PlatformServices{
 		.internal_photo_codec		   = internal_photo_codec,
 		.path_provider				   = path_provider,
 		.android_previous_exit_service = android_previous_exit_service,
+		.localization				   = localization,
 		.app_version				   = "0.1.0",
 		.platform_name				   = std::string{platform_name()},
 		.debug_demo_seed_enabled	   = debug_demo_seed_enabled()};
@@ -103,11 +107,13 @@ make_ui_construction_exception_session(shuba::platform::AppPrivatePaths paths,
 
 class MainWindow final : public juce::DocumentWindow {
 public:
-	explicit MainWindow(juce::String name)
+	MainWindow(juce::String name,
+			   shuba::localization::Localization localization)
 		: DocumentWindow(std::move(name), juce::Colours::black,
 						 DocumentWindow::allButtons)
 		, internal_photo_codec(
-			  std::make_unique<shuba::platform::JpegXlInternalPhotoCodec>()) {
+			  std::make_unique<shuba::platform::JpegXlInternalPhotoCodec>())
+		, localization_service(std::move(localization)) {
 		setOpaque(true);
 		setUsingNativeTitleBar(true);
 		shuba::core::RandomIdentifierSource identifiers;
@@ -122,7 +128,8 @@ public:
 				new shuba::ui::AppShellComponent(
 					std::move(startup_session),
 					shell_services(*internal_photo_codec, path_provider,
-								   android_previous_exit_service)),
+								   android_previous_exit_service,
+								   localization_service)),
 				true);
 		} catch (const std::exception& exception) {
 			if (!startup_paths.has_value())
@@ -138,7 +145,8 @@ public:
 				new shuba::ui::AppShellComponent(
 					std::move(exception_session),
 					shell_services(*internal_photo_codec, path_provider,
-								   android_previous_exit_service)),
+								   android_previous_exit_service,
+								   localization_service)),
 				true);
 		} catch (...) {
 			if (!startup_paths.has_value())
@@ -154,7 +162,8 @@ public:
 				new shuba::ui::AppShellComponent(
 					std::move(exception_session),
 					shell_services(*internal_photo_codec, path_provider,
-								   android_previous_exit_service)),
+								   android_previous_exit_service,
+								   localization_service)),
 				true);
 		}
 #if JUCE_ANDROID
@@ -185,6 +194,7 @@ private:
 	shuba::platform::JuceAndroidPathProvider path_provider;
 	shuba::platform::JuceAndroidPreviousExitService
 		android_previous_exit_service;
+	shuba::localization::Localization localization_service;
 };
 
 class ShubaApplication final : public juce::JUCEApplication {
@@ -196,7 +206,15 @@ public:
 	bool moreThanOneInstanceAllowed() override { return false; }
 
 	void initialise(const juce::String&) override {
-		main_window = std::make_unique<MainWindow>(getApplicationName());
+		const juce::String user_language = juce::SystemStats::getUserLanguage();
+		const std::string user_language_utf8 = user_language.toStdString();
+		const shuba::localization::Language language =
+			shuba::localization::resolve_language(user_language_utf8);
+		shuba::localization::Localization localization =
+			shuba::localization::make_localization(
+				language, shuba::localization::embedded_russian_catalog());
+		main_window = std::make_unique<MainWindow>(getApplicationName(),
+												   std::move(localization));
 	}
 
 	void shutdown() override { main_window = nullptr; }

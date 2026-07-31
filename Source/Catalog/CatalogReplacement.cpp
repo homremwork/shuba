@@ -391,7 +391,9 @@ CatalogReplacementResult CatalogReplacementUseCase::replace_with_staged_import(
 	}
 
 	operation.publish_progress(
-		"catalog-replacement-validating", std::uint64_t{0}, std::nullopt,
+		"catalog-replacement-validating",
+		platform::ProgressMessageId::CatalogReplacementValidating,
+		std::uint64_t{0}, std::nullopt,
 		"Validating staged catalog before replacement.", true);
 	result.staged_validation = validate_staged_catalog(
 		request.staged_catalog_root, replacement_clock.now());
@@ -468,9 +470,11 @@ CatalogReplacementResult CatalogReplacementUseCase::replace_with_staged_import(
 	}
 
 	result.critical_section_entered = true;
-	operation.publish_progress("catalog-replacement-rollback-copy",
-							   std::uint64_t{1}, std::uint64_t{5},
-							   "Creating full-catalog rollback copy.", false);
+	operation.publish_progress(
+		"catalog-replacement-rollback-copy",
+		platform::ProgressMessageId::CatalogReplacementRollbackCopy,
+		std::uint64_t{1}, std::uint64_t{5},
+		"Creating full-catalog rollback copy.", false);
 
 	core::Diagnostic active_status_diagnostic;
 	const bool active_exists =
@@ -517,8 +521,10 @@ CatalogReplacementResult CatalogReplacementUseCase::replace_with_staged_import(
 
 	if (active_exists) {
 		operation.publish_progress(
-			"catalog-replacement-parking-active", std::uint64_t{2},
-			std::uint64_t{5}, "Moving current active catalog aside.", false);
+			"catalog-replacement-parking-active",
+			platform::ProgressMessageId::CatalogReplacementParkingActive,
+			std::uint64_t{2}, std::uint64_t{5},
+			"Moving current active catalog aside.", false);
 		result.parked_catalog_directory = parked_active_catalog_path(
 			layout, operation.context().operation_id);
 		if (std::optional<core::Diagnostic> parked = rename_directory(
@@ -545,7 +551,9 @@ CatalogReplacementResult CatalogReplacementUseCase::replace_with_staged_import(
 	}
 
 	operation.publish_progress(
-		"catalog-replacement-moving-staged", std::uint64_t{3}, std::uint64_t{5},
+		"catalog-replacement-moving-staged",
+		platform::ProgressMessageId::CatalogReplacementMovingStaged,
+		std::uint64_t{3}, std::uint64_t{5},
 		"Moving staged catalog into the active catalog root.", false);
 	if (std::optional<core::Diagnostic> moved = rename_directory(
 			request.staged_catalog_root, layout.active_catalog_root,
@@ -558,9 +566,11 @@ CatalogReplacementResult CatalogReplacementUseCase::replace_with_staged_import(
 	}
 	result.staged_catalog_moved = true;
 
-	operation.publish_progress("catalog-replacement-loading", std::uint64_t{4},
-							   std::uint64_t{5},
-							   "Loading replaced active catalog.", false);
+	operation.publish_progress(
+		"catalog-replacement-loading",
+		platform::ProgressMessageId::CatalogReplacementLoading,
+		std::uint64_t{4}, std::uint64_t{5}, "Loading replaced active catalog.",
+		false);
 	if (request.fault_mode
 			== CatalogReplacementFaultMode::ForceImportedLoadFatal
 		|| request.fault_mode
@@ -604,9 +614,11 @@ CatalogReplacementResult CatalogReplacementUseCase::replace_with_staged_import(
 
 	result.status	= CatalogReplacementStatus::Replaced;
 	result.category = core::OperationResultCategory::Success;
-	operation.publish_progress("catalog-replacement-done", std::uint64_t{5},
-							   std::uint64_t{5},
-							   "Catalog replacement completed.", false);
+	operation.publish_progress(
+		"catalog-replacement-done",
+		platform::ProgressMessageId::CatalogReplacementCompleted,
+		std::uint64_t{5}, std::uint64_t{5}, "Catalog replacement completed.",
+		false);
 	return result;
 }
 }	 // namespace shuba::catalog

@@ -4,7 +4,8 @@
               version="0.1.0" companyName="Shuba" companyWebsite="" companyEmail=""
               displaySplashScreen="0" reportAppUsage="0" splashScreenColour="Dark"
               useAppConfig="0" addUsingNamespaceToJuceHeader="1" jucerFormatVersion="1"
-              cppLanguageStandard="23" useGNUExtensions="0" headerPath="../../Source;../../third_party/glaze/include;../../build/libjxl-android-arm64/lib/include"
+              binaryDataNamespace="ShubaBinaryData" cppLanguageStandard="23"
+              useGNUExtensions="0" headerPath="../../Source;../../third_party/glaze/include;../../third_party/spiritless_po/include;../../build/libjxl-android-arm64/lib/include"
               projectLineFeed="&#10;">
   <MAINGROUP id="main01" name="Shuba">
     <GROUP id="source01" name="Source">
@@ -51,6 +52,46 @@
       <GROUP id="domain01" name="Domain">
         <FILE id="domaincpp" name="Domain.cpp" compile="1" resource="0" file="Source/Domain/Domain.cpp"/>
         <FILE id="domainhpp" name="Domain.hpp" compile="0" resource="0" file="Source/Domain/Domain.hpp"/>
+      </GROUP>
+      <GROUP id="localization01" name="Localization">
+        <FILE id="languagecpp" name="Language.cpp" compile="1" resource="0"
+              file="Source/Localization/Language.cpp"/>
+        <FILE id="languagehpp" name="Language.hpp" compile="0" resource="0"
+              file="Source/Localization/Language.hpp"/>
+        <FILE id="localizationmessageid_hpp" name="MessageId.hpp" compile="0"
+              resource="0" file="Source/Localization/MessageId.hpp"/>
+        <FILE id="localizationtypes_hpp" name="Types.hpp" compile="0" resource="0"
+              file="Source/Localization/Types.hpp"/>
+        <FILE id="localizationfacade_hpp" name="Facade.hpp" compile="0" resource="0"
+              file="Source/Localization/Facade.hpp"/>
+        <FILE id="localizationfacade_cpp" name="Facade.cpp" compile="1" resource="0"
+              file="Source/Localization/Facade.cpp"/>
+        <FILE id="localizationcatalog_hpp" name="Catalog.hpp" compile="0" resource="0"
+              file="Source/Localization/Catalog.hpp"/>
+        <FILE id="localizationcatalog_cpp" name="Catalog.cpp" compile="1" resource="0"
+              file="Source/Localization/Catalog.cpp"/>
+        <FILE id="catalogdefinitionhpp" name="CatalogDefinition.hpp" compile="0"
+              resource="0" file="Source/Localization/CatalogDefinition.hpp"/>
+        <FILE id="catalogdefinitioncpp" name="CatalogDefinition.cpp" compile="1"
+              resource="0" file="Source/Localization/CatalogDefinition.cpp"/>
+        <FILE id="localizationformatting_cpp" name="Formatting.cpp" compile="1"
+              resource="0" file="Source/Localization/Formatting.cpp"/>
+        <FILE id="localizationmessagecatalog_hpp" name="MessageCatalog.hpp"
+              compile="0" resource="0" file="Source/Localization/MessageCatalog.hpp"/>
+        <FILE id="localizationmessagecatalog_cpp" name="MessageCatalog.cpp"
+              compile="1" resource="0" file="Source/Localization/MessageCatalog.cpp"/>
+        <FILE id="photoworkflowlocalizationcpp" name="PhotoWorkflowLocalization.cpp"
+              compile="1" resource="0" file="Source/Localization/PhotoWorkflowLocalization.cpp"/>
+        <FILE id="photoworkflowlocalizationhpp" name="PhotoWorkflowLocalization.hpp"
+              compile="0" resource="0" file="Source/Localization/PhotoWorkflowLocalization.hpp"/>
+        <FILE id="embeddedcatalogcpp" name="EmbeddedCatalog.cpp" compile="1"
+              resource="0" file="Source/Localization/EmbeddedCatalog.cpp"/>
+        <FILE id="embeddedcataloghpp" name="EmbeddedCatalog.hpp" compile="0"
+              resource="0" file="Source/Localization/EmbeddedCatalog.hpp"/>
+      </GROUP>
+      <GROUP id="localizationresources01" name="Localization Resources">
+        <FILE id="russianproductioncatalog" name="ru.po" compile="0" resource="1"
+              file="Localization/ru.po"/>
       </GROUP>
       <GROUP id="persistence01" name="Persistence">
         <FILE id="catalogstoragecpp" name="CatalogStorage.cpp" compile="1"
@@ -226,7 +267,7 @@
                    androidExternalWriteNeeded="0" androidInAppBilling="0" androidVibratePermissionNeeded="0"
                    androidPushNotifications="0" androidEnableRemoteNotifications="0"
                    androidEnableContentSharing="0" androidEnableVirtualMidi="0"
-                   androidOtherPermissions="" headerPath="../../Source;../../third_party/glaze/include;../../build/libjxl-android-arm64/lib/include"
+                   androidOtherPermissions="" headerPath="../../Source;../../third_party/glaze/include;../../third_party/spiritless_po/include;../../build/libjxl-android-arm64/lib/include"
                    extraDefs="JXL_STATIC_DEFINE=1 JXL_THREADS_STATIC_DEFINE=1 JXL_CMS_STATIC_DEFINE=1 HWY_STATIC_DEFINE=1"
                    externalLibraries="jxl_dec;jxl;jxl_threads;jxl_cms;brotlienc;brotlidec;brotlicommon;hwy;jnigraphics;m"
                    androidCustomAppBuildGradleContent="    ndkVersion = &quot;29.0.14206865&quot;&#10;    buildToolsVersion = &quot;35.0.1&quot;&#10;">

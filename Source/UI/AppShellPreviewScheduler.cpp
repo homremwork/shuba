@@ -1,5 +1,7 @@
 #include "UI/AppShellPreviewScheduler.hpp"
 
+#include "Localization/Facade.hpp"
+
 #include "Catalog/PhotoExport.hpp"
 #include "UI/View/ScreenText.hpp"
 
@@ -22,10 +24,9 @@ namespace {
 }
 
 [[nodiscard]] juce::String placeholder_text(
-	const catalog::BrokenPhotoPlaceholder& placeholder) {
-	return placeholder.message.empty()
-			   ? juce::String{"Photo preview is unavailable."}
-			   : juce_text(placeholder.message);
+	const localization::Localization& localization) {
+	return juce_text(
+		localization.text(localization::MessageId::WorkflowPreviewUnavailable));
 }
 }	 // namespace
 
@@ -39,6 +40,7 @@ public:
 		, source_decode_service(dependencies.source_decode_service)
 		, jpeg_export_service(dependencies.jpeg_export_service)
 		, document_export_service(dependencies.document_export_service)
+		, localization(dependencies.localization)
 		, refresh_content_handler(std::move(dependencies.refresh_content)) {
 		worker = std::thread([this] { worker_loop(); });
 	}
@@ -527,11 +529,7 @@ private:
 			preview_cache.put(std::move(result.identity),
 							  std::move(*result.pixels));
 		} else if (!result.cancelled) {
-			juce::String message{"Photo preview is unavailable."};
-			if (result.placeholder.has_value())
-				message = placeholder_text(*result.placeholder);
-			else if (!result.diagnostics.empty())
-				message = juce_text(result.diagnostics.front().message);
+			juce::String message = placeholder_text(localization);
 			const std::lock_guard<std::mutex> lock{mutex};
 			put_preview_failure(std::move(result.identity), std::move(message));
 		}
@@ -562,6 +560,7 @@ private:
 	platform::SourceImageDecodeService& source_decode_service;
 	platform::JpegExportService& jpeg_export_service;
 	platform::DocumentExportService& document_export_service;
+	localization::Localization& localization;
 	std::function<void()> refresh_content_handler;
 
 	mutable std::mutex mutex;

@@ -292,6 +292,7 @@ JpegXlInternalPhotoCodec::encode_internal_photo(
 		ProgressEvent{.operation_id	  = context.operation_id,
 					  .operation_type = context.operation_type,
 					  .phase		  = "jxl-encode-started",
+					  .message_id	  = ProgressMessageId::JpegXlEncodeStarted,
 					  .current_units  = std::uint64_t{0},
 					  .total_units	  = pixels_validation.expected_byte_count,
 					  .message		  = "JPEG XL encode started.",
@@ -455,6 +456,7 @@ JpegXlInternalPhotoCodec::encode_internal_photo(
 		.operation_id	= context.operation_id,
 		.operation_type = context.operation_type,
 		.phase			= "jxl-encode-completed",
+		.message_id		= ProgressMessageId::JpegXlEncodeCompleted,
 		.current_units =
 			static_cast<std::uint64_t>(request.pixels.bytes.size()),
 		.total_units = pixels_validation.expected_byte_count,
@@ -475,6 +477,7 @@ JpegXlInternalPhotoCodec::decode_internal_photo(
 		ProgressEvent{.operation_id	  = context.operation_id,
 					  .operation_type = context.operation_type,
 					  .phase		  = "jxl-decode-started",
+					  .message_id	  = ProgressMessageId::JpegXlDecodeStarted,
 					  .current_units  = std::uint64_t{0},
 					  .message		  = "JPEG XL decode started.",
 					  .cancellable	  = true});
@@ -492,6 +495,7 @@ JpegXlInternalPhotoCodec::decode_internal_photo(
 			.operation_id	= context.operation_id,
 			.operation_type = context.operation_type,
 			.phase			= "jxl-decode-completed",
+			.message_id		= ProgressMessageId::JpegXlDecodeCompleted,
 			.current_units =
 				static_cast<std::uint64_t>(decoded.value->bytes.size()),
 			.total_units =
