@@ -166,3 +166,7 @@ CMakeUserPresets.json
 /Builds/Android/app/.cxx/
 /Builds/Android/app/build/
 /Builds/Android/local.properties
+
+# Python interpreter caches are never project inputs.
+__pycache__/
+*.py[cod]

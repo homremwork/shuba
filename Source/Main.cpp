@@ -10,7 +10,7 @@
 #include "UI/Session/CatalogStartupSession.hpp"
 #include "UI/Session/StartupRecoverySession.hpp"
 
-#include <juce_gui_basics/juce_gui_basics.h>
+#include "JuceHeader.h"
 
 #include <memory>
 #include <optional>
@@ -19,6 +19,10 @@
 #include <utility>
 
 namespace {
+[[nodiscard]] std::string_view application_version() noexcept {
+	return ProjectInfo::versionString;
+}
+
 [[nodiscard]] bool debug_demo_seed_enabled() noexcept {
 #if defined(NDEBUG)
 	return false;
@@ -52,7 +56,7 @@ namespace {
 			.path_provider				   = path_provider,
 			.identifiers				   = identifiers,
 			.clock						   = clock,
-			.app_version				   = "0.1.0",
+			.app_version				   = std::string{application_version()},
 			.platform					   = std::string{platform_name()},
 			.debug_demo_seed_enabled	   = debug_demo_seed_enabled(),
 			.android_previous_exit_service = &android_previous_exit_service});
@@ -68,7 +72,7 @@ namespace {
 		.path_provider				   = path_provider,
 		.android_previous_exit_service = android_previous_exit_service,
 		.localization				   = localization,
-		.app_version				   = "0.1.0",
+		.app_version				   = std::string{application_version()},
 		.platform_name				   = std::string{platform_name()},
 		.debug_demo_seed_enabled	   = debug_demo_seed_enabled()};
 }
@@ -97,7 +101,7 @@ make_ui_construction_exception_session(shuba::platform::AppPrivatePaths paths,
 		shuba::ui::StartupExceptionSessionRequest{
 			.paths			   = std::move(paths),
 			.captured_at	   = clock.now(),
-			.app_version	   = "0.1.0",
+			.app_version	   = std::string{application_version()},
 			.platform		   = std::string{platform_name()},
 			.fallback_stage	   = "ui-construction",
 			.exception_kind	   = std::move(exception_kind),
@@ -201,7 +205,11 @@ class ShubaApplication final : public juce::JUCEApplication {
 public:
 	const juce::String getApplicationName() override { return "Shuba"; }
 
-	const juce::String getApplicationVersion() override { return "0.1.0"; }
+	const juce::String getApplicationVersion() override {
+		return juce::String::fromUTF8(
+			application_version().data(),
+			static_cast<int>(application_version().size()));
+	}
 
 	bool moreThanOneInstanceAllowed() override { return false; }
 
@@ -236,7 +244,7 @@ public:
 			shuba::core::SystemClock clock;
 			shuba::ui::StartupExceptionReport report{
 				.captured_at = clock.now(),
-				.app_version = "0.1.0",
+				.app_version = std::string{application_version()},
 				.platform	 = std::string{platform_name()},
 				.stage		 = "post-startup",
 				.exception_kind =

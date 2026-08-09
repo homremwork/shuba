@@ -42,3 +42,13 @@ target_link_libraries(shuba_headless_tests PRIVATE
 
 include(Catch)
 catch_discover_tests(shuba_headless_tests)
+
+if(SHUBA_ENABLE_REAL_JPEG_XL_CODEC_TESTS)
+	add_executable(shuba_jpeg_xl_codec_tests
+		R05JpegXlCodecTests.cpp)
+	target_compile_features(shuba_jpeg_xl_codec_tests PRIVATE cxx_std_23)
+	target_link_libraries(shuba_jpeg_xl_codec_tests PRIVATE
+		shuba_jpeg_xl_codec Catch2::Catch2WithMain)
+	shuba_apply_common_target_options(shuba_jpeg_xl_codec_tests)
+	catch_discover_tests(shuba_jpeg_xl_codec_tests)
+endif()

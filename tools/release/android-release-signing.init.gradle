@@ -1,0 +1,76 @@
+// Release-only signing injection for the disposable JUCE-generated Android project.
+// Credential values are supplied by the parent environment through Gradle project properties.
+
+final String expectedApplicationId = 'com.shuba.catalog'
+final String releaseSigningConfigName = 'shubaRelease'
+final List<String> requiredSigningProperties = [
+    'shubaReleaseKeyStoreFile',
+    'shubaReleaseKeyAlias',
+    'shubaReleaseStorePassword',
+    'shubaReleaseKeyPassword',
+]
+
+String requiredSigningProperty(Project project, String propertyName) {
+    final Object value = project.findProperty(propertyName)
+    if (!(value instanceof String) || value.isEmpty()) {
+        throw new GradleException("Shuba release signing requires Gradle property '${propertyName}'.")
+    }
+    return value
+}
+
+gradle.beforeProject { Project project ->
+    if (project.path != ':app') {
+        return
+    }
+
+    project.pluginManager.withPlugin('com.android.application') {
+        final Map<String, String> signingProperties = [:]
+        requiredSigningProperties.each { String propertyName ->
+            signingProperties[propertyName] = requiredSigningProperty(project, propertyName)
+        }
+        final File keyStoreFile = project.file(signingProperties.shubaReleaseKeyStoreFile)
+        if (!keyStoreFile.isFile() || !keyStoreFile.canRead()) {
+            throw new GradleException('Shuba release signing keystore is not a readable regular file.')
+        }
+
+        final Object androidComponentsExtension = project.extensions.findByName('androidComponents')
+        if (androidComponentsExtension == null) {
+            throw new GradleException('Shuba release signing could not find the Android Components extension.')
+        }
+        // `finalizeDsl` runs after JUCE's generated build script defines Debug
+        // and Release but before AGP locks the DSL into variants. Configuring
+        // earlier is overwritten by JUCE; configuring after evaluation cannot
+        // affect the already-created Release variant.
+        androidComponentsExtension.finalizeDsl { Object androidExtension ->
+            if (androidExtension.defaultConfig.applicationId != expectedApplicationId) {
+                throw new GradleException(
+                    "Shuba release signing refuses unexpected application ID '${androidExtension.defaultConfig.applicationId}'."
+                )
+            }
+            final Object existingSigningConfig = androidExtension.signingConfigs.findByName(releaseSigningConfigName)
+            if (existingSigningConfig != null) {
+                throw new GradleException("Shuba release signing config '${releaseSigningConfigName}' already exists.")
+            }
+            final Object releaseSigningConfig = androidExtension.signingConfigs.create(releaseSigningConfigName)
+            releaseSigningConfig.storeFile = keyStoreFile
+            releaseSigningConfig.storePassword = signingProperties.shubaReleaseStorePassword
+            releaseSigningConfig.keyAlias = signingProperties.shubaReleaseKeyAlias
+            releaseSigningConfig.keyPassword = signingProperties.shubaReleaseKeyPassword
+            releaseSigningConfig.storeType = 'PKCS12'
+
+            final Object releaseBuildType = androidExtension.buildTypes.findByName('release')
+            if (releaseBuildType == null) {
+                throw new GradleException('Shuba release signing could not find the generated Release build type.')
+            }
+            releaseBuildType.signingConfig = releaseSigningConfig
+
+            final Object debugBuildType = androidExtension.buildTypes.findByName('debug')
+            if (debugBuildType == null || debugBuildType.signingConfig == null) {
+                throw new GradleException('Shuba release signing requires the generated Debug signing configuration.')
+            }
+            if (debugBuildType.signingConfig.name == releaseSigningConfigName) {
+                throw new GradleException('Shuba release signing must not replace Debug signing.')
+            }
+        }
+    }
+}
