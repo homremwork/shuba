@@ -187,6 +187,7 @@ add_library(shuba_juce_platform STATIC
 	Source/Platform/JuceAndroidPreviousExit.cpp
 	Source/Platform/JuceJpegExport.cpp
 	Source/Platform/JuceZipArchive.cpp
+	Source/UI/AppShellPhotoOperationRunner.cpp
 	Source/UI/AppShellPreviewScheduler.cpp
 	Source/UI/AppShellEditCoordinator.cpp
 	Source/UI/AppShellPhotoCoordinator.cpp

@@ -21,6 +21,8 @@ namespace {
 }	 // namespace
 
 void AppShellComponent::request_export_backup() {
+	if (photo_operation.active())
+		return;
 	last_progress_events.clear();
 	feedback.backup_diagnostics.clear();
 	const std::string suggested_name =
@@ -69,6 +71,8 @@ void AppShellComponent::request_export_backup() {
 }
 
 void AppShellComponent::request_export_diagnostic_archive() {
+	if (photo_operation.active())
+		return;
 	last_progress_events.clear();
 	feedback.backup_diagnostics.clear();
 	const std::string suggested_name =
@@ -118,6 +122,8 @@ void AppShellComponent::request_export_diagnostic_archive() {
 }
 
 void AppShellComponent::request_import_backup() {
+	if (photo_operation.active())
+		return;
 	last_progress_events.clear();
 	feedback.backup_diagnostics.clear();
 	backup.pending_import_staging.reset();
@@ -166,6 +172,8 @@ void AppShellComponent::request_import_backup() {
 }
 
 void AppShellComponent::retry_normal_startup() {
+	if (photo_operation.active())
+		return;
 	if (session.source != CatalogSessionStartupSource::StartupCrashSafeMode) {
 		feedback.backup_message = localization.text(
 			localization::MessageId::RetryNormalStartupUnavailable);
@@ -262,6 +270,8 @@ void AppShellComponent::apply_backup_import_staging_result(
 }
 
 void AppShellComponent::confirm_staged_backup_import() {
+	if (photo_operation.active())
+		return;
 	if (!backup.pending_import_staging
 		|| !backup.pending_import_staging->staging_catalog_root.has_value()) {
 		feedback.backup_message = localization.text(
@@ -321,18 +331,22 @@ void AppShellComponent::apply_backup_import_replacement_result(
 }
 
 void AppShellScreenRenderer::build_add_content() {
+	const bool mutation_allowed = !photo_operation_state.active();
 	content->add_label(
 		juce_text(localization.text(localization::MessageId::AddDescription)),
 		70, panel_colour(), true);
 	juce::Button& item = content->add_button(
 		localization.text(localization::MessageId::TitleAddItem), 52);
 	item.onClick		  = [this] { open_new_item_form(std::nullopt); };
+	item.setEnabled(mutation_allowed);
 	juce::Button& storage = content->add_button(
 		localization.text(localization::MessageId::TitleAddStorage), 52);
 	storage.onClick = [this] { open_new_storage_form(std::nullopt); };
+	storage.setEnabled(mutation_allowed);
 }
 
 void AppShellScreenRenderer::build_backup_recovery_content() {
+	const bool mutation_allowed = !photo_operation_state.active();
 	const CatalogRecoveryUiSummary summary = make_recovery_ui_summary(session);
 	content->add_label(juce_text(recovery_summary(summary, localization)), 86,
 					   summary.fatal() || summary.degraded()
@@ -375,15 +389,15 @@ void AppShellScreenRenderer::build_backup_recovery_content() {
 
 	juce::Button& backup_button = content->add_button(
 		localization.text(localization::MessageId::BackupExportButton), 46);
-	backup_button.setEnabled(!session.fatal());
+	backup_button.setEnabled(!session.fatal() && mutation_allowed);
 	backup_button.onClick	 = [this] { request_export_backup(); };
 	juce::Button& diagnostic = content->add_button(
 		localization.text(localization::MessageId::DiagnosticExportButton), 46);
-	diagnostic.setEnabled(session.paths.has_value());
+	diagnostic.setEnabled(session.paths.has_value() && mutation_allowed);
 	diagnostic.onClick	 = [this] { request_export_diagnostic_archive(); };
 	juce::Button& import = content->add_button(
 		localization.text(localization::MessageId::ImportBackupButton), 46);
-	import.setEnabled(session.paths.has_value());
+	import.setEnabled(session.paths.has_value() && mutation_allowed);
 	import.onClick = [this] { request_import_backup(); };
 	if (contains_action(summary.safe_actions,
 						RecoveryAction::RetryNormalLaunch)) {
@@ -394,6 +408,7 @@ void AppShellScreenRenderer::build_backup_recovery_content() {
 			localization.text(localization::MessageId::RetryNormalLaunchButton),
 			46);
 		retry.onClick = [this] { retry_normal_startup(); };
+		retry.setEnabled(mutation_allowed);
 	}
 
 	if (backup.pending_import_staging) {
@@ -421,6 +436,7 @@ void AppShellScreenRenderer::build_backup_recovery_content() {
 										ConfirmValidatedBackupReplacement),
 			48);
 		confirm.onClick		= [this] { confirm_staged_backup_import(); };
+		confirm.setEnabled(mutation_allowed);
 		juce::Button& clear = content->add_button(
 			localization.text(localization::MessageId::CancelStagedImport), 42);
 		clear.onClick = [this] {
@@ -430,6 +446,7 @@ void AppShellScreenRenderer::build_backup_recovery_content() {
 				localization::MessageId::ValidatedStagedImportCleared);
 			refresh_all();
 		};
+		clear.setEnabled(mutation_allowed);
 	}
 
 	if (!summary.technical_details.empty()) {
@@ -449,6 +466,7 @@ void AppShellScreenRenderer::build_backup_recovery_content() {
 }
 
 void AppShellScreenRenderer::build_more_content() {
+	const bool mutation_allowed = !photo_operation_state.active();
 	content->add_label(
 		juce_text(localization.text(localization::MessageId::MoreDescription)),
 		82, panel_colour(), true);
@@ -457,6 +475,7 @@ void AppShellScreenRenderer::build_more_content() {
 	maintenance.onClick = [this] {
 		select_root(RootDestination::BackupRecovery);
 	};
+	maintenance.setEnabled(mutation_allowed);
 	if (session.degraded()) {
 		content->add_label(juce_text(localization.text(
 							   localization::MessageId::MoreDegradedGuidance)),

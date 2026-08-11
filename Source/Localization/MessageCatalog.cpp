@@ -571,6 +571,17 @@ constexpr std::array static_message_table{
 	StaticMessage{MessageId::WorkflowPreviewUnavailable,
 				  "workflow.preview.scheduler_unavailable",
 				  "Photo preview is unavailable."},
+	StaticMessage{MessageId::PhotoOperationBusy, "photo.operation.busy",
+				  "A photo operation is already in progress."},
+	StaticMessage{MessageId::PhotoOperationHeading,
+				  "photo.operation.heading", "Photo operation in progress"},
+	StaticMessage{MessageId::PhotoOperationCancel, "photo.operation.cancel",
+				  "Cancel photo operation"},
+	StaticMessage{MessageId::PhotoOperationCancelling,
+				  "photo.operation.cancelling",
+				  "Photo operation cancellation requested."},
+	StaticMessage{MessageId::PhotoOperationFailed, "photo.operation.failed",
+				  "Photo operation failed."},
 };
 
 constexpr std::array presentation_message_table{
@@ -891,7 +902,7 @@ constexpr std::array progress_message_definition_table{
 		"Catalog replacement completed."},
 };
 
-static_assert(static_message_table.size() == 233U);
+static_assert(static_message_table.size() == 238U);
 static_assert(
 	presentation_message_table.size()
 	== static_cast<std::size_t>(PresentationMessageIndex::StartupSourceSafeMode)

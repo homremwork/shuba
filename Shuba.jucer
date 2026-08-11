@@ -144,6 +144,10 @@
               file="Source/UI/AppShell.cpp"/>
         <FILE id="appshellhpp" name="AppShell.hpp" compile="0" resource="0"
               file="Source/UI/AppShell.hpp"/>
+        <FILE id="appshellphotooperationrunnercpp" name="AppShellPhotoOperationRunner.cpp"
+              compile="1" resource="0" file="Source/UI/AppShellPhotoOperationRunner.cpp"/>
+        <FILE id="appshellphotooperationrunnerhpp" name="AppShellPhotoOperationRunner.hpp"
+              compile="0" resource="0" file="Source/UI/AppShellPhotoOperationRunner.hpp"/>
         <FILE id="appshellpreviewschedulercpp" name="AppShellPreviewScheduler.cpp"
               compile="1" resource="0" file="Source/UI/AppShellPreviewScheduler.cpp"/>
         <FILE id="appshellpreviewschedulerhpp" name="AppShellPreviewScheduler.hpp"

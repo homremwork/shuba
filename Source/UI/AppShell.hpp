@@ -7,6 +7,7 @@
 #include "Platform/JuceHashing.hpp"
 #include "Platform/JuceZipArchive.hpp"
 #include "UI/AppShellPhotoCoordinator.hpp"
+#include "UI/AppShellPhotoOperationRunner.hpp"
 #include "UI/AppShellState.hpp"
 #include "UI/Screens/AppShellScreenRenderer.hpp"
 #include "UI/Session/BackupRecoveryTypes.hpp"
@@ -28,6 +29,19 @@ class AppShellContentComponent;
 class AppShellPreviewScheduler;
 class AppShellRouteCoordinator;
 class AppShellEditCoordinator;
+
+class AppShellPhotoOperationWorkerServiceFactory final
+	: public PhotoOperationWorkerServiceFactory {
+public:
+	[[nodiscard]] std::unique_ptr<platform::ContentStagingService>
+	make_content_staging_service() const override;
+	[[nodiscard]] std::unique_ptr<platform::SourceByteFingerprintService>
+	make_source_fingerprint_service() const override;
+	[[nodiscard]] std::unique_ptr<platform::SourceImageDecodeService>
+	make_source_decode_service() const override;
+	[[nodiscard]] std::unique_ptr<platform::InternalPhotoCodec>
+	make_internal_photo_codec() const override;
+};
 
 class ShellIdentifierSource final : public core::IdentifierSource {
 public:
@@ -126,6 +140,12 @@ private:
 	void request_staged_preview_async(PendingPhotoSource source,
 									  ImagePreviewSize target_size,
 									  ImagePreviewRequestPriority priority);
+	void begin_photo_operation(PhotoOperationJobType job_type,
+							   std::uint64_t generation);
+	void complete_photo_operation();
+	void request_photo_operation_cancellation();
+	void apply_photo_operation_progress(
+		std::uint64_t generation, platform::ProgressEvent event);
 	[[nodiscard]] std::optional<juce::String> preview_failure_message(
 		const ImagePreviewRequestIdentity& identity) const;
 	void request_photo_display_async(core::StableIdentifier photo_id);
@@ -161,6 +181,9 @@ private:
 	std::string platform_name;
 	bool debug_demo_seed_enabled{};
 	core::OperationGate ui_operation_gate;
+	AppShellPhotoOperationWorkerServiceFactory photo_operation_worker_services;
+	AppShellPhotoOperationState photo_operation;
+	std::unique_ptr<AppShellPhotoOperationRunner> photo_operation_runner;
 	platform::JuceAndroidPhotoSelectionService photo_selection_service;
 	platform::JuceAndroidDocumentExportService document_export_service;
 	platform::JuceAndroidContentStagingService content_staging_service;

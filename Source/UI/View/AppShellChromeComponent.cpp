@@ -158,10 +158,15 @@ void AppShellChromeComponent::update_model(const Model& model) {
 			? juce_text(localization.text(localization::MessageId::SaveStorage))
 			: juce_text(localization.text(localization::MessageId::Save)));
 
-	catalog_nav_button.setEnabled(!current_model.session_fatal);
-	storages_nav_button.setEnabled(!current_model.session_fatal);
-	add_nav_button.setEnabled(!current_model.session_fatal);
-	more_nav_button.setEnabled(true);
+	const bool navigation_enabled =
+		!current_model.session_fatal && !current_model.photo_operation_active;
+	catalog_nav_button.setEnabled(navigation_enabled);
+	storages_nav_button.setEnabled(navigation_enabled);
+	add_nav_button.setEnabled(navigation_enabled);
+	more_nav_button.setEnabled(!current_model.photo_operation_active);
+	back_button.setEnabled(!current_model.photo_operation_active);
+	form_cancel_button.setEnabled(!current_model.photo_operation_active);
+	form_save_button.setEnabled(!current_model.photo_operation_active);
 
 	const juce::Colour selected_colour = accent_colour().withAlpha(0.65f);
 	const juce::Colour normal_colour   = panel_colour();

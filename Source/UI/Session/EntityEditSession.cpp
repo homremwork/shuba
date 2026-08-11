@@ -276,7 +276,7 @@ void append_item_save_nudges(EntityEditResult& result,
 			make_entity_diagnostic(
 				core::DiagnosticSeverity::RecoverableWarning,
 				"item_saved_without_photo",
-				"Item has no photos yet. Photo import is handled by B19."));
+				"Item has no photos yet. Add photos now or later."));
 	}
 }
 

@@ -95,7 +95,8 @@ function shuba_generated_test_main
     shuba_generated_test_require_verdict $shuba_case_root false changed-native-link-order; or return 1
 
     set shuba_case_root (shuba_generated_test_fixture); or return 1
-    shuba_generated_test_replace $shuba_case_root/JuceLibraryCode/BinaryData.h 'ru_poSize = 157103' 'ru_poSize = 1'; or return 1
+    sed -E 's/(ru_poSize = )[0-9]+/\11/' $shuba_case_root/JuceLibraryCode/BinaryData.h >$shuba_case_root/JuceLibraryCode/BinaryData.h.mutated; or return 1
+    mv $shuba_case_root/JuceLibraryCode/BinaryData.h.mutated $shuba_case_root/JuceLibraryCode/BinaryData.h; or return 1
     shuba_generated_test_require_verdict $shuba_case_root false stale-BinaryData; or return 1
 
     set shuba_case_root (shuba_generated_test_fixture); or return 1

@@ -101,6 +101,32 @@ public:
 	}
 };
 
+class TestPhotoOperationWorkerServiceFactory final
+	: public shuba::ui::PhotoOperationWorkerServiceFactory {
+public:
+	[[nodiscard]] std::unique_ptr<shuba::platform::ContentStagingService>
+	make_content_staging_service() const override {
+		return std::make_unique<shuba::platform::LinuxFakeContentStagingService>();
+	}
+
+	[[nodiscard]]
+	std::unique_ptr<shuba::platform::SourceByteFingerprintService>
+	make_source_fingerprint_service() const override {
+		return std::make_unique<TestFingerprintService>();
+	}
+
+	[[nodiscard]] std::unique_ptr<shuba::platform::SourceImageDecodeService>
+	make_source_decode_service() const override {
+		return std::make_unique<
+			shuba::platform::SyntheticSourceImageDecodeService>();
+	}
+
+	[[nodiscard]] std::unique_ptr<shuba::platform::InternalPhotoCodec>
+	make_internal_photo_codec() const override {
+		return std::make_unique<shuba::platform::MarkerInternalPhotoCodec>();
+	}
+};
+
 [[nodiscard]] shuba::core::StableIdentifier require_identifier(
 	std::string value) {
 	std::optional<shuba::core::StableIdentifier> identifier =
@@ -120,6 +146,14 @@ struct CoordinatorHarness final {
 	shuba::platform::ScriptedIdentifierSource identifiers;
 	shuba::core::ManualClock clock{shuba::core::EpochMilliseconds{1000}};
 	shuba::core::OperationGate operation_gate;
+	TestPhotoOperationWorkerServiceFactory worker_service_factory;
+	shuba::ui::AppShellPhotoOperationState photo_operation_state;
+	shuba::ui::AppShellPhotoOperationRunner photo_operation_runner{
+		shuba::ui::AppShellPhotoOperationRunner::Dependencies{
+			.operation_gate = operation_gate,
+			.worker_service_factory = worker_service_factory,
+			.progress = {},
+			.failure = {}}};
 	DeferredPhotoSelectionService photo_selection;
 	DeferredDocumentExportService document_export;
 	shuba::platform::LinuxFakeContentStagingService content_staging;
@@ -156,11 +190,15 @@ struct CoordinatorHarness final {
 			.internal_photo_codec			   = internal_photo_codec,
 			.progress_events				   = progress,
 			.cancellation_token				   = cancellation,
+			.photo_operation_runner		   = photo_operation_runner,
+			.photo_operation_state			   = photo_operation_state,
 			.localization					   = localization,
 			.invalidate_all_previews		   = {},
 			.invalidate_internal_photo_preview = {},
 			.invalidate_staged_photo_preview   = {},
-			.refresh_all					   = [this] { ++refresh_count; }};
+			.refresh_all					   = [this] { ++refresh_count; },
+			.begin_photo_operation			   = {},
+			.complete_photo_operation		   = {}};
 	}
 };
 }	 // namespace

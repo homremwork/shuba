@@ -1079,6 +1079,26 @@ msgctxt "workflow.preview.scheduler_unavailable"
 msgid "Photo preview is unavailable."
 msgstr "Предпросмотр фотографии недоступен."
 
+msgctxt "photo.operation.busy"
+msgid "A photo operation is already in progress."
+msgstr "Операция с фотографиями уже выполняется."
+
+msgctxt "photo.operation.heading"
+msgid "Photo operation in progress"
+msgstr "Выполняется операция с фотографиями"
+
+msgctxt "photo.operation.cancel"
+msgid "Cancel photo operation"
+msgstr "Отменить операцию с фотографиями"
+
+msgctxt "photo.operation.cancelling"
+msgid "Photo operation cancellation requested."
+msgstr "Запрошена отмена операции с фотографиями."
+
+msgctxt "photo.operation.failed"
+msgid "Photo operation failed."
+msgstr "Не удалось выполнить операцию с фотографиями."
+
 msgctxt "catalog.item_status.draft"
 msgid "Draft"
 msgstr "Черновик"

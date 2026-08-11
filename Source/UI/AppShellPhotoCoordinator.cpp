@@ -116,6 +116,8 @@ AppShellPhotoCoordinator::AppShellPhotoCoordinator(Dependencies dependencies)
 	, internal_photo_codec(dependencies.internal_photo_codec)
 	, progress_events(dependencies.progress_events)
 	, cancellation_token(dependencies.cancellation_token)
+	, photo_operation_runner(dependencies.photo_operation_runner)
+	, photo_operation_state(dependencies.photo_operation_state)
 	, localization(dependencies.localization)
 	, invalidate_all_previews_handler(
 		  std::move(dependencies.invalidate_all_previews))
@@ -123,7 +125,11 @@ AppShellPhotoCoordinator::AppShellPhotoCoordinator(Dependencies dependencies)
 		  std::move(dependencies.invalidate_internal_photo_preview))
 	, invalidate_staged_photo_preview_handler(
 		  std::move(dependencies.invalidate_staged_photo_preview))
-	, refresh_all_handler(std::move(dependencies.refresh_all)) {}
+	, refresh_all_handler(std::move(dependencies.refresh_all))
+	, begin_photo_operation_handler(
+		  std::move(dependencies.begin_photo_operation))
+	, complete_photo_operation_handler(
+		  std::move(dependencies.complete_photo_operation)) {}
 
 AppShellPhotoCoordinator::~AppShellPhotoCoordinator() {
 	const std::shared_ptr<LifetimeToken> token = std::move(lifetime_token);
@@ -139,7 +145,10 @@ AppShellPhotoCoordinator::~AppShellPhotoCoordinator() {
 
 void AppShellPhotoCoordinator::request_add_photos(
 	const domain::PhotoOwner& owner) {
-	progress_events.clear();
+	if (photo_operation_state.active()) {
+		apply_busy_result();
+		return;
+	}
 	feedback.photo_diagnostics.clear();
 	feedback.photo_message = localization.photo_workflow_text(
 		localization::PhotoWorkflowMessageId::SelectImport);
@@ -171,20 +180,31 @@ void AppShellPhotoCoordinator::request_add_photos(
 			refresh_all();
 			return;
 		}
-		PhotoImportSessionResult import_result = import_photos_into_session(
+		const AppShellPhotoOperationRunner::Submission submission =
+			photo_operation_runner.submit_direct_import(
 			PhotoImportSessionRequest{
-				.current_session	 = session,
-				.identifiers		 = identifiers,
-				.clock				 = clock,
-				.operation_gate		 = operation_gate,
-				.staging_service	 = content_staging_service,
+				.current_session = session,
+				.identifiers = identifiers,
+				.clock = clock,
+				.operation_gate = operation_gate,
+				.staging_service = content_staging_service,
 				.fingerprint_service = source_fingerprint_service,
-				.decode_service		 = source_decode_service,
-				.photo_codec		 = internal_photo_codec,
-				.owner				 = owner,
-				.sources			 = std::move(*result.value)},
-			progress_events, cancellation_token);
-		apply_photo_import_result(std::move(import_result));
+				.decode_service = source_decode_service,
+				.photo_codec = internal_photo_codec,
+				.owner = owner,
+				.sources = std::move(*result.value)},
+			[this](AppShellPhotoOperationRunner::Result operation_result) {
+				photo_operation_state.state = PhotoOperationState::Applying;
+				apply_photo_import_result(
+					std::get<PhotoImportSessionResult>(std::move(operation_result)));
+				complete_photo_operation();
+			});
+		if (!submission.accepted) {
+			apply_busy_result();
+			return;
+		}
+		begin_photo_operation(PhotoOperationJobType::DirectImport,
+						  submission.generation);
 	});
 	if (picker_started.failed()) {
 		feedback.photo_message = localization.photo_workflow_text(
@@ -204,7 +224,10 @@ void AppShellPhotoCoordinator::request_add_pending_storage_photos() {
 
 void AppShellPhotoCoordinator::request_add_pending_photos(
 	PendingPhotoDraftTarget target) {
-	progress_events.clear();
+	if (photo_operation_state.active()) {
+		apply_busy_result();
+		return;
+	}
 	feedback.photo_diagnostics.clear();
 	feedback.photo_message =
 		target == PendingPhotoDraftTarget::Item
@@ -248,19 +271,34 @@ void AppShellPhotoCoordinator::request_add_pending_photos(
 			return;
 		}
 
-		PendingPhotoStagingResult staging_result =
-			stage_pending_photos_for_session(
-				PendingPhotoStagingRequest{
-					.current_session		  = session,
-					.identifiers			  = identifiers,
-					.operation_gate			  = operation_gate,
-					.staging_service		  = content_staging_service,
-					.fingerprint_service	  = source_fingerprint_service,
-					.sources				  = std::move(*result.value),
-					.existing_pending_sources = pending_sources_for(target),
-					.existing_owner = owner_for_pending_target(target)},
-				progress_events, cancellation_token);
-		apply_pending_photo_staging_result(std::move(staging_result), target);
+		const PhotoOperationJobType job_type =
+			target == PendingPhotoDraftTarget::Item
+				? PhotoOperationJobType::PendingItemStaging
+				: PhotoOperationJobType::PendingStorageStaging;
+		const AppShellPhotoOperationRunner::Submission submission =
+			photo_operation_runner.submit_pending_staging(
+			job_type,
+			PendingPhotoStagingRequest{
+				.current_session = session,
+				.identifiers = identifiers,
+				.operation_gate = operation_gate,
+				.staging_service = content_staging_service,
+				.fingerprint_service = source_fingerprint_service,
+				.sources = std::move(*result.value),
+				.existing_pending_sources = pending_sources_for(target),
+				.existing_owner = owner_for_pending_target(target)},
+			[this, target](AppShellPhotoOperationRunner::Result operation_result) {
+				photo_operation_state.state = PhotoOperationState::Applying;
+				apply_pending_photo_staging_result(
+					std::get<PendingPhotoStagingResult>(std::move(operation_result)),
+					target);
+				complete_photo_operation();
+			});
+		if (!submission.accepted) {
+			apply_busy_result();
+			return;
+		}
+		begin_photo_operation(job_type, submission.generation);
 	});
 	if (picker_started.failed()) {
 		feedback.photo_message = localization.photo_workflow_text(
@@ -432,6 +470,23 @@ void AppShellPhotoCoordinator::apply_pending_photo_staging_result(
 			localization::PhotoWorkflowMessageId::PendingStagingFailed);
 	}
 	refresh_all();
+}
+
+void AppShellPhotoCoordinator::apply_busy_result() {
+	feedback.photo_message =
+		localization.text(localization::MessageId::PhotoOperationBusy);
+	refresh_all();
+}
+
+void AppShellPhotoCoordinator::begin_photo_operation(
+	PhotoOperationJobType job_type, std::uint64_t generation) {
+	if (begin_photo_operation_handler)
+		begin_photo_operation_handler(job_type, generation);
+}
+
+void AppShellPhotoCoordinator::complete_photo_operation() {
+	if (complete_photo_operation_handler)
+		complete_photo_operation_handler();
 }
 
 void AppShellPhotoCoordinator::apply_photo_import_result(

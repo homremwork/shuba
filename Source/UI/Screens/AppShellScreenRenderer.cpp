@@ -54,7 +54,7 @@ AppShellScreenRenderer::AppShellScreenRenderer(Dependencies dependencies)
 	, preview_cache(dependencies.preview_cache)
 	, edit_identifiers(dependencies.edit_identifiers)
 	, edit_clock(dependencies.edit_clock)
-	, ui_operation_gate(dependencies.ui_operation_gate)
+	, photo_operation_state(dependencies.photo_operation_state)
 	, internal_photo_codec(dependencies.internal_photo_codec)
 	, source_decode_service(dependencies.source_decode_service)
 	, jpeg_export_service(dependencies.jpeg_export_service)
@@ -667,7 +667,9 @@ void AppShellScreenRenderer::add_photo_management_deck(
 	ManagedPhotoDeckModel model{.current_entries = std::move(current_entries),
 								.staged_entries	 = std::move(staged_entries),
 								.staged_selected = staged_selected,
-								.selected_index	 = selected_index};
+								.selected_index	 = selected_index,
+								.mutations_enabled =
+									!photo_operation_state.active()};
 	ManagedPhotoDeckHandlers handlers{
 		.select_current =
 			[this, &deck_state](std::size_t index) {

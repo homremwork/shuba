@@ -7,6 +7,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -167,6 +168,35 @@ void import_two_photos_into_owner(
 	session = std::move(imported.session);
 }
 }	 // namespace
+
+TEST_CASE("R13 no-photo warning contains durable user language") {
+	TemporaryDirectory temporary{"shuba-b19-no-photo-warning"};
+	shuba::platform::LinuxFakePathProvider path_provider{temporary.path()};
+	shuba::platform::ScriptedIdentifierSource identifiers;
+	identifiers.script_stable_identifier("catalog-r13-warning");
+	identifiers.script_operation_identifier("operation-r13-warning-init");
+	shuba::core::ManualClock clock{shuba::core::EpochMilliseconds{1000}};
+	shuba::ui::CatalogSessionState session =
+		load_session(path_provider, identifiers, clock);
+	identifiers.script_stable_identifier("item-r13-warning");
+	identifiers.script_operation_identifier("operation-r13-warning-save");
+
+	const shuba::ui::EntityEditResult saved = shuba::ui::save_item_draft(
+		edit_request(session, identifiers, clock),
+		shuba::ui::ItemDraft{.display_name = "No photo item",
+							 .category = "Testing"});
+
+	REQUIRE(saved.warning_acknowledgement_required);
+	const std::vector<shuba::ui::EntityEditDiagnostic>::const_iterator warning =
+		std::ranges::find_if(saved.diagnostics,
+			[](const shuba::ui::EntityEditDiagnostic& diagnostic) {
+				return diagnostic.code == "item_saved_without_photo";
+			});
+	REQUIRE(warning != saved.diagnostics.end());
+	REQUIRE(warning->message
+			== "Item has no photos yet. Add photos now or later.");
+	REQUIRE(warning->message.find("B19") == std::string::npos);
+}
 
 TEST_CASE("B19 imports photos through session and rebuilds photo projections") {
 	TemporaryDirectory temporary{"shuba-b19-import-session"};

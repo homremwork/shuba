@@ -91,6 +91,10 @@ TEST_CASE("B28 accepts the embedded Russian production catalog atomically",
 	REQUIRE(localization.text(MessageId::ClearFilters) == "Очистить фильтры");
 	REQUIRE(localization.text(MessageId::WorkflowPreviewUnavailable)
 			== "Предпросмотр фотографии недоступен.");
+	REQUIRE(localization.text(MessageId::PhotoOperationBusy)
+			== "Операция с фотографиями уже выполняется.");
+	REQUIRE(localization.text(MessageId::PhotoOperationCancel)
+			== "Отменить операцию с фотографиями");
 	REQUIRE(localization.technical_information_heading()
 			== "Техническая информация");
 

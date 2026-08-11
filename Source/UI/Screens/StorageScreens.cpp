@@ -44,6 +44,7 @@ void AppShellScreenRenderer::build_storages_content() {
 				localization.text(localization::MessageId::TitleAddStorage)),
 			42);
 		add_storage.onClick = [this] { open_new_storage_form(std::nullopt); };
+		add_storage.setEnabled(!photo_operation_state.active());
 		return;
 	}
 	std::size_t preview_candidate_count{};
@@ -64,6 +65,7 @@ void AppShellScreenRenderer::build_storages_content() {
 }
 
 void AppShellScreenRenderer::build_item_detail_content() {
+	const bool mutation_allowed = !photo_operation_state.active();
 	if (!route.selected_item_id) {
 		content->add_label(
 			juce_text(localization.text(
@@ -103,6 +105,7 @@ void AppShellScreenRenderer::build_item_detail_content() {
 	edit.onClick = [this, item_id = item->record.id] {
 		open_existing_item_form(item_id);
 	};
+	edit.setEnabled(mutation_allowed);
 	juce::Button& change_storage = content->add_button(
 		juce_text(localization.item_storage_field(storage_label(
 			session.repository, item->record.storage_id, localization))),
@@ -110,14 +113,17 @@ void AppShellScreenRenderer::build_item_detail_content() {
 	change_storage.onClick = [this, item_id = item->record.id] {
 		open_existing_item_form(item_id);
 	};
+	change_storage.setEnabled(mutation_allowed);
 	juce::Button& add_photo = content->add_button(
 		juce_text(localization.text(localization::MessageId::PhotoAdd)), 42);
 	add_photo.onClick	 = [this, owner] { request_add_photos(owner); };
+	add_photo.setEnabled(mutation_allowed);
 	juce::Button& viewer = content->add_button(
 		juce_text(
 			localization.text(localization::MessageId::PhotoActionOpenViewer)),
 		42);
-	viewer.setEnabled(projection->second.representative_photo_id.has_value());
+	viewer.setEnabled(mutation_allowed
+				  && projection->second.representative_photo_id.has_value());
 	viewer.onClick = [this, owner] {
 		const std::optional<core::StableIdentifier> photo_id =
 			selected_photo_id_for_owner(owner);
@@ -127,7 +133,7 @@ void AppShellScreenRenderer::build_item_detail_content() {
 		juce_text(localization.text(localization::MessageId::PhotoExportJpeg)),
 		42);
 	export_current.setEnabled(
-		selected_usable_photo_id_for_owner(owner).has_value());
+		mutation_allowed && selected_usable_photo_id_for_owner(owner).has_value());
 	export_current.onClick = [this, owner] {
 		const std::optional<core::StableIdentifier> photo_id =
 			selected_usable_photo_id_for_owner(owner);
@@ -144,6 +150,7 @@ void AppShellScreenRenderer::build_item_detail_content() {
 		storage_button.onClick			  = [this, storage_id] {
 			open_storage_detail(storage_id);
 		};
+		storage_button.setEnabled(mutation_allowed);
 	}
 
 	content->add_label(
@@ -171,6 +178,7 @@ void AppShellScreenRenderer::build_item_detail_content() {
 }
 
 void AppShellScreenRenderer::build_storage_detail_content() {
+	const bool mutation_allowed = !photo_operation_state.active();
 	if (!route.selected_storage_id) {
 		content->add_label(
 			juce_text(localization.text(
@@ -213,6 +221,7 @@ void AppShellScreenRenderer::build_storage_detail_content() {
 		storage_detail.include_nested = !storage_detail.include_nested;
 		refresh_content();
 	};
+	include_nested.setEnabled(mutation_allowed);
 	content->add_label(
 		juce_text(localization.text(
 			storage_detail.include_nested
@@ -306,6 +315,7 @@ void AppShellScreenRenderer::build_storage_detail_content() {
 	add_item.onClick = [this, storage_id = *route.selected_storage_id] {
 		open_new_item_form(storage_id);
 	};
+	add_item.setEnabled(mutation_allowed);
 	juce::Button& add_storage = content->add_button(
 		juce_text(localization.text(
 			localization::MessageId::CatalogStorageAddNestedStorage)),
@@ -313,14 +323,17 @@ void AppShellScreenRenderer::build_storage_detail_content() {
 	add_storage.onClick = [this, storage_id = *route.selected_storage_id] {
 		open_new_storage_form(storage_id);
 	};
+	add_storage.setEnabled(mutation_allowed);
 	juce::Button& add_photo = content->add_button(
 		juce_text(localization.text(localization::MessageId::PhotoAdd)), 42);
 	add_photo.onClick	 = [this, owner] { request_add_photos(owner); };
+	add_photo.setEnabled(mutation_allowed);
 	juce::Button& viewer = content->add_button(
 		juce_text(localization.text(
 			localization::MessageId::PhotoActionOpenStorageViewer)),
 		42);
-	viewer.setEnabled(projection->second.representative_photo_id.has_value());
+	viewer.setEnabled(mutation_allowed
+				  && projection->second.representative_photo_id.has_value());
 	viewer.onClick = [this, owner] {
 		const std::optional<core::StableIdentifier> photo_id =
 			selected_photo_id_for_owner(owner);
@@ -331,7 +344,7 @@ void AppShellScreenRenderer::build_storage_detail_content() {
 			localization::MessageId::PhotoActionExportStorageJpeg)),
 		42);
 	export_current.setEnabled(
-		selected_usable_photo_id_for_owner(owner).has_value());
+		mutation_allowed && selected_usable_photo_id_for_owner(owner).has_value());
 	export_current.onClick = [this, owner] {
 		const std::optional<core::StableIdentifier> photo_id =
 			selected_usable_photo_id_for_owner(owner);
@@ -345,6 +358,7 @@ void AppShellScreenRenderer::build_storage_detail_content() {
 	edit.onClick = [this, storage_id = *route.selected_storage_id] {
 		open_existing_storage_form(storage_id);
 	};
+	edit.setEnabled(mutation_allowed);
 }
 
 }	 // namespace shuba::ui

@@ -70,7 +70,8 @@ public:
 		std::size_t row_index, const domain::TagRow& tag,
 		localization::Localization& localization,
 		std::function<void(std::size_t, domain::TagRow)> change_handler,
-		std::function<void(std::size_t)> remove_handler, int height);
+		std::function<void(std::size_t)> remove_handler, int height,
+		bool enabled = true);
 	juce::ToggleButton& add_toggle(const juce::String& text, bool state,
 								   int height);
 	juce::TextEditor& add_editor(juce::TextEditor& editor,

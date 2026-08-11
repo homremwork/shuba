@@ -938,6 +938,26 @@ msgctxt "workflow.preview.scheduler_unavailable"
 msgid "Photo preview is unavailable."
 msgstr ""
 
+msgctxt "photo.operation.busy"
+msgid "A photo operation is already in progress."
+msgstr ""
+
+msgctxt "photo.operation.heading"
+msgid "Photo operation in progress"
+msgstr ""
+
+msgctxt "photo.operation.cancel"
+msgid "Cancel photo operation"
+msgstr ""
+
+msgctxt "photo.operation.cancelling"
+msgid "Photo operation cancellation requested."
+msgstr ""
+
+msgctxt "photo.operation.failed"
+msgid "Photo operation failed."
+msgstr ""
+
 msgctxt "catalog.item_status.draft"
 msgid "Draft"
 msgstr ""

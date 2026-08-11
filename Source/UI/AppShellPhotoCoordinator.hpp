@@ -5,6 +5,7 @@
 #include "Core/Identifier.hpp"
 #include "Core/OperationGate.hpp"
 #include "Platform/PlatformServices.hpp"
+#include "UI/AppShellPhotoOperationRunner.hpp"
 #include "UI/AppShellState.hpp"
 #include "UI/Session/CatalogSessionState.hpp"
 #include "UI/Session/ImagePreviewSession.hpp"
@@ -47,6 +48,8 @@ public:
 		platform::InternalPhotoCodec& internal_photo_codec;
 		platform::ProgressCollector& progress_events;
 		platform::CancellationToken& cancellation_token;
+		AppShellPhotoOperationRunner& photo_operation_runner;
+		AppShellPhotoOperationState& photo_operation_state;
 		localization::Localization& localization;
 		std::function<void()> invalidate_all_previews;
 		std::function<void(const core::StableIdentifier&)>
@@ -54,6 +57,9 @@ public:
 		std::function<void(const std::filesystem::path&)>
 			invalidate_staged_photo_preview;
 		std::function<void()> refresh_all;
+		std::function<void(PhotoOperationJobType, std::uint64_t)>
+			begin_photo_operation;
+		std::function<void()> complete_photo_operation;
 	};
 
 	explicit AppShellPhotoCoordinator(Dependencies dependencies);
@@ -99,6 +105,10 @@ private:
 	void request_add_pending_photos(PendingPhotoDraftTarget target);
 	void apply_pending_photo_staging_result(PendingPhotoStagingResult result,
 											PendingPhotoDraftTarget target);
+	void apply_busy_result();
+	void begin_photo_operation(PhotoOperationJobType job_type,
+							   std::uint64_t generation);
+	void complete_photo_operation();
 	[[nodiscard]] std::vector<PendingPhotoSource> pending_sources_for(
 		PendingPhotoDraftTarget target) const;
 	[[nodiscard]] std::optional<domain::PhotoOwner> owner_for_pending_target(
@@ -133,6 +143,8 @@ private:
 	platform::InternalPhotoCodec& internal_photo_codec;
 	platform::ProgressCollector& progress_events;
 	platform::CancellationToken& cancellation_token;
+	AppShellPhotoOperationRunner& photo_operation_runner;
+	AppShellPhotoOperationState& photo_operation_state;
 	localization::Localization& localization;
 	std::function<void()> invalidate_all_previews_handler;
 	std::function<void(const core::StableIdentifier&)>
@@ -140,6 +152,9 @@ private:
 	std::function<void(const std::filesystem::path&)>
 		invalidate_staged_photo_preview_handler;
 	std::function<void()> refresh_all_handler;
+	std::function<void(PhotoOperationJobType, std::uint64_t)>
+		begin_photo_operation_handler;
+	std::function<void()> complete_photo_operation_handler;
 	std::shared_ptr<LifetimeToken> lifetime_token{
 		std::make_shared<LifetimeToken>()};
 };

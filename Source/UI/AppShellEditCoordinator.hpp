@@ -2,6 +2,7 @@
 
 #include "Persistence/MetadataSchema.hpp"
 #include "Platform/PlatformServices.hpp"
+#include "UI/AppShellPhotoOperationRunner.hpp"
 #include "UI/AppShellState.hpp"
 #include "UI/Session/CatalogSessionState.hpp"
 #include "UI/Session/EntityEditTypes.hpp"
@@ -48,8 +49,8 @@ public:
 		platform::SourceByteFingerprintService& source_fingerprint_service;
 		platform::SourceImageDecodeService& source_decode_service;
 		platform::InternalPhotoCodec& internal_photo_codec;
-		platform::ProgressCollector& progress_events;
-		platform::CancellationToken& cancellation_token;
+		AppShellPhotoOperationRunner& photo_operation_runner;
+		AppShellPhotoOperationState& photo_operation_state;
 		localization::Localization& localization;
 		Editors editors;
 		std::function<void()> cleanup_item_pending_photos;
@@ -57,6 +58,9 @@ public:
 		std::function<void()> invalidate_all_previews;
 		std::function<void()> refresh_all;
 		std::function<void()> refresh_content;
+		std::function<void(PhotoOperationJobType, std::uint64_t)>
+			begin_photo_operation;
+		std::function<void()> complete_photo_operation;
 	};
 
 	explicit AppShellEditCoordinator(Dependencies dependencies);
@@ -98,8 +102,8 @@ private:
 	platform::SourceByteFingerprintService& source_fingerprint_service;
 	platform::SourceImageDecodeService& source_decode_service;
 	platform::InternalPhotoCodec& internal_photo_codec;
-	platform::ProgressCollector& progress_events;
-	platform::CancellationToken& cancellation_token;
+	AppShellPhotoOperationRunner& photo_operation_runner;
+	AppShellPhotoOperationState& photo_operation_state;
 	localization::Localization& localization;
 	juce::TextEditor& item_name_editor;
 	juce::TextEditor& item_category_editor;
@@ -117,5 +121,8 @@ private:
 	std::function<void()> invalidate_all_previews_handler;
 	std::function<void()> refresh_all_handler;
 	std::function<void()> refresh_content_handler;
+	std::function<void(PhotoOperationJobType, std::uint64_t)>
+		begin_photo_operation_handler;
+	std::function<void()> complete_photo_operation_handler;
 };
 }	 // namespace shuba::ui

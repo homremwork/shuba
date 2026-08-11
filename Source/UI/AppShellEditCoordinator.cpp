@@ -3,6 +3,7 @@
 #include "Localization/Facade.hpp"
 
 #include "Catalog/CatalogRepository.hpp"
+#include "UI/Session/EntityEditSession.hpp"
 #include "UI/Session/PhotoSession.hpp"
 #include "UI/View/ScreenText.hpp"
 
@@ -37,8 +38,8 @@ AppShellEditCoordinator::AppShellEditCoordinator(Dependencies dependencies)
 	, source_fingerprint_service(dependencies.source_fingerprint_service)
 	, source_decode_service(dependencies.source_decode_service)
 	, internal_photo_codec(dependencies.internal_photo_codec)
-	, progress_events(dependencies.progress_events)
-	, cancellation_token(dependencies.cancellation_token)
+	, photo_operation_runner(dependencies.photo_operation_runner)
+	, photo_operation_state(dependencies.photo_operation_state)
 	, localization(dependencies.localization)
 	, item_name_editor(dependencies.editors.item_name_editor)
 	, item_category_editor(dependencies.editors.item_category_editor)
@@ -60,7 +61,11 @@ AppShellEditCoordinator::AppShellEditCoordinator(Dependencies dependencies)
 	, invalidate_all_previews_handler(
 		  std::move(dependencies.invalidate_all_previews))
 	, refresh_all_handler(std::move(dependencies.refresh_all))
-	, refresh_content_handler(std::move(dependencies.refresh_content)) {}
+	, refresh_content_handler(std::move(dependencies.refresh_content))
+	, begin_photo_operation_handler(
+		  std::move(dependencies.begin_photo_operation))
+	, complete_photo_operation_handler(
+		  std::move(dependencies.complete_photo_operation)) {}
 
 void AppShellEditCoordinator::open_new_item_form(
 	std::optional<core::StableIdentifier> storage_id) {
@@ -131,6 +136,13 @@ void AppShellEditCoordinator::set_storage_pending_photo_as_main(
 }
 
 void AppShellEditCoordinator::save_item_form() {
+	if (photo_operation_state.active()) {
+		feedback.photo_message =
+			localization.text(localization::MessageId::PhotoOperationBusy);
+		if (refresh_all_handler)
+			refresh_all_handler();
+		return;
+	}
 	item_form.draft.display_name = item_name_editor.getText().toStdString();
 	item_form.draft.category	 = item_category_editor.getText().toStdString();
 	item_form.draft.notes		 = item_notes_editor.getText().toStdString();
@@ -145,34 +157,74 @@ void AppShellEditCoordinator::save_item_form() {
 	item_form.draft.pending_photo_import_planned =
 		has_ready_pending_photo(item_form.pending_photos);
 
-	ItemSaveWithPendingPhotosResult result =
-		save_item_draft_and_import_pending_photos(
-			ItemSaveWithPendingPhotosRequest{
-				.current_session	 = session,
-				.identifiers		 = identifiers,
-				.clock				 = clock,
-				.operation_gate		 = operation_gate,
-				.staging_service	 = content_staging_service,
-				.fingerprint_service = source_fingerprint_service,
-				.decode_service		 = source_decode_service,
-				.photo_codec		 = internal_photo_codec,
-				.draft				 = item_form.draft,
-				.pending_sources	 = item_form.pending_photos,
-				.main_pending_source_index =
-					item_form.photo_deck.staged_main_index},
-			progress_events, cancellation_token);
-	if (result.warning_acknowledgement_required())
-		item_form.draft.warning_acknowledged = true;
-	if (result.warning_acknowledgement_required()
-		&& result.save_result.saved_record_id) {
-		item_form.draft.reserved_new_id = result.save_result.saved_record_id;
+	if (!has_ready_pending_photo(item_form.pending_photos)) {
+		EntityEditResult result = save_item_draft(
+			EntityEditRequest{.current_session = session,
+							  .identifiers = identifiers,
+							  .clock = clock},
+			item_form.draft);
+		if (result.warning_acknowledgement_required)
+			item_form.draft.warning_acknowledged = true;
+		if (result.warning_acknowledgement_required && result.saved_record_id)
+			item_form.draft.reserved_new_id = result.saved_record_id;
+		if (result.succeeded())
+			item_form.draft.existing_id = result.saved_record_id;
+		apply_entity_edit_result(std::move(result));
+		return;
 	}
-	if (result.item_saved())
-		item_form.draft.existing_id = result.save_result.saved_record_id;
-	apply_item_save_with_pending_photos_result(std::move(result));
+
+	const AppShellPhotoOperationRunner::Submission submission =
+		photo_operation_runner.submit_item_save(
+		ItemSaveWithPendingPhotosRequest{
+			.current_session = session,
+			.identifiers = identifiers,
+			.clock = clock,
+			.operation_gate = operation_gate,
+			.staging_service = content_staging_service,
+			.fingerprint_service = source_fingerprint_service,
+			.decode_service = source_decode_service,
+			.photo_codec = internal_photo_codec,
+			.draft = item_form.draft,
+			.pending_sources = item_form.pending_photos,
+			.main_pending_source_index = item_form.photo_deck.staged_main_index},
+		[this](AppShellPhotoOperationRunner::Result operation_result) {
+			photo_operation_state.state = PhotoOperationState::Applying;
+			ItemSaveWithPendingPhotosResult result =
+				std::get<ItemSaveWithPendingPhotosResult>(std::move(operation_result));
+			if (result.warning_acknowledgement_required())
+				item_form.draft.warning_acknowledged = true;
+			if (result.warning_acknowledgement_required()
+				&& result.save_result.saved_record_id) {
+				item_form.draft.reserved_new_id = result.save_result.saved_record_id;
+			}
+			if (result.item_saved())
+				item_form.draft.existing_id = result.save_result.saved_record_id;
+			apply_item_save_with_pending_photos_result(std::move(result));
+			if (complete_photo_operation_handler)
+				complete_photo_operation_handler();
+		});
+	if (!submission.accepted) {
+		feedback.photo_message =
+			localization.text(localization::MessageId::PhotoOperationBusy);
+		if (refresh_all_handler)
+			refresh_all_handler();
+		return;
+	}
+	if (begin_photo_operation_handler) {
+		begin_photo_operation_handler(
+			PhotoOperationJobType::ItemSaveWithPendingPhotos,
+			submission.generation);
+	}
 }
 
 void AppShellEditCoordinator::save_storage_form() {
+	if (photo_operation_state.active()) {
+		feedback.photo_message =
+			localization.text(localization::MessageId::PhotoOperationBusy);
+		if (refresh_all_handler)
+			refresh_all_handler();
+		return;
+	}
 	storage_form.draft.display_name =
 		storage_name_editor.getText().toStdString();
 	storage_form.draft.storage_type =
@@ -182,31 +234,66 @@ void AppShellEditCoordinator::save_storage_form() {
 	storage_form.draft.notes = storage_notes_editor.getText().toStdString();
 	storage_form.draft.archive_warning_acknowledged =
 		storage_form.archive_warning_acknowledged;
-	StorageSaveWithPendingPhotosResult result =
-		save_storage_draft_and_import_pending_photos(
-			StorageSaveWithPendingPhotosRequest{
-				.current_session	 = session,
-				.identifiers		 = identifiers,
-				.clock				 = clock,
-				.operation_gate		 = operation_gate,
-				.staging_service	 = content_staging_service,
-				.fingerprint_service = source_fingerprint_service,
-				.decode_service		 = source_decode_service,
-				.photo_codec		 = internal_photo_codec,
-				.draft				 = storage_form.draft,
-				.pending_sources	 = storage_form.pending_photos,
-				.main_pending_source_index =
-					storage_form.photo_deck.staged_main_index},
-			progress_events, cancellation_token);
-	if (result.warning_acknowledgement_required())
-		storage_form.archive_warning_acknowledged = true;
-	if (result.warning_acknowledgement_required()
-		&& result.save_result.saved_record_id) {
-		storage_form.draft.reserved_new_id = result.save_result.saved_record_id;
+	if (!has_ready_pending_photo(storage_form.pending_photos)) {
+		EntityEditResult result = save_storage_draft(
+			EntityEditRequest{.current_session = session,
+							  .identifiers = identifiers,
+							  .clock = clock},
+			storage_form.draft);
+		if (result.warning_acknowledgement_required)
+			storage_form.archive_warning_acknowledged = true;
+		if (result.warning_acknowledgement_required && result.saved_record_id)
+			storage_form.draft.reserved_new_id = result.saved_record_id;
+		if (result.succeeded())
+			storage_form.draft.existing_id = result.saved_record_id;
+		apply_entity_edit_result(std::move(result));
+		return;
 	}
-	if (result.storage_saved())
-		storage_form.draft.existing_id = result.save_result.saved_record_id;
-	apply_storage_save_with_pending_photos_result(std::move(result));
+
+	const AppShellPhotoOperationRunner::Submission submission =
+		photo_operation_runner.submit_storage_save(
+		StorageSaveWithPendingPhotosRequest{
+			.current_session = session,
+			.identifiers = identifiers,
+			.clock = clock,
+			.operation_gate = operation_gate,
+			.staging_service = content_staging_service,
+			.fingerprint_service = source_fingerprint_service,
+			.decode_service = source_decode_service,
+			.photo_codec = internal_photo_codec,
+			.draft = storage_form.draft,
+			.pending_sources = storage_form.pending_photos,
+			.main_pending_source_index = storage_form.photo_deck.staged_main_index},
+		[this](AppShellPhotoOperationRunner::Result operation_result) {
+			photo_operation_state.state = PhotoOperationState::Applying;
+			StorageSaveWithPendingPhotosResult result =
+				std::get<StorageSaveWithPendingPhotosResult>(
+					std::move(operation_result));
+			if (result.warning_acknowledgement_required())
+				storage_form.archive_warning_acknowledged = true;
+			if (result.warning_acknowledgement_required()
+				&& result.save_result.saved_record_id) {
+				storage_form.draft.reserved_new_id =
+					result.save_result.saved_record_id;
+			}
+			if (result.storage_saved())
+				storage_form.draft.existing_id = result.save_result.saved_record_id;
+			apply_storage_save_with_pending_photos_result(std::move(result));
+			if (complete_photo_operation_handler)
+				complete_photo_operation_handler();
+		});
+	if (!submission.accepted) {
+		feedback.photo_message =
+			localization.text(localization::MessageId::PhotoOperationBusy);
+		if (refresh_all_handler)
+			refresh_all_handler();
+		return;
+	}
+	if (begin_photo_operation_handler) {
+		begin_photo_operation_handler(
+			PhotoOperationJobType::StorageSaveWithPendingPhotos,
+			submission.generation);
+	}
 }
 
 void AppShellEditCoordinator::apply_entity_edit_result(

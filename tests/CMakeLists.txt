@@ -28,9 +28,12 @@ add_executable(shuba_headless_tests
 	B27LocalizationLanguageTests.cpp
 	B28LocalizationFacadeTests.cpp
 	B29PhotoCoordinatorLifetimeTests.cpp
+	R13PhotoOperationRunnerTests.cpp
 	C30LocalizationPresentationLayoutTests.cpp)
 
 target_compile_features(shuba_headless_tests PRIVATE cxx_std_23)
+target_compile_definitions(shuba_headless_tests PRIVATE
+	JUCE_MODAL_LOOPS_PERMITTED=1)
 shuba_apply_common_target_options(shuba_headless_tests)
 
 target_include_directories(shuba_headless_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/support")

@@ -21,19 +21,22 @@ template<typename Content>
 void add_status_rows(
 	Content& content, domain::ItemStatus selected_status,
 	localization::Localization& localization,
-	const std::function<void(domain::ItemStatus)>& choose_status) {
+	const std::function<void(domain::ItemStatus)>& choose_status,
+	bool enabled = true) {
 	content.add_direct_choice_grid(
 		juce_text(localization.text(localization::MessageId::FormsItemStatus)),
 		{DirectChoiceGridComponent::Choice{
 			 .label	   = juce_text(localization.text(
 				 localization::MessageId::FormsItemStatusDraft)),
 			 .selected = selected_status == domain::ItemStatus::Draft,
+			 .enabled = enabled,
 			 .handler =
 				 [choose_status] { choose_status(domain::ItemStatus::Draft); }},
 		 DirectChoiceGridComponent::Choice{
 			 .label	   = juce_text(localization.text(
 				 localization::MessageId::FormsItemStatusPlannedShort)),
 			 .selected = selected_status == domain::ItemStatus::Planned,
+			 .enabled = enabled,
 			 .handler =
 				 [choose_status] {
 		choose_status(domain::ItemStatus::Planned);
@@ -42,6 +45,7 @@ void add_status_rows(
 			 .label	   = juce_text(localization.text(
 				 localization::MessageId::FormsItemStatusListedShort)),
 			 .selected = selected_status == domain::ItemStatus::Listed,
+			 .enabled = enabled,
 			 .handler =
 				 [choose_status] {
 		choose_status(domain::ItemStatus::Listed);
@@ -50,12 +54,14 @@ void add_status_rows(
 			 .label	   = juce_text(localization.text(
 				 localization::MessageId::FormsItemStatusSold)),
 			 .selected = selected_status == domain::ItemStatus::Sold,
+			 .enabled = enabled,
 			 .handler =
 				 [choose_status] { choose_status(domain::ItemStatus::Sold); }},
 		 DirectChoiceGridComponent::Choice{
 			 .label	   = juce_text(localization.text(
 				 localization::MessageId::FormsItemStatusArchivedShort)),
 			 .selected = selected_status == domain::ItemStatus::Archived,
+			 .enabled = enabled,
 			 .handler =
 				 [choose_status] {
 		choose_status(domain::ItemStatus::Archived);
@@ -112,6 +118,7 @@ void add_tag_rows(Content& content, std::vector<domain::TagRow>& tags,
 }	 // namespace
 
 void AppShellScreenRenderer::build_item_form_content() {
+	const bool mutation_allowed = !photo_operation_state.active();
 	std::optional<domain::PhotoOwner> owner;
 	if (item_form.mode == FormMode::Edit && item_form.draft.existing_id) {
 		owner = domain::PhotoOwner{.type = domain::PhotoOwnerType::Item,
@@ -134,6 +141,8 @@ void AppShellScreenRenderer::build_item_form_content() {
 		juce_text(
 			localization.text(localization::MessageId::FormsItemCategory)),
 		54);
+	item_name_editor.setEnabled(mutation_allowed);
+	item_category_editor.setEnabled(mutation_allowed);
 	item_name_editor.onTextChange = [this] {
 		item_form.draft.display_name = item_name_editor.getText().toStdString();
 	};
@@ -151,12 +160,12 @@ void AppShellScreenRenderer::build_item_form_content() {
 				 : item_form.draft.storage_id
 					 ? localization::MessageId::FormsChoiceChange
 					 : localization::MessageId::FormsChoiceChoose)),
-			 .handler =
-				 [this] {
+			 .handler = [this] {
 		item_form.storage_candidates_expanded =
 			!item_form.storage_candidates_expanded;
 		refresh_all();
-	}},
+	},
+			 .enabled = mutation_allowed},
 		 InlineButtonRowComponent::Action{
 			 .label =
 				 juce_text(localization.text(localization::MessageId::Clear)),
@@ -166,7 +175,8 @@ void AppShellScreenRenderer::build_item_form_content() {
 		item_form.storage_candidates_expanded = false;
 		refresh_all();
 	},
-			 .enabled = item_form.draft.storage_id.has_value()}},
+			 .enabled = mutation_allowed
+					&& item_form.draft.storage_id.has_value()}},
 		42);
 
 	if (item_form.storage_candidates_expanded) {
@@ -178,7 +188,8 @@ void AppShellScreenRenderer::build_item_form_content() {
 			item_form.draft.storage_id.reset();
 			item_form.storage_candidates_expanded = false;
 			refresh_all();
-		}});
+		},
+			.enabled = mutation_allowed});
 		for (const persistence::StorageEnvelope& storage :
 			 session.repository.storages) {
 			const core::StableIdentifier storage_id = storage.record.id;
@@ -189,7 +200,8 @@ void AppShellScreenRenderer::build_item_form_content() {
 				item_form.draft.storage_id			  = storage_id;
 				item_form.storage_candidates_expanded = false;
 				refresh_all();
-			}});
+			},
+				.enabled = mutation_allowed});
 		}
 		const int storage_choices_height =
 			ButtonGridComponent::preferred_height(
@@ -204,28 +216,28 @@ void AppShellScreenRenderer::build_item_form_content() {
 					[this](domain::ItemStatus status) {
 		item_form.draft.status = status;
 		refresh_all();
-	});
+	}, mutation_allowed);
 
 	content->add_inline_buttons(
 		juce_text(tag_row_count_summary(item_form.draft.tags)),
 		{InlineButtonRowComponent::Action{
 			 .label = juce_text(
 				 localization.text(localization::MessageId::FormsTagsAddRow)),
-			 .handler =
-				 [this] {
+			 .handler = [this] {
 		item_form.draft.tags.push_back(domain::TagRow{});
 		refresh_all();
-	}},
+	},
+			 .enabled = mutation_allowed},
 		 InlineButtonRowComponent::Action{
 			 .label = juce_text(localization.text(
 				 item_form.tag_candidates_expanded
 					 ? localization::MessageId::FormsChoiceHide
 					 : localization::MessageId::FormsTagsKeyHints)),
-			 .handler =
-				 [this] {
+			 .handler = [this] {
 		item_form.tag_candidates_expanded = !item_form.tag_candidates_expanded;
 		refresh_all();
-	}},
+	},
+			 .enabled = mutation_allowed},
 		 InlineButtonRowComponent::Action{
 			 .label =
 				 juce_text(localization.text(localization::MessageId::Clear)),
@@ -234,7 +246,7 @@ void AppShellScreenRenderer::build_item_form_content() {
 		item_form.draft.tags.clear();
 		refresh_all();
 	},
-			 .enabled = !item_form.draft.tags.empty()}},
+			 .enabled = mutation_allowed && !item_form.draft.tags.empty()}},
 		42);
 
 	if (item_form.tag_candidates_expanded) {
@@ -254,7 +266,8 @@ void AppShellScreenRenderer::build_item_form_content() {
 					.label = juce_text(key), .handler = [this, key] {
 					apply_tag_key_candidate(item_form.draft.tags, key);
 					refresh_all();
-				}});
+				},
+					.enabled = mutation_allowed});
 			}
 			const int item_key_height = ButtonGridComponent::preferred_height(
 				static_cast<int>(item_key_actions.size()), 3);
@@ -271,7 +284,8 @@ void AppShellScreenRenderer::build_item_form_content() {
 					.label = juce_text(key), .handler = [this, key] {
 					apply_tag_key_candidate(item_form.draft.tags, key);
 					refresh_all();
-				}});
+				},
+					.enabled = mutation_allowed});
 			}
 			const int storage_key_height =
 				ButtonGridComponent::preferred_height(
@@ -300,7 +314,7 @@ void AppShellScreenRenderer::build_item_form_content() {
 				item_form.draft.tags.begin()
 				+ static_cast<std::ptrdiff_t>(removed_index));
 			refresh_all();
-		}, 52);
+		}, 52, mutation_allowed);
 	}
 
 	content
@@ -311,6 +325,7 @@ void AppShellScreenRenderer::build_item_form_content() {
 		.onTextChange = [this] {
 		item_form.draft.notes = item_notes_editor.getText().toStdString();
 	};
+	item_notes_editor.setEnabled(mutation_allowed);
 
 	content->add_label(
 		juce_text(listing_summary(item_form.draft.listing, localization)), 46,
@@ -325,6 +340,7 @@ void AppShellScreenRenderer::build_item_form_content() {
 		item_form.listing_expanded = !item_form.listing_expanded;
 		refresh_all();
 	};
+	listing_toggle.setEnabled(mutation_allowed);
 	if (item_form.listing_expanded) {
 		content
 			->add_editor(item_listing_marketplace_editor,
@@ -335,6 +351,7 @@ void AppShellScreenRenderer::build_item_form_content() {
 			item_form.draft.listing.marketplace =
 				item_listing_marketplace_editor.getText().toStdString();
 		};
+		item_listing_marketplace_editor.setEnabled(mutation_allowed);
 		content
 			->add_editor(item_listing_url_editor,
 						 juce_text(localization.text(
@@ -344,6 +361,7 @@ void AppShellScreenRenderer::build_item_form_content() {
 			item_form.draft.listing.url =
 				item_listing_url_editor.getText().toStdString();
 		};
+		item_listing_url_editor.setEnabled(mutation_allowed);
 		content
 			->add_editor(item_listing_note_editor,
 						 juce_text(localization.text(
@@ -353,6 +371,7 @@ void AppShellScreenRenderer::build_item_form_content() {
 			item_form.draft.listing.note =
 				item_listing_note_editor.getText().toStdString();
 		};
+		item_listing_note_editor.setEnabled(mutation_allowed);
 	}
 
 	content->add_label(
@@ -371,6 +390,7 @@ void AppShellScreenRenderer::build_item_form_content() {
 		item_form.finance_expanded = !item_form.finance_expanded;
 		refresh_all();
 	};
+	finance_toggle.setEnabled(mutation_allowed);
 	if (item_form.finance_expanded) {
 		content
 			->add_editor(
@@ -382,6 +402,7 @@ void AppShellScreenRenderer::build_item_form_content() {
 			item_form.draft.acquisition.source =
 				item_acquisition_source_editor.getText().toStdString();
 		};
+		item_acquisition_source_editor.setEnabled(mutation_allowed);
 		content->add_label(juce_text(localization.text(
 							   localization::MessageId::FormsFinanceMoneyNote)),
 						   52, panel_colour());
@@ -405,6 +426,7 @@ void AppShellScreenRenderer::build_item_form_content() {
 				*item_form.draft.existing_id);
 			apply_entity_edit_result(std::move(result));
 		};
+		archive.setEnabled(mutation_allowed);
 		juce::Button& hard_delete = content->add_button(
 			juce_text(localization.text(
 				localization::MessageId::FormsHardDeleteDisabled)),
@@ -413,6 +435,7 @@ void AppShellScreenRenderer::build_item_form_content() {
 	}
 }
 void AppShellScreenRenderer::build_storage_form_content() {
+	const bool mutation_allowed = !photo_operation_state.active();
 	std::optional<domain::PhotoOwner> owner;
 	if (storage_form.mode == FormMode::Edit && storage_form.draft.existing_id) {
 		owner = domain::PhotoOwner{.type = domain::PhotoOwnerType::Storage,
@@ -434,6 +457,8 @@ void AppShellScreenRenderer::build_storage_form_content() {
 		storage_type_editor,
 		juce_text(localization.text(localization::MessageId::FormsStorageType)),
 		54);
+	storage_name_editor.setEnabled(mutation_allowed);
+	storage_type_editor.setEnabled(mutation_allowed);
 	storage_name_editor.onTextChange = [this] {
 		storage_form.draft.display_name =
 			storage_name_editor.getText().toStdString();
@@ -454,12 +479,12 @@ void AppShellScreenRenderer::build_storage_form_content() {
 				 : storage_form.draft.parent_storage_id
 					 ? localization::MessageId::FormsChoiceChange
 					 : localization::MessageId::FormsChoiceChoose)),
-			 .handler =
-				 [this] {
+			 .handler = [this] {
 		storage_form.parent_candidates_expanded =
 			!storage_form.parent_candidates_expanded;
 		refresh_all();
-	}},
+	},
+			 .enabled = mutation_allowed},
 		 InlineButtonRowComponent::Action{
 			 .label =
 				 juce_text(localization.text(localization::MessageId::Clear)),
@@ -469,7 +494,8 @@ void AppShellScreenRenderer::build_storage_form_content() {
 		storage_form.parent_candidates_expanded = false;
 		refresh_all();
 	},
-			 .enabled = storage_form.draft.parent_storage_id.has_value()}},
+			 .enabled = mutation_allowed
+					&& storage_form.draft.parent_storage_id.has_value()}},
 		42);
 
 	if (storage_form.parent_candidates_expanded) {
@@ -481,7 +507,8 @@ void AppShellScreenRenderer::build_storage_form_content() {
 			storage_form.draft.parent_storage_id.reset();
 			storage_form.parent_candidates_expanded = false;
 			refresh_all();
-		}});
+		},
+			.enabled = mutation_allowed});
 		for (const persistence::StorageEnvelope& storage :
 			 session.repository.storages) {
 			if (storage_form.draft.existing_id
@@ -496,7 +523,8 @@ void AppShellScreenRenderer::build_storage_form_content() {
 				storage_form.draft.parent_storage_id	= storage_id;
 				storage_form.parent_candidates_expanded = false;
 				refresh_all();
-			}});
+			},
+				.enabled = mutation_allowed});
 		}
 		const int parent_choices_height = ButtonGridComponent::preferred_height(
 			static_cast<int>(parent_actions.size()), 2);
@@ -515,28 +543,29 @@ void AppShellScreenRenderer::build_storage_form_content() {
 		storage_form.draft.location =
 			storage_location_editor.getText().toStdString();
 	};
+	storage_location_editor.setEnabled(mutation_allowed);
 
 	content->add_inline_buttons(
 		juce_text(tag_row_count_summary(storage_form.draft.tags)),
 		{InlineButtonRowComponent::Action{
 			 .label = juce_text(
 				 localization.text(localization::MessageId::FormsTagsAddRow)),
-			 .handler =
-				 [this] {
+			 .handler = [this] {
 		storage_form.draft.tags.push_back(domain::TagRow{});
 		refresh_all();
-	}},
+	},
+			 .enabled = mutation_allowed},
 		 InlineButtonRowComponent::Action{
 			 .label = juce_text(localization.text(
 				 storage_form.tag_candidates_expanded
 					 ? localization::MessageId::FormsChoiceHide
 					 : localization::MessageId::FormsTagsKeyHints)),
-			 .handler =
-				 [this] {
+			 .handler = [this] {
 		storage_form.tag_candidates_expanded =
 			!storage_form.tag_candidates_expanded;
 		refresh_all();
-	}},
+	},
+			 .enabled = mutation_allowed},
 		 InlineButtonRowComponent::Action{
 			 .label =
 				 juce_text(localization.text(localization::MessageId::Clear)),
@@ -545,7 +574,7 @@ void AppShellScreenRenderer::build_storage_form_content() {
 		storage_form.draft.tags.clear();
 		refresh_all();
 	},
-			 .enabled = !storage_form.draft.tags.empty()}},
+			 .enabled = mutation_allowed && !storage_form.draft.tags.empty()}},
 		42);
 
 	if (storage_form.tag_candidates_expanded) {
@@ -565,7 +594,8 @@ void AppShellScreenRenderer::build_storage_form_content() {
 					.label = juce_text(key), .handler = [this, key] {
 					apply_tag_key_candidate(storage_form.draft.tags, key);
 					refresh_all();
-				}});
+				},
+					.enabled = mutation_allowed});
 			}
 			const int storage_form_item_key_height =
 				ButtonGridComponent::preferred_height(
@@ -583,7 +613,8 @@ void AppShellScreenRenderer::build_storage_form_content() {
 					.label = juce_text(key), .handler = [this, key] {
 					apply_tag_key_candidate(storage_form.draft.tags, key);
 					refresh_all();
-				}});
+				},
+					.enabled = mutation_allowed});
 			}
 			const int storage_form_storage_key_height =
 				ButtonGridComponent::preferred_height(
@@ -614,7 +645,7 @@ void AppShellScreenRenderer::build_storage_form_content() {
 				storage_form.draft.tags.begin()
 				+ static_cast<std::ptrdiff_t>(removed_index));
 			refresh_all();
-		}, 52);
+		}, 52, mutation_allowed);
 	}
 
 	content
@@ -625,6 +656,7 @@ void AppShellScreenRenderer::build_storage_form_content() {
 		.onTextChange = [this] {
 		storage_form.draft.notes = storage_notes_editor.getText().toStdString();
 	};
+	storage_notes_editor.setEnabled(mutation_allowed);
 	if (storage_form.mode == FormMode::Edit) {
 		content->add_label(juce_text(localization.text(
 							   localization::MessageId::FormsEditOnlyActions)),
@@ -644,6 +676,7 @@ void AppShellScreenRenderer::build_storage_form_content() {
 				storage_form.archive_warning_acknowledged;
 			refresh_all();
 		};
+		archive.setEnabled(mutation_allowed);
 		juce::ToggleButton& acknowledge = content->add_toggle(
 			juce_text(localization.text(
 				localization::MessageId::FormsStorageArchiveContentsAck)),
@@ -655,6 +688,7 @@ void AppShellScreenRenderer::build_storage_form_content() {
 				storage_form.archive_warning_acknowledged;
 			refresh_all();
 		};
+		acknowledge.setEnabled(mutation_allowed);
 		juce::Button& hard_delete = content->add_button(
 			juce_text(localization.text(
 				localization::MessageId::FormsHardDeleteDisabled)),
@@ -664,6 +698,7 @@ void AppShellScreenRenderer::build_storage_form_content() {
 }
 
 void AppShellScreenRenderer::build_photo_viewer_content() {
+	const bool mutation_allowed = !photo_operation_state.active();
 	if (!route.selected_photo_owner) {
 		content->add_label("No photo owner selected.", 54, panel_colour(),
 						   true);
@@ -683,6 +718,7 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 			juce_text(localization.text(localization::MessageId::PhotoAdd)),
 			42);
 		add_photo.onClick = [this, owner] { request_add_photos(owner); };
+		add_photo.setEnabled(mutation_allowed);
 		return;
 	}
 
@@ -843,21 +879,21 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 		.label =
 			juce_text(localization.text(localization::MessageId::Previous)),
 		.handler = [select_adjacent] { select_adjacent(-1); },
-		.enabled = multiple_photos});
+		.enabled = mutation_allowed && multiple_photos});
 	viewer_actions.push_back(ButtonGridComponent::Action{
 		.label	 = juce_text(localization.text(localization::MessageId::Next)),
 		.handler = [select_adjacent] { select_adjacent(1); },
-		.enabled = multiple_photos});
+		.enabled = mutation_allowed && multiple_photos});
 	viewer_actions.push_back(ButtonGridComponent::Action{
 		.label	 = juce_text(localization.text(
 			localization::MessageId::PreviewViewerRotateLeft)),
 		.handler = [rotate_viewer] { rotate_viewer(-1); },
-		.enabled = rotate_enabled});
+		.enabled = mutation_allowed && rotate_enabled});
 	viewer_actions.push_back(ButtonGridComponent::Action{
 		.label	 = juce_text(localization.text(
 			localization::MessageId::PreviewViewerRotateRight)),
 		.handler = [rotate_viewer] { rotate_viewer(1); },
-		.enabled = rotate_enabled});
+		.enabled = mutation_allowed && rotate_enabled});
 	content->add_button_grid(
 		juce_text(
 			localization.text(localization::MessageId::PreviewViewerControls)),
@@ -888,7 +924,7 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 				  localization.text(localization::MessageId::PhotoAlreadyMain))
 			: juce_text(localization.text(localization::MessageId::SetMain)),
 		42);
-	set_main.setEnabled(!photo->record.is_main);
+	set_main.setEnabled(!photo->record.is_main && mutation_allowed);
 	set_main.onClick = [this, photo_id = *route.selected_photo_id] {
 		EntityEditResult result = set_main_photo_in_session(
 			EntityEditRequest{.current_session = session,
@@ -900,7 +936,8 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 	juce::Button& export_button = content->add_button(
 		juce_text(localization.text(localization::MessageId::PhotoExportJpeg)),
 		42);
-	export_button.setEnabled(photo_display.result.succeeded());
+	export_button.setEnabled(photo_display.result.succeeded()
+							 && mutation_allowed);
 	export_button.onClick = [this, photo_id = *route.selected_photo_id] {
 		request_export_photo(photo_id);
 	};
@@ -928,11 +965,13 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 		delete_button.onClick = [this, photo_id = *route.selected_photo_id] {
 			request_delete_photo(photo_id);
 		};
+		delete_button.setEnabled(mutation_allowed);
 	}
 	juce::Button& add_photo = content->add_button(
 		juce_text(localization.text(localization::MessageId::PhotoAddMore)),
 		42);
 	add_photo.onClick = [this, owner] { request_add_photos(owner); };
+	add_photo.setEnabled(mutation_allowed);
 }
 
 }	 // namespace shuba::ui

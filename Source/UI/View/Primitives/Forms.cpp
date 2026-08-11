@@ -276,7 +276,7 @@ TagRowEditorComponent::TagRowEditorComponent(
 	std::size_t row_index_value, const domain::TagRow& tag_value,
 	localization::Localization& localization_value,
 	std::function<void(std::size_t, domain::TagRow)> change_handler,
-	std::function<void(std::size_t)> remove_handler)
+	std::function<void(std::size_t)> remove_handler, bool enabled_value)
 	: row_index(row_index_value)
 	, on_change(std::move(change_handler))
 	, on_remove(std::move(remove_handler))
@@ -305,6 +305,9 @@ TagRowEditorComponent::TagRowEditorComponent(
 		if (on_remove)
 			on_remove(row_index);
 	};
+	key_editor.setEnabled(enabled_value);
+	value_editor.setEnabled(enabled_value);
+	remove_button.setEnabled(enabled_value);
 	addAndMakeVisible(key_editor);
 	addAndMakeVisible(value_editor);
 	addAndMakeVisible(remove_button);

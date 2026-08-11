@@ -3,9 +3,9 @@
 #include "Catalog/PhotoExport.hpp"
 #include "Core/Clock.hpp"
 #include "Core/Identifier.hpp"
-#include "Core/OperationGate.hpp"
 #include "Platform/PlatformServices.hpp"
 #include "UI/AppShellState.hpp"
+#include "UI/AppShellPhotoOperationRunner.hpp"
 #include "UI/Session/CatalogSessionState.hpp"
 #include "UI/Session/EntityEditTypes.hpp"
 #include "UI/Session/ImagePreviewSession.hpp"
@@ -112,7 +112,7 @@ public:
 		ImagePreviewCache& preview_cache;
 		core::IdentifierSource& edit_identifiers;
 		core::Clock& edit_clock;
-		core::OperationGate& ui_operation_gate;
+		AppShellPhotoOperationState& photo_operation_state;
 		platform::InternalPhotoCodec& internal_photo_codec;
 		platform::SourceImageDecodeService& source_decode_service;
 		platform::JpegExportService& jpeg_export_service;
@@ -279,7 +279,7 @@ private:
 	ImagePreviewCache& preview_cache;
 	core::IdentifierSource& edit_identifiers;
 	core::Clock& edit_clock;
-	core::OperationGate& ui_operation_gate;
+	AppShellPhotoOperationState& photo_operation_state;
 	platform::InternalPhotoCodec& internal_photo_codec;
 	platform::SourceImageDecodeService& source_decode_service;
 	platform::JpegExportService& jpeg_export_service;

@@ -40,6 +40,7 @@ public:
 		juce::String status;
 		juce::String catalog_draft_result_count;
 		bool session_fatal{};
+		bool photo_operation_active{};
 		bool catalog_filters_active{};
 		bool catalog_filter_panel_visible{};
 	};

@@ -39,6 +39,7 @@ struct ManagedPhotoDeckModel final {
 	std::vector<StagedPhotoCardEntry> staged_entries;
 	bool staged_selected{};
 	std::size_t selected_index{};
+	bool mutations_enabled{true};
 };
 
 struct ManagedPhotoDeckHandlers final {
