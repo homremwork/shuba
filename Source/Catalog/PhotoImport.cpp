@@ -493,6 +493,8 @@ PhotoImportSummary PhotoImportUseCase::import_photos(
 			continue;
 		}
 
+		if (!staged.value->display_name.empty())
+			photo_result.source_display_name = staged.value->display_name;
 		photo_result.staged_source_path = staged.value->staged_path;
 		std::string source_md5;
 		platform::PlatformValueResult<platform::SourceByteFingerprint>

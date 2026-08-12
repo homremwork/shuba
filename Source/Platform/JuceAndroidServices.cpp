@@ -126,7 +126,7 @@ constexpr std::size_t copy_buffer_size = 32768U;
 	return file_name.toStdString();
 }
 
-[[nodiscard]] ContentSourceDescriptor source_descriptor_from_url(
+[[nodiscard]] ContentSourceDescriptor shallow_source_descriptor_from_url(
 	const juce::URL& url) {
 	if (url.isLocalFile())
 		return make_local_file_source(
@@ -134,19 +134,10 @@ constexpr std::size_t copy_buffer_size = 32768U;
 			display_name_from_url(url));
 
 	std::string display_name = display_name_from_url(url);
-	std::optional<std::uint64_t> byte_count;
-	const juce::AndroidDocument document =
-		juce::AndroidDocument::fromDocument(url);
-	if (document.hasValue()) {
-		const juce::AndroidDocumentInfo info = document.getInfo();
-		if (info.getName().isNotEmpty())
-			display_name = info.getName().toStdString();
-		byte_count = document_size(info);
-	}
-
+	if (display_name.empty())
+		display_name = "selected-photo";
 	return make_opaque_content_source(url.toString(true).toStdString(),
-									  std::move(display_name), byte_count,
-									  true);
+									  std::move(display_name), std::nullopt, true);
 }
 
 [[nodiscard]] DocumentDestinationDescriptor destination_descriptor_from_url(
@@ -167,6 +158,28 @@ constexpr std::size_t copy_buffer_size = 32768U;
 
 	return make_opaque_document_destination(url.toString(true).toStdString(),
 											std::move(display_name));
+}
+
+[[nodiscard]] ContentSourceDescriptor
+document_import_source_descriptor_from_url(const juce::URL& url) {
+	if (url.isLocalFile())
+		return make_local_file_source(
+			filesystem_path_from_file(url.getLocalFile()),
+			display_name_from_url(url));
+
+	std::string display_name = display_name_from_url(url);
+	std::optional<std::uint64_t> byte_count;
+	const juce::AndroidDocument document =
+		juce::AndroidDocument::fromDocument(url);
+	if (document.hasValue()) {
+		const juce::AndroidDocumentInfo info = document.getInfo();
+		if (info.getName().isNotEmpty())
+			display_name = info.getName().toStdString();
+		byte_count = document_size(info);
+	}
+
+	return make_opaque_content_source(url.toString(true).toStdString(),
+									  std::move(display_name), byte_count, true);
 }
 
 [[nodiscard]] PlatformValueResult<std::uint64_t> copy_stream(
@@ -239,6 +252,7 @@ struct OpenInputResult final {
 	PlatformValueResult<std::uint64_t> status;
 	std::unique_ptr<juce::InputStream> stream;
 	std::optional<std::uint64_t> total_units;
+	std::string display_name;
 };
 
 [[nodiscard]] std::uint64_t elapsed_milliseconds_since(
@@ -253,6 +267,7 @@ struct OpenInputResult final {
 	const ContentSourceDescriptor& source) {
 	std::unique_ptr<juce::InputStream> stream;
 	std::optional<std::uint64_t> total_units = source.byte_count;
+	std::string display_name = source.display_name;
 
 	if (source.kind == PlatformContentHandleKind::LocalFile) {
 		stream = file_from_path(source.local_path).createInputStream();
@@ -262,6 +277,8 @@ struct OpenInputResult final {
 			juce::AndroidDocument::fromDocument(url);
 		if (document.hasValue()) {
 			const juce::AndroidDocumentInfo info = document.getInfo();
+			if (info.getName().isNotEmpty())
+				display_name = info.getName().toStdString();
 			if (!total_units.has_value())
 				total_units = document_size(info);
 			stream = document.createInputStream();
@@ -289,7 +306,8 @@ struct OpenInputResult final {
 
 	return OpenInputResult{.status = platform_value_success(std::uint64_t{0}),
 						   .stream = std::move(stream),
-						   .total_units = total_units};
+						   .total_units = total_units,
+						   .display_name = std::move(display_name)};
 }
 
 [[nodiscard]] std::unique_ptr<juce::OutputStream> open_output_stream(
@@ -459,7 +477,7 @@ core::OperationResult JuceAndroidPhotoSelectionService::request_photo_selection(
 		std::vector<ContentSourceDescriptor> descriptors;
 		descriptors.reserve(static_cast<std::size_t>(urls.size()));
 		for (const juce::URL& url : urls)
-			descriptors.push_back(source_descriptor_from_url(url));
+			descriptors.push_back(shallow_source_descriptor_from_url(url));
 
 		completion(platform_value_success(std::move(descriptors)));
 	});
@@ -510,7 +528,8 @@ JuceAndroidDocumentImportService::request_import_document_selection(
 			return;
 		}
 
-		completion(platform_value_success(source_descriptor_from_url(urls[0])));
+		completion(platform_value_success(
+			document_import_source_descriptor_from_url(urls[0])));
 	});
 
 	return core::OperationResult::success();
@@ -670,7 +689,7 @@ JuceAndroidContentStagingService::stage_content(
 
 	return platform_value_success(
 		StagedContent{.staged_path	= target_path,
-					  .display_name = request.source.display_name,
+					  .display_name = std::move(input.display_name),
 					  .byte_count	= copy_result.value});
 }
 

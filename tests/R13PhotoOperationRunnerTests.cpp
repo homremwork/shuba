@@ -110,15 +110,28 @@ class BlockingContentStagingService final
 	: public shuba::platform::ContentStagingService {
 public:
 	explicit BlockingContentStagingService(
-		std::shared_ptr<BlockingPoint> point_value)
-		: point(std::move(point_value)) {}
+		std::shared_ptr<BlockingPoint> point_value,
+		std::size_t progress_event_count_value = 0U)
+		: point(std::move(point_value))
+		, progress_event_count(progress_event_count_value) {}
 
 	[[nodiscard]] shuba::platform::PlatformValueResult<
 		shuba::platform::StagedContent>
 	stage_content(const shuba::platform::ContentStagingRequest& request,
-				  const shuba::platform::PlatformOperationContext&,
-				  shuba::platform::ProgressSink&,
+				  const shuba::platform::PlatformOperationContext& context,
+				  shuba::platform::ProgressSink& progress,
 				  shuba::platform::CancellationToken& cancellation) override {
+		for (std::size_t index = 0U; index < progress_event_count; ++index) {
+			progress.publish_progress(shuba::platform::ProgressEvent{
+				.operation_id = context.operation_id,
+				.operation_type = context.operation_type,
+				.phase = "r13-progress-flood",
+				.message_id = shuba::platform::ProgressMessageId::Copying,
+				.current_units = static_cast<std::uint64_t>(index + 1U),
+				.total_units = static_cast<std::uint64_t>(progress_event_count),
+				.message = "R13 progress flood.",
+				.cancellable = true});
+		}
 		point->enter_and_wait(cancellation);
 		if (cancellation.cancellation_requested()) {
 			return shuba::platform::platform_value_user_cancelled<
@@ -139,6 +152,7 @@ public:
 
 private:
 	std::shared_ptr<BlockingPoint> point;
+	std::size_t progress_event_count{};
 };
 
 class TestWorkerServiceFactory final
@@ -147,9 +161,15 @@ public:
 	explicit TestWorkerServiceFactory(std::shared_ptr<BlockingPoint> point_value)
 		: point(std::move(point_value)) {}
 
+	TestWorkerServiceFactory(std::shared_ptr<BlockingPoint> point_value,
+						 std::size_t progress_event_count_value)
+		: point(std::move(point_value))
+		, progress_event_count(progress_event_count_value) {}
+
 	[[nodiscard]] std::unique_ptr<shuba::platform::ContentStagingService>
 	make_content_staging_service() const override {
-		return std::make_unique<BlockingContentStagingService>(point);
+		return std::make_unique<BlockingContentStagingService>(
+			point, progress_event_count);
 	}
 
 	[[nodiscard]]
@@ -171,6 +191,7 @@ public:
 
 private:
 	std::shared_ptr<BlockingPoint> point;
+	std::size_t progress_event_count{};
 };
 
 class ImmediateWorkerServiceFactory final
@@ -324,6 +345,61 @@ TEST_CASE("R13 runner keeps the JUCE message thread responsive and serializes jo
 	REQUIRE(result.has_value());
 	REQUIRE(result->succeeded());
 	REQUIRE(result->sources.front().display_name == "original.jpg");
+	REQUIRE_FALSE(gate.is_busy());
+}
+
+TEST_CASE("R13 runner coalesces a progress flood to the latest event",
+		  "[r13][photo-runner][progress][coalescing]") {
+	juce::ScopedJuceInitialiser_GUI juce_initialiser;
+	TemporaryDirectory temporary{"shuba-r13-runner-progress-flood"};
+	shuba::ui::CatalogSessionState session = make_session(temporary);
+	std::shared_ptr<BlockingPoint> point = std::make_shared<BlockingPoint>();
+	constexpr std::size_t progress_event_count = 10000U;
+	TestWorkerServiceFactory factory{point, progress_event_count};
+	shuba::core::OperationGate gate;
+	shuba::platform::ScriptedIdentifierSource identifiers;
+	shuba::platform::LinuxFakeContentStagingService staging;
+	TestFingerprintService fingerprinting;
+	std::atomic_uint32_t delivery_count{};
+	std::atomic_uint64_t latest_units{};
+	std::atomic_bool sentinel{};
+	std::atomic_bool completed{};
+	shuba::ui::AppShellPhotoOperationRunner runner{
+		shuba::ui::AppShellPhotoOperationRunner::Dependencies{
+			.operation_gate = gate,
+			.worker_service_factory = factory,
+			.progress = [&](std::uint64_t,
+							const shuba::platform::ProgressEvent& event) {
+				delivery_count.fetch_add(1U, std::memory_order_acq_rel);
+				latest_units.store(event.current_units.value_or(0U),
+								   std::memory_order_release);
+			},
+			.failure = {}}};
+
+	const shuba::ui::AppShellPhotoOperationRunner::Submission submission =
+		runner.submit_pending_staging(
+			shuba::ui::PhotoOperationJobType::PendingItemStaging,
+			make_request(session, identifiers, gate, staging, fingerprinting,
+						 "flood.jpg"),
+			[&](shuba::ui::AppShellPhotoOperationRunner::Result) {
+				completed.store(true, std::memory_order_release);
+			});
+	REQUIRE(submission.accepted);
+	point->wait_until_entered();
+	REQUIRE(juce::MessageManager::callAsync(
+		[&sentinel] { sentinel.store(true, std::memory_order_release); }));
+	pump_messages_until([&sentinel] {
+		return sentinel.load(std::memory_order_acquire);
+	});
+	REQUIRE_FALSE(completed.load(std::memory_order_acquire));
+	REQUIRE(delivery_count.load(std::memory_order_acquire) == 1U);
+	REQUIRE(latest_units.load(std::memory_order_acquire)
+			== progress_event_count);
+
+	point->release();
+	pump_messages_until([&completed] {
+		return completed.load(std::memory_order_acquire);
+	});
 	REQUIRE_FALSE(gate.is_busy());
 }
 

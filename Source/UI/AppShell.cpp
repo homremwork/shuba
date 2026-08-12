@@ -156,6 +156,11 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 			.select_more = [this] { select_root(RootDestination::More); }},
 		localization);
 	addAndMakeVisible(*chrome);
+	photo_operation_progress =
+		std::make_unique<PhotoOperationProgressComponent>([this] {
+			request_photo_operation_cancellation();
+		});
+	addChildComponent(*photo_operation_progress);
 	photo_operation_runner = std::make_unique<AppShellPhotoOperationRunner>(
 		AppShellPhotoOperationRunner::Dependencies{
 			.operation_gate = ui_operation_gate,
@@ -492,6 +497,12 @@ void AppShellComponent::resized() {
 		chrome->setBounds(getLocalBounds());
 		bounds = chrome->layout_shell(bounds);
 	}
+	if (photo_operation_progress != nullptr && photo_operation.active()) {
+		photo_operation_progress->setBounds(bounds.removeFromTop(82));
+		bounds.removeFromTop(6);
+	} else if (photo_operation_progress != nullptr) {
+		photo_operation_progress->setBounds(0, 0, 0, 0);
+	}
 	viewport.setBounds(bounds);
 	if (content) {
 		content->set_viewport_height_hint(bounds.getHeight());
@@ -725,6 +736,7 @@ void AppShellComponent::begin_photo_operation(PhotoOperationJobType job_type,
 	photo_operation.job_type = job_type;
 	photo_operation.operation_id.reset();
 	photo_operation.latest_progress.reset();
+	update_photo_operation_progress_surface();
 	refresh_all();
 }
 
@@ -733,6 +745,7 @@ void AppShellComponent::complete_photo_operation() {
 	photo_operation.job_type.reset();
 	photo_operation.operation_id.reset();
 	photo_operation.latest_progress.reset();
+	update_photo_operation_progress_surface();
 	refresh_all();
 }
 
@@ -746,22 +759,39 @@ void AppShellComponent::request_photo_operation_cancellation() {
 	photo_operation_runner->request_cancellation();
 	feedback.photo_message = localization.text(
 		localization::MessageId::PhotoOperationCancelling);
+	update_photo_operation_progress_surface();
 	refresh_all();
 }
 
 void AppShellComponent::apply_photo_operation_progress(
 	std::uint64_t generation, platform::ProgressEvent event) {
-	juce::Component::SafePointer<AppShellComponent> safe_this{this};
-	juce::MessageManager::callAsync(
-		[safe_this, generation, event = std::move(event)]() mutable {
-		if (safe_this == nullptr || safe_this->photo_operation.generation != generation
-			|| !safe_this->photo_operation.active()) {
-			return;
-		}
-		safe_this->photo_operation.operation_id = event.operation_id;
-		safe_this->photo_operation.latest_progress = std::move(event);
-		safe_this->refresh_all();
-	});
+	if (photo_operation.generation != generation || !photo_operation.active())
+		return;
+	photo_operation.operation_id = event.operation_id;
+	photo_operation.latest_progress = std::move(event);
+	update_photo_operation_progress_surface();
+}
+
+void AppShellComponent::update_photo_operation_progress_surface() {
+	if (photo_operation_progress == nullptr)
+		return;
+	const bool cancellation_available =
+		photo_operation.state == PhotoOperationState::Running
+		&& photo_operation.latest_progress.has_value()
+		&& photo_operation.latest_progress->cancellable;
+	const juce::String summary = photo_operation.latest_progress.has_value()
+		? juce_text(
+			  localization.progress_summary(*photo_operation.latest_progress))
+		: juce::String{};
+	photo_operation_progress->update_model(PhotoOperationProgressModel{
+		.heading = juce_text(localization.text(
+			localization::MessageId::PhotoOperationHeading)),
+		.summary = summary,
+		.cancel_label = juce_text(localization.text(
+			localization::MessageId::PhotoOperationCancel)),
+		.active = photo_operation.active(),
+		.cancellation_available = cancellation_available});
+	resized();
 }
 
 std::optional<juce::String> AppShellComponent::preview_failure_message(
@@ -936,31 +966,6 @@ void AppShellComponent::refresh_content() {
 			"Review technical diagnostics before retrying.",
 			86, warning_panel_colour(), true);
 	} else {
-		if (photo_operation.active()) {
-			content->add_label(
-				juce_text(localization.text(
-					localization::MessageId::PhotoOperationHeading)),
-				42, accent_colour().withAlpha(0.34f), true);
-			if (photo_operation.latest_progress.has_value()) {
-				content->add_label(
-					juce_text(localization.progress_summary(
-						*photo_operation.latest_progress)),
-					54, panel_colour(), true);
-			}
-			const bool cancellation_available =
-				photo_operation.state == PhotoOperationState::Running
-				&& photo_operation.latest_progress.has_value()
-				&& photo_operation.latest_progress->cancellable;
-			if (cancellation_available) {
-				juce::Button& cancel = content->add_button(
-					juce_text(localization.text(
-						localization::MessageId::PhotoOperationCancel)),
-					42);
-				cancel.onClick = [this] {
-					request_photo_operation_cancellation();
-				};
-			}
-		}
 		if (!feedback.edit_message.empty()) {
 			content->add_label(juce_text(feedback.edit_message), 42,
 							   accent_colour().withAlpha(0.34f), true);

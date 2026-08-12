@@ -202,6 +202,10 @@ public:
 			queued_job.reset();
 		}
 		lifetime_token->alive.store(false, std::memory_order_release);
+		{
+			const std::lock_guard<std::mutex> lock{progress_mutex};
+			latest_progress.reset();
+		}
 		cancellation.request_cancellation();
 		condition.notify_all();
 		if (worker.joinable())
@@ -278,8 +282,7 @@ private:
 		core::SystemClock clock;
 		WorkerProgressSink progress{
 			[this, generation = job.generation](const platform::ProgressEvent& event) {
-				if (progress_handler)
-					progress_handler(generation, event);
+				publish_progress(generation, event);
 			}};
 		std::unique_ptr<platform::ContentStagingService> staging =
 			worker_service_factory.make_content_staging_service();
@@ -372,6 +375,75 @@ private:
 			job.value);
 	}
 
+	struct PendingProgress final {
+		std::uint64_t generation{};
+		std::uint64_t revision{};
+		platform::ProgressEvent event;
+	};
+
+	void publish_progress(std::uint64_t generation,
+					  const platform::ProgressEvent& event) {
+		bool schedule_delivery{};
+		{
+			const std::lock_guard<std::mutex> lock{progress_mutex};
+			if (!lifetime_token->alive.load(std::memory_order_acquire))
+				return;
+			latest_progress = PendingProgress{.generation = generation,
+									  .revision = ++progress_revision,
+									  .event = event};
+			if (!progress_delivery_queued) {
+				progress_delivery_queued = true;
+				schedule_delivery = true;
+			}
+		}
+		if (schedule_delivery)
+			post_progress_delivery();
+	}
+
+	void post_progress_delivery() {
+		const std::weak_ptr<LifetimeToken> lifetime = lifetime_token;
+		Impl* const owner = this;
+		const bool posted = juce::MessageManager::callAsync([lifetime, owner] {
+			const std::shared_ptr<LifetimeToken> token = lifetime.lock();
+			if (token == nullptr
+				|| !token->alive.load(std::memory_order_acquire)) {
+				return;
+			}
+			owner->deliver_latest_progress();
+		});
+		if (posted)
+			return;
+
+		const std::lock_guard<std::mutex> lock{progress_mutex};
+		progress_delivery_queued = false;
+	}
+
+	void deliver_latest_progress() {
+		std::optional<PendingProgress> delivery;
+		{
+			const std::lock_guard<std::mutex> lock{progress_mutex};
+			delivery = latest_progress;
+		}
+
+		if (delivery.has_value() && progress_handler) {
+			progress_handler(delivery->generation, delivery->event);
+		}
+
+		bool reschedule{};
+		{
+			const std::lock_guard<std::mutex> lock{progress_mutex};
+			if (delivery.has_value() && latest_progress.has_value()
+				&& latest_progress->revision != delivery->revision) {
+				reschedule = true;
+			} else {
+				latest_progress.reset();
+				progress_delivery_queued = false;
+			}
+		}
+		if (reschedule)
+			post_progress_delivery();
+	}
+
 	void post_failure(std::string failure) {
 		const std::weak_ptr<LifetimeToken> lifetime = lifetime_token;
 		Failure handler = failure_handler;
@@ -422,12 +494,16 @@ private:
 	mutable std::mutex mutex;
 	std::condition_variable condition;
 	std::optional<Job> queued_job;
+	std::mutex progress_mutex;
+	std::optional<PendingProgress> latest_progress;
 	std::shared_ptr<LifetimeToken> lifetime_token{
 		std::make_shared<LifetimeToken>()};
 	std::thread worker;
 	std::uint64_t next_generation{};
+	std::uint64_t progress_revision{};
 	bool active_job{};
 	bool result_pending{};
+	bool progress_delivery_queued{};
 	bool stopping{};
 };
 

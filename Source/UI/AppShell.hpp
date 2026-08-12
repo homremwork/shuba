@@ -146,6 +146,7 @@ private:
 	void request_photo_operation_cancellation();
 	void apply_photo_operation_progress(
 		std::uint64_t generation, platform::ProgressEvent event);
+	void update_photo_operation_progress_surface();
 	[[nodiscard]] std::optional<juce::String> preview_failure_message(
 		const ImagePreviewRequestIdentity& identity) const;
 	void request_photo_display_async(core::StableIdentifier photo_id);
@@ -198,6 +199,7 @@ private:
 	std::unique_ptr<AppShellPhotoCoordinator> photo_coordinator;
 	std::unique_ptr<AppShellScreenRenderer> screen_renderer;
 	std::unique_ptr<AppShellChromeComponent> chrome;
+	std::unique_ptr<PhotoOperationProgressComponent> photo_operation_progress;
 	juce::Viewport viewport;
 	juce::TextEditor item_name_editor;
 	juce::TextEditor item_category_editor;

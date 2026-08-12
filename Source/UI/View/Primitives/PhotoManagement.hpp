@@ -15,6 +15,30 @@ class Localization;
 }
 
 namespace shuba::ui {
+struct PhotoOperationProgressModel final {
+	juce::String heading;
+	juce::String summary;
+	juce::String cancel_label;
+	bool active{};
+	bool cancellation_available{};
+};
+
+class PhotoOperationProgressComponent final : public juce::Component {
+public:
+	explicit PhotoOperationProgressComponent(
+		std::function<void()> cancel_handler);
+
+	void update_model(PhotoOperationProgressModel model);
+	void resized() override;
+	void paint(juce::Graphics& graphics) override;
+
+private:
+	PhotoOperationProgressModel model;
+	juce::Label heading_label;
+	juce::Label summary_label;
+	juce::TextButton cancel_button;
+};
+
 struct StagedPhotoCardEntry final {
 	PendingPhotoSource source;
 	juce::Image image;

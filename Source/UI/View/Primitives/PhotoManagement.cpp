@@ -70,6 +70,58 @@ constexpr std::uint64_t mebibyte{kibibyte * 1024U};
 }
 }	 // namespace
 
+PhotoOperationProgressComponent::PhotoOperationProgressComponent(
+	std::function<void()> cancel_handler) {
+	setOpaque(true);
+	heading_label.setJustificationType(juce::Justification::centredLeft);
+	heading_label.setColour(juce::Label::textColourId, text_colour());
+	heading_label.setFont(juce::FontOptions(16.5f, juce::Font::bold));
+	addAndMakeVisible(heading_label);
+
+	summary_label.setJustificationType(juce::Justification::centredLeft);
+	summary_label.setColour(juce::Label::textColourId, text_colour());
+	summary_label.setMinimumHorizontalScale(0.70f);
+	summary_label.setFont(juce::FontOptions(14.0f, juce::Font::plain));
+	addAndMakeVisible(summary_label);
+
+	style_text_button(cancel_button);
+	cancel_button.onClick = std::move(cancel_handler);
+	addAndMakeVisible(cancel_button);
+	setVisible(false);
+}
+
+void PhotoOperationProgressComponent::update_model(
+	PhotoOperationProgressModel model_value) {
+	model = std::move(model_value);
+	heading_label.setText(model.heading, juce::dontSendNotification);
+	summary_label.setText(model.summary, juce::dontSendNotification);
+	cancel_button.setButtonText(model.cancel_label);
+	cancel_button.setVisible(model.cancellation_available);
+	cancel_button.setEnabled(model.cancellation_available);
+	setVisible(model.active);
+	resized();
+	repaint();
+}
+
+void PhotoOperationProgressComponent::resized() {
+	juce::Rectangle<int> bounds = getLocalBounds().reduced(12, 8);
+	juce::Rectangle<int> heading = bounds.removeFromTop(28);
+	if (model.cancellation_available) {
+		cancel_button.setBounds(heading.removeFromRight(116).reduced(2));
+		heading.removeFromRight(6);
+	} else {
+		cancel_button.setBounds(0, 0, 0, 0);
+	}
+	heading_label.setBounds(heading);
+	summary_label.setBounds(bounds);
+}
+
+void PhotoOperationProgressComponent::paint(juce::Graphics& graphics) {
+	graphics.fillAll(background_colour());
+	draw_card_background(graphics, getLocalBounds(),
+					 accent_colour().withAlpha(0.34f), false);
+}
+
 class ManagedPhotoDeckSelectorComponent final : public juce::Component {
 public:
 	ManagedPhotoDeckSelectorComponent(
