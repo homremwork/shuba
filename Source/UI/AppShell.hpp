@@ -144,8 +144,8 @@ private:
 							   std::uint64_t generation);
 	void complete_photo_operation();
 	void request_photo_operation_cancellation();
-	void apply_photo_operation_progress(
-		std::uint64_t generation, platform::ProgressEvent event);
+	void apply_photo_operation_progress(std::uint64_t generation,
+										platform::ProgressEvent event);
 	void update_photo_operation_progress_surface();
 	[[nodiscard]] std::optional<juce::String> preview_failure_message(
 		const ImagePreviewRequestIdentity& identity) const;

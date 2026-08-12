@@ -73,6 +73,8 @@ public:
 		const StorageResultFields& fields) const;
 	[[nodiscard]] std::string item_storage_field(
 		std::string_view storage) const;
+	[[nodiscard]] std::string open_storage_action(
+		std::string_view storage) const;
 	[[nodiscard]] std::string parent_storage_field(
 		std::string_view storage) const;
 	[[nodiscard]] std::string missing_storage_label(

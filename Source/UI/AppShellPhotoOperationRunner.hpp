@@ -40,19 +40,20 @@ struct AppShellPhotoOperationState final {
 class PhotoOperationWorkerServiceFactory {
 public:
 	PhotoOperationWorkerServiceFactory() = default;
-	PhotoOperationWorkerServiceFactory(const PhotoOperationWorkerServiceFactory&) =
-		delete;
+	PhotoOperationWorkerServiceFactory(
+		const PhotoOperationWorkerServiceFactory&) = delete;
 	PhotoOperationWorkerServiceFactory& operator=(
 		const PhotoOperationWorkerServiceFactory&) = delete;
-	PhotoOperationWorkerServiceFactory(PhotoOperationWorkerServiceFactory&&)
-		noexcept = default;
+	PhotoOperationWorkerServiceFactory(
+		PhotoOperationWorkerServiceFactory&&) noexcept = default;
 	PhotoOperationWorkerServiceFactory& operator=(
 		PhotoOperationWorkerServiceFactory&&) noexcept = default;
-	virtual ~PhotoOperationWorkerServiceFactory() = default;
+	virtual ~PhotoOperationWorkerServiceFactory()	   = default;
 
 	[[nodiscard]] virtual std::unique_ptr<platform::ContentStagingService>
 	make_content_staging_service() const = 0;
-	[[nodiscard]] virtual std::unique_ptr<platform::SourceByteFingerprintService>
+	[[nodiscard]] virtual std::unique_ptr<
+		platform::SourceByteFingerprintService>
 	make_source_fingerprint_service() const = 0;
 	[[nodiscard]] virtual std::unique_ptr<platform::SourceImageDecodeService>
 	make_source_decode_service() const = 0;
@@ -62,12 +63,12 @@ public:
 
 class AppShellPhotoOperationRunner final {
 public:
-	using Result = std::variant<PendingPhotoStagingResult,
-							PhotoImportSessionResult,
-							ItemSaveWithPendingPhotosResult,
-							StorageSaveWithPendingPhotosResult>;
+	using Result =
+		std::variant<PendingPhotoStagingResult, PhotoImportSessionResult,
+					 ItemSaveWithPendingPhotosResult,
+					 StorageSaveWithPendingPhotosResult>;
 	using Completion = std::function<void(Result)>;
-	using Failure = std::function<void(std::string)>;
+	using Failure	 = std::function<void(std::string)>;
 	struct Submission final {
 		bool accepted{};
 		std::uint64_t generation{};
@@ -87,19 +88,21 @@ public:
 	AppShellPhotoOperationRunner(const AppShellPhotoOperationRunner&) = delete;
 	AppShellPhotoOperationRunner& operator=(
 		const AppShellPhotoOperationRunner&) = delete;
-	AppShellPhotoOperationRunner(AppShellPhotoOperationRunner&&) noexcept = delete;
-	AppShellPhotoOperationRunner& operator=(AppShellPhotoOperationRunner&&) noexcept =
+	AppShellPhotoOperationRunner(AppShellPhotoOperationRunner&&) noexcept =
 		delete;
+	AppShellPhotoOperationRunner& operator=(
+		AppShellPhotoOperationRunner&&) noexcept = delete;
 
 	[[nodiscard]] Submission submit_pending_staging(
-		PhotoOperationJobType job_type, const PendingPhotoStagingRequest& request,
-		Completion completion);
+		PhotoOperationJobType job_type,
+		const PendingPhotoStagingRequest& request, Completion completion);
 	[[nodiscard]] Submission submit_direct_import(
 		const PhotoImportSessionRequest& request, Completion completion);
 	[[nodiscard]] Submission submit_item_save(
 		const ItemSaveWithPendingPhotosRequest& request, Completion completion);
 	[[nodiscard]] Submission submit_storage_save(
-		const StorageSaveWithPendingPhotosRequest& request, Completion completion);
+		const StorageSaveWithPendingPhotosRequest& request,
+		Completion completion);
 	[[nodiscard]] bool active() const;
 	void request_cancellation();
 	void stop();
@@ -108,4 +111,4 @@ private:
 	class Impl;
 	std::unique_ptr<Impl> impl;
 };
-}  // namespace shuba::ui
+}	 // namespace shuba::ui

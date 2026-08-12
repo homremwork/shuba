@@ -23,16 +23,16 @@ namespace {
 	return contents.str();
 }
 
-[[nodiscard]] std::string function_body(
-	const std::string& source, std::string_view signature,
-	std::string_view following_signature) {
+[[nodiscard]] std::string function_body(const std::string& source,
+										std::string_view signature,
+										std::string_view following_signature) {
 	const std::size_t begin = source.find(signature);
 	REQUIRE(begin != std::string::npos);
 	const std::size_t end = source.find(following_signature, begin);
 	REQUIRE(end != std::string::npos);
 	return source.substr(begin, end - begin);
 }
-}  // namespace
+}	 // namespace
 
 TEST_CASE(
 	"B11 opaque descriptors keep Android document handles platform neutral",
@@ -99,8 +99,8 @@ TEST_CASE("B11 MIME filters map to JUCE FileChooser wildcard patterns",
 
 TEST_CASE("R13 Android photo picker completion performs shallow capture only",
 		  "[r13][platform][picker][static-contract]") {
-	const std::string source = read_source_file(
-		"Source/Platform/JuceAndroidServices.cpp");
+	const std::string source =
+		read_source_file("Source/Platform/JuceAndroidServices.cpp");
 	const std::string shallow_conversion = function_body(
 		source, "ContentSourceDescriptor shallow_source_descriptor_from_url(",
 		"DocumentDestinationDescriptor destination_descriptor_from_url(");
@@ -111,7 +111,8 @@ TEST_CASE("R13 Android photo picker completion performs shallow capture only",
 
 	const std::string picker = function_body(
 		source,
-		"core::OperationResult JuceAndroidPhotoSelectionService::request_photo_selection(",
+		"core::OperationResult "
+		"JuceAndroidPhotoSelectionService::request_photo_selection(",
 		"struct JuceAndroidDocumentImportService::ActiveChooser");
 	REQUIRE(picker.find("shallow_source_descriptor_from_url")
 			!= std::string::npos);
@@ -132,20 +133,22 @@ TEST_CASE("R13 progress application cannot rebuild the routed content tree",
 		  "[r13][ui][progress][static-contract]") {
 	const std::string source = read_source_file("Source/UI/AppShell.cpp");
 	const std::string progress_application = function_body(
-		source,
-		"void AppShellComponent::apply_photo_operation_progress(",
+		source, "void AppShellComponent::apply_photo_operation_progress(",
 		"void AppShellComponent::update_photo_operation_progress_surface()");
 	REQUIRE(progress_application.find("MessageManager::callAsync")
 			== std::string::npos);
 	REQUIRE(progress_application.find("refresh_all()") == std::string::npos);
-	REQUIRE(progress_application.find("refresh_content()") == std::string::npos);
-	REQUIRE(progress_application.find(
-			"update_photo_operation_progress_surface()") != std::string::npos);
+	REQUIRE(progress_application.find("refresh_content()")
+			== std::string::npos);
+	REQUIRE(
+		progress_application.find("update_photo_operation_progress_surface()")
+		!= std::string::npos);
 
 	const std::string stable_surface = function_body(
 		source,
 		"void AppShellComponent::update_photo_operation_progress_surface()",
-		"std::optional<juce::String> AppShellComponent::preview_failure_message(");
+		"std::optional<juce::String> "
+		"AppShellComponent::preview_failure_message(");
 	REQUIRE(stable_surface.find("photo_operation_progress->update_model")
 			!= std::string::npos);
 	REQUIRE(stable_surface.find("refresh_all()") == std::string::npos);

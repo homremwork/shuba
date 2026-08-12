@@ -137,7 +137,8 @@ constexpr std::size_t copy_buffer_size = 32768U;
 	if (display_name.empty())
 		display_name = "selected-photo";
 	return make_opaque_content_source(url.toString(true).toStdString(),
-									  std::move(display_name), std::nullopt, true);
+									  std::move(display_name), std::nullopt,
+									  true);
 }
 
 [[nodiscard]] DocumentDestinationDescriptor destination_descriptor_from_url(
@@ -179,7 +180,8 @@ document_import_source_descriptor_from_url(const juce::URL& url) {
 	}
 
 	return make_opaque_content_source(url.toString(true).toStdString(),
-									  std::move(display_name), byte_count, true);
+									  std::move(display_name), byte_count,
+									  true);
 }
 
 [[nodiscard]] PlatformValueResult<std::uint64_t> copy_stream(
@@ -267,7 +269,7 @@ struct OpenInputResult final {
 	const ContentSourceDescriptor& source) {
 	std::unique_ptr<juce::InputStream> stream;
 	std::optional<std::uint64_t> total_units = source.byte_count;
-	std::string display_name = source.display_name;
+	std::string display_name				 = source.display_name;
 
 	if (source.kind == PlatformContentHandleKind::LocalFile) {
 		stream = file_from_path(source.local_path).createInputStream();
@@ -306,7 +308,7 @@ struct OpenInputResult final {
 
 	return OpenInputResult{.status = platform_value_success(std::uint64_t{0}),
 						   .stream = std::move(stream),
-						   .total_units = total_units,
+						   .total_units	 = total_units,
 						   .display_name = std::move(display_name)};
 }
 

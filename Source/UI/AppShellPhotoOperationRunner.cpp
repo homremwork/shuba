@@ -6,8 +6,8 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <atomic>
-#include <condition_variable>
 #include <concepts>
+#include <condition_variable>
 #include <filesystem>
 #include <mutex>
 #include <optional>
@@ -107,7 +107,7 @@ struct StorageSaveJob final {
 struct LifetimeToken final {
 	std::atomic_bool alive{true};
 };
-}  // namespace
+}	 // namespace
 
 class AppShellPhotoOperationRunner::Impl final {
 public:
@@ -121,61 +121,69 @@ public:
 	~Impl() { stop(); }
 
 	[[nodiscard]] Submission submit_pending_staging(
-		PhotoOperationJobType job_type, const PendingPhotoStagingRequest& request,
-		Completion completion) {
+		PhotoOperationJobType job_type,
+		const PendingPhotoStagingRequest& request, Completion completion) {
 		if (job_type != PhotoOperationJobType::PendingItemStaging
 			&& job_type != PhotoOperationJobType::PendingStorageStaging) {
 			return {};
 		}
-		return submit(Job{.type = job_type,
-						  .value = PendingStagingJob{
-							  .type = job_type,
-							  .current_session = request.current_session,
-							  .sources = request.sources,
-							  .existing_pending_sources = request.existing_pending_sources,
-							  .existing_owner = request.existing_owner},
-						  .completion = std::move(completion)});
+		return submit(Job{
+			.type = job_type,
+			.value =
+				PendingStagingJob{.type			   = job_type,
+								  .current_session = request.current_session,
+								  .sources		   = request.sources,
+								  .existing_pending_sources =
+									  request.existing_pending_sources,
+								  .existing_owner = request.existing_owner},
+			.completion = std::move(completion)});
 	}
 
 	[[nodiscard]] Submission submit_direct_import(
 		const PhotoImportSessionRequest& request, Completion completion) {
-		return submit(Job{.type = PhotoOperationJobType::DirectImport,
-						  .value = DirectImportJob{
-							  .current_session = request.current_session,
-							  .owner = request.owner,
-							  .sources = request.sources,
-							  .active_catalog_root_override =
-								  request.active_catalog_root_override,
-							  .create_previous_copy = request.create_previous_copy},
-						  .completion = std::move(completion)});
+		return submit(Job{
+			.type  = PhotoOperationJobType::DirectImport,
+			.value = DirectImportJob{.current_session = request.current_session,
+									 .owner			  = request.owner,
+									 .sources		  = request.sources,
+									 .active_catalog_root_override =
+										 request.active_catalog_root_override,
+									 .create_previous_copy =
+										 request.create_previous_copy},
+			.completion = std::move(completion)});
 	}
 
 	[[nodiscard]] Submission submit_item_save(
-		const ItemSaveWithPendingPhotosRequest& request, Completion completion) {
-		return submit(Job{.type = PhotoOperationJobType::ItemSaveWithPendingPhotos,
-						  .value = ItemSaveJob{
-							  .current_session = request.current_session,
-							  .draft = request.draft,
-							  .pending_sources = request.pending_sources,
-							  .main_pending_source_index =
-								  request.main_pending_source_index,
-							  .active_catalog_root_override =
-								  request.active_catalog_root_override,
-							  .create_previous_copy = request.create_previous_copy},
-						  .completion = std::move(completion)});
+		const ItemSaveWithPendingPhotosRequest& request,
+		Completion completion) {
+		return submit(
+			Job{.type  = PhotoOperationJobType::ItemSaveWithPendingPhotos,
+				.value = ItemSaveJob{.current_session = request.current_session,
+									 .draft			  = request.draft,
+									 .pending_sources = request.pending_sources,
+									 .main_pending_source_index =
+										 request.main_pending_source_index,
+									 .active_catalog_root_override =
+										 request.active_catalog_root_override,
+									 .create_previous_copy =
+										 request.create_previous_copy},
+				.completion = std::move(completion)});
 	}
 
 	[[nodiscard]] Submission submit_storage_save(
-		const StorageSaveWithPendingPhotosRequest& request, Completion completion) {
+		const StorageSaveWithPendingPhotosRequest& request,
+		Completion completion) {
 		return submit(Job{
-			.type = PhotoOperationJobType::StorageSaveWithPendingPhotos,
-			.value = StorageSaveJob{
-				.current_session = request.current_session,
-				.draft = request.draft,
-				.pending_sources = request.pending_sources,
-				.main_pending_source_index = request.main_pending_source_index,
-				.active_catalog_root_override = request.active_catalog_root_override,
-				.create_previous_copy = request.create_previous_copy},
+			.type  = PhotoOperationJobType::StorageSaveWithPendingPhotos,
+			.value = StorageSaveJob{.current_session = request.current_session,
+									.draft			 = request.draft,
+									.pending_sources = request.pending_sources,
+									.main_pending_source_index =
+										request.main_pending_source_index,
+									.active_catalog_root_override =
+										request.active_catalog_root_override,
+									.create_previous_copy =
+										request.create_previous_copy},
 			.completion = std::move(completion)});
 	}
 
@@ -184,9 +192,7 @@ public:
 		return active_job || queued_job.has_value() || result_pending;
 	}
 
-	void request_cancellation() {
-		cancellation.request_cancellation();
-	}
+	void request_cancellation() { cancellation.request_cancellation(); }
 
 	void completion_applied() {
 		const std::lock_guard<std::mutex> lock{mutex};
@@ -225,11 +231,12 @@ private:
 	[[nodiscard]] Submission submit(Job job) {
 		{
 			const std::lock_guard<std::mutex> lock{mutex};
-			if (stopping || active_job || queued_job.has_value() || result_pending)
+			if (stopping || active_job || queued_job.has_value()
+				|| result_pending)
 				return {};
-			job.generation = ++next_generation;
+			job.generation				   = ++next_generation;
 			const std::uint64_t generation = job.generation;
-			queued_job = std::move(job);
+			queued_job					   = std::move(job);
 			condition.notify_one();
 			return Submission{.accepted = true, .generation = generation};
 		}
@@ -280,10 +287,10 @@ private:
 	[[nodiscard]] Result execute(Job job) {
 		WorkerIdentifierSource identifiers;
 		core::SystemClock clock;
-		WorkerProgressSink progress{
-			[this, generation = job.generation](const platform::ProgressEvent& event) {
-				publish_progress(generation, event);
-			}};
+		WorkerProgressSink progress{[this, generation = job.generation](
+										const platform::ProgressEvent& event) {
+			publish_progress(generation, event);
+		}};
 		std::unique_ptr<platform::ContentStagingService> staging =
 			worker_service_factory.make_content_staging_service();
 		std::unique_ptr<platform::SourceByteFingerprintService> fingerprinting =
@@ -292,86 +299,90 @@ private:
 			worker_service_factory.make_source_decode_service();
 		std::unique_ptr<platform::InternalPhotoCodec> codec =
 			worker_service_factory.make_internal_photo_codec();
-		if (staging == nullptr || fingerprinting == nullptr || decoder == nullptr
-			|| codec == nullptr) {
+		if (staging == nullptr || fingerprinting == nullptr
+			|| decoder == nullptr || codec == nullptr) {
 			throw std::runtime_error{
-				"Photo operation worker service factory returned a null service."};
+				"Photo operation worker service factory returned a null "
+				"service."};
 		}
 
 		return std::visit(
 			[this, &identifiers, &clock, &progress, &staging, &fingerprinting,
 			 &decoder, &codec](const auto& concrete_job) -> Result {
-				using JobType = std::decay_t<decltype(concrete_job)>;
-				if constexpr (std::same_as<JobType, PendingStagingJob>) {
-					return stage_pending_photos_for_session(
-						PendingPhotoStagingRequest{
-							.current_session = concrete_job.current_session,
-							.identifiers = identifiers,
-							.operation_gate = operation_gate,
-							.staging_service = *staging,
-							.fingerprint_service = *fingerprinting,
-							.sources = concrete_job.sources,
-							.existing_pending_sources =
-								concrete_job.existing_pending_sources,
-							.existing_owner = concrete_job.existing_owner},
-						progress, cancellation);
-				} else if constexpr (std::same_as<JobType, DirectImportJob>) {
-					return import_photos_into_session(
-						PhotoImportSessionRequest{
-							.current_session = concrete_job.current_session,
-							.identifiers = identifiers,
-							.clock = clock,
-							.operation_gate = operation_gate,
-							.staging_service = *staging,
-							.fingerprint_service = *fingerprinting,
-							.decode_service = *decoder,
-							.photo_codec = *codec,
-							.owner = concrete_job.owner,
-							.sources = concrete_job.sources,
-							.active_catalog_root_override =
-								concrete_job.active_catalog_root_override,
-							.create_previous_copy = concrete_job.create_previous_copy},
-						progress, cancellation);
-				} else if constexpr (std::same_as<JobType, ItemSaveJob>) {
-					return save_item_draft_and_import_pending_photos(
-						ItemSaveWithPendingPhotosRequest{
-							.current_session = concrete_job.current_session,
-							.identifiers = identifiers,
-							.clock = clock,
-							.operation_gate = operation_gate,
-							.staging_service = *staging,
-							.fingerprint_service = *fingerprinting,
-							.decode_service = *decoder,
-							.photo_codec = *codec,
-							.draft = concrete_job.draft,
-							.pending_sources = concrete_job.pending_sources,
-							.main_pending_source_index =
-								concrete_job.main_pending_source_index,
-							.active_catalog_root_override =
-								concrete_job.active_catalog_root_override,
-							.create_previous_copy = concrete_job.create_previous_copy},
-						progress, cancellation);
-				} else {
-					return save_storage_draft_and_import_pending_photos(
-						StorageSaveWithPendingPhotosRequest{
-							.current_session = concrete_job.current_session,
-							.identifiers = identifiers,
-							.clock = clock,
-							.operation_gate = operation_gate,
-							.staging_service = *staging,
-							.fingerprint_service = *fingerprinting,
-							.decode_service = *decoder,
-							.photo_codec = *codec,
-							.draft = concrete_job.draft,
-							.pending_sources = concrete_job.pending_sources,
-							.main_pending_source_index =
-								concrete_job.main_pending_source_index,
-							.active_catalog_root_override =
-								concrete_job.active_catalog_root_override,
-							.create_previous_copy = concrete_job.create_previous_copy},
-						progress, cancellation);
-				}
-			},
+			using JobType = std::decay_t<decltype(concrete_job)>;
+			if constexpr (std::same_as<JobType, PendingStagingJob>) {
+				return stage_pending_photos_for_session(
+					PendingPhotoStagingRequest{
+						.current_session	 = concrete_job.current_session,
+						.identifiers		 = identifiers,
+						.operation_gate		 = operation_gate,
+						.staging_service	 = *staging,
+						.fingerprint_service = *fingerprinting,
+						.sources			 = concrete_job.sources,
+						.existing_pending_sources =
+							concrete_job.existing_pending_sources,
+						.existing_owner = concrete_job.existing_owner},
+					progress, cancellation);
+			} else if constexpr (std::same_as<JobType, DirectImportJob>) {
+				return import_photos_into_session(
+					PhotoImportSessionRequest{
+						.current_session	 = concrete_job.current_session,
+						.identifiers		 = identifiers,
+						.clock				 = clock,
+						.operation_gate		 = operation_gate,
+						.staging_service	 = *staging,
+						.fingerprint_service = *fingerprinting,
+						.decode_service		 = *decoder,
+						.photo_codec		 = *codec,
+						.owner				 = concrete_job.owner,
+						.sources			 = concrete_job.sources,
+						.active_catalog_root_override =
+							concrete_job.active_catalog_root_override,
+						.create_previous_copy =
+							concrete_job.create_previous_copy},
+					progress, cancellation);
+			} else if constexpr (std::same_as<JobType, ItemSaveJob>) {
+				return save_item_draft_and_import_pending_photos(
+					ItemSaveWithPendingPhotosRequest{
+						.current_session	 = concrete_job.current_session,
+						.identifiers		 = identifiers,
+						.clock				 = clock,
+						.operation_gate		 = operation_gate,
+						.staging_service	 = *staging,
+						.fingerprint_service = *fingerprinting,
+						.decode_service		 = *decoder,
+						.photo_codec		 = *codec,
+						.draft				 = concrete_job.draft,
+						.pending_sources	 = concrete_job.pending_sources,
+						.main_pending_source_index =
+							concrete_job.main_pending_source_index,
+						.active_catalog_root_override =
+							concrete_job.active_catalog_root_override,
+						.create_previous_copy =
+							concrete_job.create_previous_copy},
+					progress, cancellation);
+			} else {
+				return save_storage_draft_and_import_pending_photos(
+					StorageSaveWithPendingPhotosRequest{
+						.current_session	 = concrete_job.current_session,
+						.identifiers		 = identifiers,
+						.clock				 = clock,
+						.operation_gate		 = operation_gate,
+						.staging_service	 = *staging,
+						.fingerprint_service = *fingerprinting,
+						.decode_service		 = *decoder,
+						.photo_codec		 = *codec,
+						.draft				 = concrete_job.draft,
+						.pending_sources	 = concrete_job.pending_sources,
+						.main_pending_source_index =
+							concrete_job.main_pending_source_index,
+						.active_catalog_root_override =
+							concrete_job.active_catalog_root_override,
+						.create_previous_copy =
+							concrete_job.create_previous_copy},
+					progress, cancellation);
+			}
+		},
 			job.value);
 	}
 
@@ -382,18 +393,18 @@ private:
 	};
 
 	void publish_progress(std::uint64_t generation,
-					  const platform::ProgressEvent& event) {
+						  const platform::ProgressEvent& event) {
 		bool schedule_delivery{};
 		{
 			const std::lock_guard<std::mutex> lock{progress_mutex};
 			if (!lifetime_token->alive.load(std::memory_order_acquire))
 				return;
 			latest_progress = PendingProgress{.generation = generation,
-									  .revision = ++progress_revision,
-									  .event = event};
+											  .revision	  = ++progress_revision,
+											  .event	  = event};
 			if (!progress_delivery_queued) {
 				progress_delivery_queued = true;
-				schedule_delivery = true;
+				schedule_delivery		 = true;
 			}
 		}
 		if (schedule_delivery)
@@ -402,7 +413,7 @@ private:
 
 	void post_progress_delivery() {
 		const std::weak_ptr<LifetimeToken> lifetime = lifetime_token;
-		Impl* const owner = this;
+		Impl* const owner							= this;
 		const bool posted = juce::MessageManager::callAsync([lifetime, owner] {
 			const std::shared_ptr<LifetimeToken> token = lifetime.lock();
 			if (token == nullptr
@@ -425,9 +436,8 @@ private:
 			delivery = latest_progress;
 		}
 
-		if (delivery.has_value() && progress_handler) {
+		if (delivery.has_value() && progress_handler)
 			progress_handler(delivery->generation, delivery->event);
-		}
 
 		bool reschedule{};
 		{
@@ -446,7 +456,7 @@ private:
 
 	void post_failure(std::string failure) {
 		const std::weak_ptr<LifetimeToken> lifetime = lifetime_token;
-		Failure handler = failure_handler;
+		Failure handler								= failure_handler;
 		{
 			const std::lock_guard<std::mutex> lock{mutex};
 			result_pending = true;
@@ -455,32 +465,32 @@ private:
 		const bool posted = juce::MessageManager::callAsync(
 			[lifetime, owner, handler = std::move(handler),
 			 failure = std::move(failure)]() mutable {
-				const std::shared_ptr<LifetimeToken> token = lifetime.lock();
-				if (token == nullptr
-					|| !token->alive.load(std::memory_order_acquire))
-					return;
-				if (handler)
-					handler(std::move(failure));
-				owner->completion_applied();
-			});
+			const std::shared_ptr<LifetimeToken> token = lifetime.lock();
+			if (token == nullptr
+				|| !token->alive.load(std::memory_order_acquire))
+				return;
+			if (handler)
+				handler(std::move(failure));
+			owner->completion_applied();
+		});
 		if (!posted)
 			completion_applied();
 	}
 
 	void post_completion(Completion completion, Result result) {
 		const std::weak_ptr<LifetimeToken> lifetime = lifetime_token;
-		Impl* const owner = this;
+		Impl* const owner							= this;
 		const bool posted = juce::MessageManager::callAsync(
 			[lifetime, owner, completion = std::move(completion),
 			 result = std::move(result)]() mutable {
-				const std::shared_ptr<LifetimeToken> token = lifetime.lock();
-				if (token == nullptr
-					|| !token->alive.load(std::memory_order_acquire))
-					return;
-				if (completion)
-					completion(std::move(result));
-				owner->completion_applied();
-			});
+			const std::shared_ptr<LifetimeToken> token = lifetime.lock();
+			if (token == nullptr
+				|| !token->alive.load(std::memory_order_acquire))
+				return;
+			if (completion)
+				completion(std::move(result));
+			owner->completion_applied();
+		});
 		if (!posted)
 			completion_applied();
 	}
@@ -507,7 +517,8 @@ private:
 	bool stopping{};
 };
 
-AppShellPhotoOperationRunner::AppShellPhotoOperationRunner(Dependencies dependencies)
+AppShellPhotoOperationRunner::AppShellPhotoOperationRunner(
+	Dependencies dependencies)
 	: impl(std::make_unique<Impl>(std::move(dependencies))) {}
 
 AppShellPhotoOperationRunner::~AppShellPhotoOperationRunner() = default;
@@ -516,7 +527,8 @@ AppShellPhotoOperationRunner::Submission
 AppShellPhotoOperationRunner::submit_pending_staging(
 	PhotoOperationJobType job_type, const PendingPhotoStagingRequest& request,
 	Completion completion) {
-	return impl->submit_pending_staging(job_type, request, std::move(completion));
+	return impl->submit_pending_staging(job_type, request,
+										std::move(completion));
 }
 
 AppShellPhotoOperationRunner::Submission
@@ -537,11 +549,15 @@ AppShellPhotoOperationRunner::submit_storage_save(
 	return impl->submit_storage_save(request, std::move(completion));
 }
 
-bool AppShellPhotoOperationRunner::active() const { return impl->active(); }
+bool AppShellPhotoOperationRunner::active() const {
+	return impl->active();
+}
 
 void AppShellPhotoOperationRunner::request_cancellation() {
 	impl->request_cancellation();
 }
 
-void AppShellPhotoOperationRunner::stop() { impl->stop(); }
-}  // namespace shuba::ui
+void AppShellPhotoOperationRunner::stop() {
+	impl->stop();
+}
+}	 // namespace shuba::ui

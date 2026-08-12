@@ -664,12 +664,12 @@ void AppShellScreenRenderer::add_photo_management_deck(
 			owner.has_value() && entry.source.ready_for_import();
 	}
 
-	ManagedPhotoDeckModel model{.current_entries = std::move(current_entries),
-								.staged_entries	 = std::move(staged_entries),
-								.staged_selected = staged_selected,
-								.selected_index	 = selected_index,
-								.mutations_enabled =
-									!photo_operation_state.active()};
+	ManagedPhotoDeckModel model{
+		.current_entries   = std::move(current_entries),
+		.staged_entries	   = std::move(staged_entries),
+		.staged_selected   = staged_selected,
+		.selected_index	   = selected_index,
+		.mutations_enabled = !photo_operation_state.active()};
 	ManagedPhotoDeckHandlers handlers{
 		.select_current =
 			[this, &deck_state](std::size_t index) {

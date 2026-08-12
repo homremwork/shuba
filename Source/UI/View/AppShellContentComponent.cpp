@@ -189,9 +189,9 @@ TagRowEditorComponent& AppShellContentComponent::add_tag_editor_row(
 	std::function<void(std::size_t, domain::TagRow)> change_handler,
 	std::function<void(std::size_t)> remove_handler, int height, bool enabled) {
 	std::unique_ptr<TagRowEditorComponent> row =
-		std::make_unique<TagRowEditorComponent>(row_index, tag, localization,
-												std::move(change_handler),
-												std::move(remove_handler), enabled);
+		std::make_unique<TagRowEditorComponent>(
+			row_index, tag, localization, std::move(change_handler),
+			std::move(remove_handler), enabled);
 	TagRowEditorComponent& reference = *row;
 	add_row(std::move(row), height);
 	return reference;

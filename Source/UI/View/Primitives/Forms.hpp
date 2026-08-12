@@ -114,7 +114,8 @@ public:
 		std::size_t row_index_value, const domain::TagRow& tag_value,
 		localization::Localization& localization_value,
 		std::function<void(std::size_t, domain::TagRow)> change_handler,
-		std::function<void(std::size_t)> remove_handler, bool enabled_value = true);
+		std::function<void(std::size_t)> remove_handler,
+		bool enabled_value = true);
 
 	void resized() override;
 	void paint(juce::Graphics& graphics) override;

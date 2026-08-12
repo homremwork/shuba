@@ -8,14 +8,17 @@ namespace shuba::ui {
 struct FullscreenSafeAreaInsets final {
 	int top{};
 	int left{};
+	int bottom{};
 	int right{};
 };
 
 [[nodiscard]] inline FullscreenSafeAreaInsets make_fullscreen_safe_area_insets(
 	const juce::BorderSize<int>& safe_area) noexcept {
-	return FullscreenSafeAreaInsets{.top   = std::max(0, safe_area.getTop()),
-									.left  = std::max(0, safe_area.getLeft()),
-									.right = std::max(0, safe_area.getRight())};
+	return FullscreenSafeAreaInsets{
+		.top	= std::max(0, safe_area.getTop()),
+		.left	= std::max(0, safe_area.getLeft()),
+		.bottom = std::max(0, safe_area.getBottom()),
+		.right	= std::max(0, safe_area.getRight())};
 }
 
 [[nodiscard]] inline juce::Rectangle<int> apply_fullscreen_safe_area(
@@ -30,11 +33,14 @@ struct FullscreenSafeAreaInsets final {
 		std::min(std::max(0, insets.right), std::max(0, width_after_left - 1));
 	const int clamped_top =
 		std::min(std::max(0, insets.top), std::max(0, bounds.getHeight() - 1));
+	const int height_after_top = std::max(1, bounds.getHeight() - clamped_top);
+	const int clamped_bottom =
+		std::min(std::max(0, insets.bottom), std::max(0, height_after_top - 1));
 
 	return juce::Rectangle<int>{bounds.getX() + clamped_left,
 								bounds.getY() + clamped_top,
 								std::max(1, width_after_left - clamped_right),
-								std::max(1, bounds.getHeight() - clamped_top)};
+								std::max(1, height_after_top - clamped_bottom)};
 }
 
 [[nodiscard]] inline juce::Rectangle<int> fullscreen_safe_content_bounds(

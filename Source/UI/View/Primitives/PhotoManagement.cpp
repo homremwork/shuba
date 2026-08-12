@@ -104,7 +104,7 @@ void PhotoOperationProgressComponent::update_model(
 }
 
 void PhotoOperationProgressComponent::resized() {
-	juce::Rectangle<int> bounds = getLocalBounds().reduced(12, 8);
+	juce::Rectangle<int> bounds	 = getLocalBounds().reduced(12, 8);
 	juce::Rectangle<int> heading = bounds.removeFromTop(28);
 	if (model.cancellation_available) {
 		cancel_button.setBounds(heading.removeFromRight(116).reduced(2));
@@ -119,7 +119,7 @@ void PhotoOperationProgressComponent::resized() {
 void PhotoOperationProgressComponent::paint(juce::Graphics& graphics) {
 	graphics.fillAll(background_colour());
 	draw_card_background(graphics, getLocalBounds(),
-					 accent_colour().withAlpha(0.34f), false);
+						 accent_colour().withAlpha(0.34f), false);
 }
 
 class ManagedPhotoDeckSelectorComponent final : public juce::Component {
@@ -426,7 +426,7 @@ void ManagedPhotoDeckComponent::refresh_button_state() {
 							&& static_cast<bool>(handlers.clear_staged)
 							&& model.mutations_enabled);
 	add_button.setEnabled(model.mutations_enabled
-						&& static_cast<bool>(handlers.add_staged));
+						  && static_cast<bool>(handlers.add_staged));
 
 	const std::size_t total_count =
 		model.current_entries.size() + model.staged_entries.size();
@@ -457,8 +457,8 @@ void ManagedPhotoDeckComponent::refresh_button_state() {
 		delete_button.setEnabled(
 			model.mutations_enabled
 			&& (current->delete_confirmation_requested
-				? static_cast<bool>(handlers.confirm_delete_current)
-				: static_cast<bool>(handlers.request_delete_current)));
+					? static_cast<bool>(handlers.confirm_delete_current)
+					: static_cast<bool>(handlers.request_delete_current)));
 	} else {
 		if (staged != nullptr && staged->can_set_main_after_save) {
 			set_main_button.setButtonText(juce_text(localization.text(
@@ -473,9 +473,9 @@ void ManagedPhotoDeckComponent::refresh_button_state() {
 		}
 		delete_button.setEnabled(false);
 	}
-	remove_staged_button.setEnabled(
-		staged != nullptr && static_cast<bool>(handlers.remove_staged)
-		&& model.mutations_enabled);
+	remove_staged_button.setEnabled(staged != nullptr
+									&& static_cast<bool>(handlers.remove_staged)
+									&& model.mutations_enabled);
 	cancel_delete_button.setEnabled(model.mutations_enabled);
 }
 

@@ -337,7 +337,7 @@ void AppShellScreenRenderer::build_add_content() {
 		70, panel_colour(), true);
 	juce::Button& item = content->add_button(
 		localization.text(localization::MessageId::TitleAddItem), 52);
-	item.onClick		  = [this] { open_new_item_form(std::nullopt); };
+	item.onClick = [this] { open_new_item_form(std::nullopt); };
 	item.setEnabled(mutation_allowed);
 	juce::Button& storage = content->add_button(
 		localization.text(localization::MessageId::TitleAddStorage), 52);
@@ -346,7 +346,7 @@ void AppShellScreenRenderer::build_add_content() {
 }
 
 void AppShellScreenRenderer::build_backup_recovery_content() {
-	const bool mutation_allowed = !photo_operation_state.active();
+	const bool mutation_allowed			   = !photo_operation_state.active();
 	const CatalogRecoveryUiSummary summary = make_recovery_ui_summary(session);
 	content->add_label(juce_text(recovery_summary(summary, localization)), 86,
 					   summary.fatal() || summary.degraded()
@@ -435,7 +435,7 @@ void AppShellScreenRenderer::build_backup_recovery_content() {
 				: localization.text(localization::MessageId::
 										ConfirmValidatedBackupReplacement),
 			48);
-		confirm.onClick		= [this] { confirm_staged_backup_import(); };
+		confirm.onClick = [this] { confirm_staged_backup_import(); };
 		confirm.setEnabled(mutation_allowed);
 		juce::Button& clear = content->add_button(
 			localization.text(localization::MessageId::CancelStagedImport), 42);

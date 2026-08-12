@@ -588,6 +588,12 @@ TEST_CASE("B28 formats complete count and progress messages in both languages",
 			== "Черновые фильтры: Категории: Обувь");
 	REQUIRE(english.item_storage_field("Shelf A") == "Storage: Shelf A");
 	REQUIRE(russian.item_storage_field("Полка А") == "Хранилище: Полка А");
+	REQUIRE(english.open_storage_action("Shelf") == "Open storage: Shelf");
+	REQUIRE(russian.open_storage_action("Полка") == "Открыть хранилище: Полка");
+	REQUIRE(english.open_storage_action("Shelf").find("{storage}")
+			== std::string::npos);
+	REQUIRE(russian.open_storage_action("Полка").find("{storage}")
+			== std::string::npos);
 	REQUIRE(english.parent_storage_field("Home") == "Parent storage: Home");
 	REQUIRE(russian.parent_storage_field("Дом")
 			== "Родительское хранилище: Дом");

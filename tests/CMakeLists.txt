@@ -29,6 +29,7 @@ add_executable(shuba_headless_tests
 	B28LocalizationFacadeTests.cpp
 	B29PhotoCoordinatorLifetimeTests.cpp
 	R13PhotoOperationRunnerTests.cpp
+	PostR14UiFeedbackCorrectionTests.cpp
 	C30LocalizationPresentationLayoutTests.cpp)
 
 target_compile_features(shuba_headless_tests PRIVATE cxx_std_23)

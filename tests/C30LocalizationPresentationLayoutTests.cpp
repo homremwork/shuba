@@ -35,31 +35,30 @@ TEST_CASE("R13 photo operation progress surface updates without reconstruction",
 		  "[r13][ui][progress][stable-surface]") {
 	juce::ScopedJuceInitialiser_GUI juce_initialiser;
 	std::atomic_uint32_t cancellation_count{};
-	shuba::ui::PhotoOperationProgressComponent progress{[&] {
-		cancellation_count.fetch_add(1U, std::memory_order_acq_rel);
-	}};
+	shuba::ui::PhotoOperationProgressComponent progress{
+		[&] { cancellation_count.fetch_add(1U, std::memory_order_acq_rel); }};
 	progress.setBounds(0, 0, 448, 82);
 	progress.update_model(shuba::ui::PhotoOperationProgressModel{
-		.heading = "Storing photos",
-		.summary = "Copying content - 1 / 10000",
-		.cancel_label = "Cancel",
-		.active = true,
+		.heading				= "Storing photos",
+		.summary				= "Copying content - 1 / 10000",
+		.cancel_label			= "Cancel",
+		.active					= true,
 		.cancellation_available = true});
 	REQUIRE(progress.isVisible());
 	REQUIRE(progress.getNumChildComponents() == 3);
 	juce::Component* const first_heading = progress.getChildComponent(0);
 	juce::Component* const first_summary = progress.getChildComponent(1);
-	juce::Component* const first_cancel = progress.getChildComponent(2);
+	juce::Component* const first_cancel	 = progress.getChildComponent(2);
 	REQUIRE(first_cancel->isVisible());
 
 	for (std::size_t index = 0U; index < 10000U; ++index) {
 		progress.update_model(shuba::ui::PhotoOperationProgressModel{
-			.heading = "Storing photos",
-			.summary = "Copying content - "
-					   + juce::String(static_cast<int>(index + 1U))
-					   + " / 10000",
+			.heading	  = "Storing photos",
+			.summary	  = "Copying content - "
+							+ juce::String(static_cast<int>(index + 1U))
+							+ " / 10000",
 			.cancel_label = "Cancel",
-			.active = true,
+			.active		  = true,
 			.cancellation_available = true});
 	}
 	REQUIRE(progress.getNumChildComponents() == 3);
@@ -69,7 +68,8 @@ TEST_CASE("R13 photo operation progress surface updates without reconstruction",
 	REQUIRE(progress.isVisible());
 	REQUIRE(first_cancel->isVisible());
 
-	juce::Button* const cancel_button = dynamic_cast<juce::Button*>(first_cancel);
+	juce::Button* const cancel_button =
+		dynamic_cast<juce::Button*>(first_cancel);
 	REQUIRE(cancel_button != nullptr);
 	REQUIRE(static_cast<bool>(cancel_button->onClick));
 	cancel_button->onClick();
@@ -78,4 +78,4 @@ TEST_CASE("R13 photo operation progress surface updates without reconstruction",
 	REQUIRE_FALSE(progress.isVisible());
 }
 
-}  // namespace
+}	 // namespace

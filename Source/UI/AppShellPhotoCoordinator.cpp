@@ -182,29 +182,29 @@ void AppShellPhotoCoordinator::request_add_photos(
 		}
 		const AppShellPhotoOperationRunner::Submission submission =
 			photo_operation_runner.submit_direct_import(
-			PhotoImportSessionRequest{
-				.current_session = session,
-				.identifiers = identifiers,
-				.clock = clock,
-				.operation_gate = operation_gate,
-				.staging_service = content_staging_service,
-				.fingerprint_service = source_fingerprint_service,
-				.decode_service = source_decode_service,
-				.photo_codec = internal_photo_codec,
-				.owner = owner,
-				.sources = std::move(*result.value)},
-			[this](AppShellPhotoOperationRunner::Result operation_result) {
-				photo_operation_state.state = PhotoOperationState::Applying;
-				apply_photo_import_result(
-					std::get<PhotoImportSessionResult>(std::move(operation_result)));
-				complete_photo_operation();
-			});
+				PhotoImportSessionRequest{
+					.current_session	 = session,
+					.identifiers		 = identifiers,
+					.clock				 = clock,
+					.operation_gate		 = operation_gate,
+					.staging_service	 = content_staging_service,
+					.fingerprint_service = source_fingerprint_service,
+					.decode_service		 = source_decode_service,
+					.photo_codec		 = internal_photo_codec,
+					.owner				 = owner,
+					.sources			 = std::move(*result.value)},
+				[this](AppShellPhotoOperationRunner::Result operation_result) {
+			photo_operation_state.state = PhotoOperationState::Applying;
+			apply_photo_import_result(std::get<PhotoImportSessionResult>(
+				std::move(operation_result)));
+			complete_photo_operation();
+		});
 		if (!submission.accepted) {
 			apply_busy_result();
 			return;
 		}
 		begin_photo_operation(PhotoOperationJobType::DirectImport,
-						  submission.generation);
+							  submission.generation);
 	});
 	if (picker_started.failed()) {
 		feedback.photo_message = localization.photo_workflow_text(
@@ -277,23 +277,25 @@ void AppShellPhotoCoordinator::request_add_pending_photos(
 				: PhotoOperationJobType::PendingStorageStaging;
 		const AppShellPhotoOperationRunner::Submission submission =
 			photo_operation_runner.submit_pending_staging(
-			job_type,
-			PendingPhotoStagingRequest{
-				.current_session = session,
-				.identifiers = identifiers,
-				.operation_gate = operation_gate,
-				.staging_service = content_staging_service,
-				.fingerprint_service = source_fingerprint_service,
-				.sources = std::move(*result.value),
-				.existing_pending_sources = pending_sources_for(target),
-				.existing_owner = owner_for_pending_target(target)},
-			[this, target](AppShellPhotoOperationRunner::Result operation_result) {
-				photo_operation_state.state = PhotoOperationState::Applying;
-				apply_pending_photo_staging_result(
-					std::get<PendingPhotoStagingResult>(std::move(operation_result)),
-					target);
-				complete_photo_operation();
-			});
+				job_type,
+				PendingPhotoStagingRequest{
+					.current_session		  = session,
+					.identifiers			  = identifiers,
+					.operation_gate			  = operation_gate,
+					.staging_service		  = content_staging_service,
+					.fingerprint_service	  = source_fingerprint_service,
+					.sources				  = std::move(*result.value),
+					.existing_pending_sources = pending_sources_for(target),
+					.existing_owner = owner_for_pending_target(target)},
+				[this, target](
+					AppShellPhotoOperationRunner::Result operation_result) {
+			photo_operation_state.state = PhotoOperationState::Applying;
+			apply_pending_photo_staging_result(
+				std::get<PendingPhotoStagingResult>(
+					std::move(operation_result)),
+				target);
+			complete_photo_operation();
+		});
 		if (!submission.accepted) {
 			apply_busy_result();
 			return;

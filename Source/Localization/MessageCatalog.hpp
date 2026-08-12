@@ -79,6 +79,7 @@ enum class TemplateMessageIndex : std::uint8_t {
 	CatalogFilterSummarySoldShortcut,
 	CatalogFilterSummaryIncludeArchived,
 	ItemStorageField,
+	OpenStorageAction,
 	ParentStorageField,
 	MissingStorageLabel,
 	ScreenListingSummary,

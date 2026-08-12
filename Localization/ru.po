@@ -2800,6 +2800,10 @@ msgctxt "forms.item.storage"
 msgid "Storage: {storage}"
 msgstr "Хранилище: {storage}"
 
+msgctxt "item.action.open_storage"
+msgid "Open storage: {storage}"
+msgstr "Открыть хранилище: {storage}"
+
 msgctxt "forms.storage.parent"
 msgid "Parent storage: {storage}"
 msgstr "Родительское хранилище: {storage}"

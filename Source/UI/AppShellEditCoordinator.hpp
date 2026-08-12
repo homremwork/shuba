@@ -80,6 +80,8 @@ private:
 		AppShellManagedPhotoDeckState& photo_deck,
 		std::vector<PendingPhotoSource>& pending_photos,
 		std::size_t pending_photo_index);
+	void clear_edit_feedback();
+	void prepare_item_save_feedback_for_submission();
 	void reset_item_form();
 	void reset_storage_form();
 	void load_item_form_from_record(const persistence::ItemEnvelope& item);

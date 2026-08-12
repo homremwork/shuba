@@ -21,6 +21,26 @@ constexpr int preview_result_row_height = 104;
 }
 }	 // namespace
 
+std::vector<ItemDetailAction> item_detail_actions(
+	const persistence::ItemEnvelope& item,
+	const catalog::ItemProjection& projection,
+	const catalog::CatalogRepositoryState& repository) {
+	std::vector<ItemDetailAction> actions{
+		ItemDetailAction{.kind			 = ItemDetailActionKind::EditItem,
+						 .destination_id = item.record.id}};
+	if (!item.record.storage_id || projection.broken_storage_reference)
+		return actions;
+
+	const persistence::StorageEnvelope* storage =
+		catalog::find_storage_envelope(repository, *item.record.storage_id);
+	if (storage != nullptr) {
+		actions.push_back(
+			ItemDetailAction{.kind = ItemDetailActionKind::OpenStorage,
+							 .destination_id = storage->record.id});
+	}
+	return actions;
+}
+
 void AppShellScreenRenderer::build_storages_content() {
 	if (session.demo_catalog_active)
 		content->add_label(juce_text(localization.text(
@@ -98,32 +118,47 @@ void AppShellScreenRenderer::build_item_detail_content() {
 		juce_text(item_detail_header(*item, projection->second, localization)),
 		92, surface_colour(), true);
 
-	juce::Button& edit = content->add_button(
-		juce_text(
-			localization.text(localization::MessageId::EntityActionEditItem)),
-		42);
-	edit.onClick = [this, item_id = item->record.id] {
-		open_existing_item_form(item_id);
-	};
-	edit.setEnabled(mutation_allowed);
-	juce::Button& change_storage = content->add_button(
-		juce_text(localization.item_storage_field(storage_label(
-			session.repository, item->record.storage_id, localization))),
-		42);
-	change_storage.onClick = [this, item_id = item->record.id] {
-		open_existing_item_form(item_id);
-	};
-	change_storage.setEnabled(mutation_allowed);
+	for (const ItemDetailAction& action :
+		 item_detail_actions(*item, projection->second, session.repository)) {
+		if (!action.destination_id)
+			continue;
+		if (action.kind == ItemDetailActionKind::EditItem) {
+			juce::Button& edit = content->add_button(
+				juce_text(localization.text(
+					localization::MessageId::EntityActionEditItem)),
+				42);
+			edit.onClick = [this, item_id = *action.destination_id] {
+				open_existing_item_form(item_id);
+			};
+			edit.setEnabled(mutation_allowed);
+		} else {
+			const persistence::StorageEnvelope* assigned_storage =
+				catalog::find_storage_envelope(session.repository,
+											   *action.destination_id);
+			if (assigned_storage == nullptr)
+				continue;
+			juce::Button& storage_button =
+				content->add_button(juce_text(localization.open_storage_action(
+										assigned_storage->record.display_name)),
+									42);
+			storage_button.onClick = [this,
+									  storage_id = *action.destination_id] {
+				open_storage_detail(storage_id);
+			};
+			storage_button.setEnabled(mutation_allowed);
+		}
+	}
 	juce::Button& add_photo = content->add_button(
 		juce_text(localization.text(localization::MessageId::PhotoAdd)), 42);
-	add_photo.onClick	 = [this, owner] { request_add_photos(owner); };
+	add_photo.onClick = [this, owner] { request_add_photos(owner); };
 	add_photo.setEnabled(mutation_allowed);
 	juce::Button& viewer = content->add_button(
 		juce_text(
 			localization.text(localization::MessageId::PhotoActionOpenViewer)),
 		42);
-	viewer.setEnabled(mutation_allowed
-				  && projection->second.representative_photo_id.has_value());
+	viewer.setEnabled(
+		mutation_allowed
+		&& projection->second.representative_photo_id.has_value());
 	viewer.onClick = [this, owner] {
 		const std::optional<core::StableIdentifier> photo_id =
 			selected_photo_id_for_owner(owner);
@@ -133,26 +168,14 @@ void AppShellScreenRenderer::build_item_detail_content() {
 		juce_text(localization.text(localization::MessageId::PhotoExportJpeg)),
 		42);
 	export_current.setEnabled(
-		mutation_allowed && selected_usable_photo_id_for_owner(owner).has_value());
+		mutation_allowed
+		&& selected_usable_photo_id_for_owner(owner).has_value());
 	export_current.onClick = [this, owner] {
 		const std::optional<core::StableIdentifier> photo_id =
 			selected_usable_photo_id_for_owner(owner);
 		if (photo_id)
 			request_export_photo(*photo_id);
 	};
-	if (item->record.storage_id
-		&& !projection->second.broken_storage_reference) {
-		juce::Button& storage_button = content->add_button(
-			juce_text(localization.item_storage_field(storage_label(
-				session.repository, item->record.storage_id, localization))),
-			42);
-		core::StableIdentifier storage_id = *item->record.storage_id;
-		storage_button.onClick			  = [this, storage_id] {
-			open_storage_detail(storage_id);
-		};
-		storage_button.setEnabled(mutation_allowed);
-	}
-
 	content->add_label(
 		juce_text(field_value_summary(
 			localization.text(localization::MessageId::FormsNotes),
@@ -326,14 +349,15 @@ void AppShellScreenRenderer::build_storage_detail_content() {
 	add_storage.setEnabled(mutation_allowed);
 	juce::Button& add_photo = content->add_button(
 		juce_text(localization.text(localization::MessageId::PhotoAdd)), 42);
-	add_photo.onClick	 = [this, owner] { request_add_photos(owner); };
+	add_photo.onClick = [this, owner] { request_add_photos(owner); };
 	add_photo.setEnabled(mutation_allowed);
 	juce::Button& viewer = content->add_button(
 		juce_text(localization.text(
 			localization::MessageId::PhotoActionOpenStorageViewer)),
 		42);
-	viewer.setEnabled(mutation_allowed
-				  && projection->second.representative_photo_id.has_value());
+	viewer.setEnabled(
+		mutation_allowed
+		&& projection->second.representative_photo_id.has_value());
 	viewer.onClick = [this, owner] {
 		const std::optional<core::StableIdentifier> photo_id =
 			selected_photo_id_for_owner(owner);
@@ -344,7 +368,8 @@ void AppShellScreenRenderer::build_storage_detail_content() {
 			localization::MessageId::PhotoActionExportStorageJpeg)),
 		42);
 	export_current.setEnabled(
-		mutation_allowed && selected_usable_photo_id_for_owner(owner).has_value());
+		mutation_allowed
+		&& selected_usable_photo_id_for_owner(owner).has_value());
 	export_current.onClick = [this, owner] {
 		const std::optional<core::StableIdentifier> photo_id =
 			selected_usable_photo_id_for_owner(owner);

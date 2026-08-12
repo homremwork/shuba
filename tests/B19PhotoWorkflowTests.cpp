@@ -184,14 +184,15 @@ TEST_CASE("R13 no-photo warning contains durable user language") {
 	const shuba::ui::EntityEditResult saved = shuba::ui::save_item_draft(
 		edit_request(session, identifiers, clock),
 		shuba::ui::ItemDraft{.display_name = "No photo item",
-							 .category = "Testing"});
+							 .category	   = "Testing"});
 
 	REQUIRE(saved.warning_acknowledgement_required);
 	const std::vector<shuba::ui::EntityEditDiagnostic>::const_iterator warning =
-		std::ranges::find_if(saved.diagnostics,
+		std::ranges::find_if(
+			saved.diagnostics,
 			[](const shuba::ui::EntityEditDiagnostic& diagnostic) {
-				return diagnostic.code == "item_saved_without_photo";
-			});
+		return diagnostic.code == "item_saved_without_photo";
+	});
 	REQUIRE(warning != saved.diagnostics.end());
 	REQUIRE(warning->message
 			== "Item has no photos yet. Add photos now or later.");

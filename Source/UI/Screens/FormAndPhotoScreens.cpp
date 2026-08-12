@@ -29,14 +29,14 @@ void add_status_rows(
 			 .label	   = juce_text(localization.text(
 				 localization::MessageId::FormsItemStatusDraft)),
 			 .selected = selected_status == domain::ItemStatus::Draft,
-			 .enabled = enabled,
+			 .enabled  = enabled,
 			 .handler =
 				 [choose_status] { choose_status(domain::ItemStatus::Draft); }},
 		 DirectChoiceGridComponent::Choice{
 			 .label	   = juce_text(localization.text(
 				 localization::MessageId::FormsItemStatusPlannedShort)),
 			 .selected = selected_status == domain::ItemStatus::Planned,
-			 .enabled = enabled,
+			 .enabled  = enabled,
 			 .handler =
 				 [choose_status] {
 		choose_status(domain::ItemStatus::Planned);
@@ -45,7 +45,7 @@ void add_status_rows(
 			 .label	   = juce_text(localization.text(
 				 localization::MessageId::FormsItemStatusListedShort)),
 			 .selected = selected_status == domain::ItemStatus::Listed,
-			 .enabled = enabled,
+			 .enabled  = enabled,
 			 .handler =
 				 [choose_status] {
 		choose_status(domain::ItemStatus::Listed);
@@ -54,14 +54,14 @@ void add_status_rows(
 			 .label	   = juce_text(localization.text(
 				 localization::MessageId::FormsItemStatusSold)),
 			 .selected = selected_status == domain::ItemStatus::Sold,
-			 .enabled = enabled,
+			 .enabled  = enabled,
 			 .handler =
 				 [choose_status] { choose_status(domain::ItemStatus::Sold); }},
 		 DirectChoiceGridComponent::Choice{
 			 .label	   = juce_text(localization.text(
 				 localization::MessageId::FormsItemStatusArchivedShort)),
 			 .selected = selected_status == domain::ItemStatus::Archived,
-			 .enabled = enabled,
+			 .enabled  = enabled,
 			 .handler =
 				 [choose_status] {
 		choose_status(domain::ItemStatus::Archived);
@@ -160,7 +160,8 @@ void AppShellScreenRenderer::build_item_form_content() {
 				 : item_form.draft.storage_id
 					 ? localization::MessageId::FormsChoiceChange
 					 : localization::MessageId::FormsChoiceChoose)),
-			 .handler = [this] {
+			 .handler =
+				 [this] {
 		item_form.storage_candidates_expanded =
 			!item_form.storage_candidates_expanded;
 		refresh_all();
@@ -175,16 +176,17 @@ void AppShellScreenRenderer::build_item_form_content() {
 		item_form.storage_candidates_expanded = false;
 		refresh_all();
 	},
-			 .enabled = mutation_allowed
-					&& item_form.draft.storage_id.has_value()}},
+			 .enabled =
+				 mutation_allowed && item_form.draft.storage_id.has_value()}},
 		42);
 
 	if (item_form.storage_candidates_expanded) {
 		std::vector<ButtonGridComponent::Action> storage_actions;
 		storage_actions.push_back(ButtonGridComponent::Action{
-			.label	 = juce_text(localization.text(
+			.label = juce_text(localization.text(
 				localization::MessageId::FormsStorageUnassigned)),
-			.handler = [this] {
+			.handler =
+				[this] {
 			item_form.draft.storage_id.reset();
 			item_form.storage_candidates_expanded = false;
 			refresh_all();
@@ -196,7 +198,8 @@ void AppShellScreenRenderer::build_item_form_content() {
 			storage_actions.push_back(ButtonGridComponent::Action{
 				.label = juce_text(storage_choice_label(session.repository,
 														storage, localization)),
-				.handler = [this, storage_id] {
+				.handler =
+					[this, storage_id] {
 				item_form.draft.storage_id			  = storage_id;
 				item_form.storage_candidates_expanded = false;
 				refresh_all();
@@ -223,7 +226,8 @@ void AppShellScreenRenderer::build_item_form_content() {
 		{InlineButtonRowComponent::Action{
 			 .label = juce_text(
 				 localization.text(localization::MessageId::FormsTagsAddRow)),
-			 .handler = [this] {
+			 .handler =
+				 [this] {
 		item_form.draft.tags.push_back(domain::TagRow{});
 		refresh_all();
 	},
@@ -233,7 +237,8 @@ void AppShellScreenRenderer::build_item_form_content() {
 				 item_form.tag_candidates_expanded
 					 ? localization::MessageId::FormsChoiceHide
 					 : localization::MessageId::FormsTagsKeyHints)),
-			 .handler = [this] {
+			 .handler =
+				 [this] {
 		item_form.tag_candidates_expanded = !item_form.tag_candidates_expanded;
 		refresh_all();
 	},
@@ -266,8 +271,7 @@ void AppShellScreenRenderer::build_item_form_content() {
 					.label = juce_text(key), .handler = [this, key] {
 					apply_tag_key_candidate(item_form.draft.tags, key);
 					refresh_all();
-				},
-					.enabled = mutation_allowed});
+				}, .enabled = mutation_allowed});
 			}
 			const int item_key_height = ButtonGridComponent::preferred_height(
 				static_cast<int>(item_key_actions.size()), 3);
@@ -284,8 +288,7 @@ void AppShellScreenRenderer::build_item_form_content() {
 					.label = juce_text(key), .handler = [this, key] {
 					apply_tag_key_candidate(item_form.draft.tags, key);
 					refresh_all();
-				},
-					.enabled = mutation_allowed});
+				}, .enabled = mutation_allowed});
 			}
 			const int storage_key_height =
 				ButtonGridComponent::preferred_height(
@@ -479,7 +482,8 @@ void AppShellScreenRenderer::build_storage_form_content() {
 				 : storage_form.draft.parent_storage_id
 					 ? localization::MessageId::FormsChoiceChange
 					 : localization::MessageId::FormsChoiceChoose)),
-			 .handler = [this] {
+			 .handler =
+				 [this] {
 		storage_form.parent_candidates_expanded =
 			!storage_form.parent_candidates_expanded;
 		refresh_all();
@@ -495,15 +499,16 @@ void AppShellScreenRenderer::build_storage_form_content() {
 		refresh_all();
 	},
 			 .enabled = mutation_allowed
-					&& storage_form.draft.parent_storage_id.has_value()}},
+						&& storage_form.draft.parent_storage_id.has_value()}},
 		42);
 
 	if (storage_form.parent_candidates_expanded) {
 		std::vector<ButtonGridComponent::Action> parent_actions;
 		parent_actions.push_back(ButtonGridComponent::Action{
-			.label	 = juce_text(localization.text(
+			.label = juce_text(localization.text(
 				localization::MessageId::FormsStorageNoParent)),
-			.handler = [this] {
+			.handler =
+				[this] {
 			storage_form.draft.parent_storage_id.reset();
 			storage_form.parent_candidates_expanded = false;
 			refresh_all();
@@ -519,7 +524,8 @@ void AppShellScreenRenderer::build_storage_form_content() {
 			parent_actions.push_back(ButtonGridComponent::Action{
 				.label = juce_text(storage_choice_label(session.repository,
 														storage, localization)),
-				.handler = [this, storage_id] {
+				.handler =
+					[this, storage_id] {
 				storage_form.draft.parent_storage_id	= storage_id;
 				storage_form.parent_candidates_expanded = false;
 				refresh_all();
@@ -550,7 +556,8 @@ void AppShellScreenRenderer::build_storage_form_content() {
 		{InlineButtonRowComponent::Action{
 			 .label = juce_text(
 				 localization.text(localization::MessageId::FormsTagsAddRow)),
-			 .handler = [this] {
+			 .handler =
+				 [this] {
 		storage_form.draft.tags.push_back(domain::TagRow{});
 		refresh_all();
 	},
@@ -560,7 +567,8 @@ void AppShellScreenRenderer::build_storage_form_content() {
 				 storage_form.tag_candidates_expanded
 					 ? localization::MessageId::FormsChoiceHide
 					 : localization::MessageId::FormsTagsKeyHints)),
-			 .handler = [this] {
+			 .handler =
+				 [this] {
 		storage_form.tag_candidates_expanded =
 			!storage_form.tag_candidates_expanded;
 		refresh_all();
@@ -594,8 +602,7 @@ void AppShellScreenRenderer::build_storage_form_content() {
 					.label = juce_text(key), .handler = [this, key] {
 					apply_tag_key_candidate(storage_form.draft.tags, key);
 					refresh_all();
-				},
-					.enabled = mutation_allowed});
+				}, .enabled = mutation_allowed});
 			}
 			const int storage_form_item_key_height =
 				ButtonGridComponent::preferred_height(
@@ -613,8 +620,7 @@ void AppShellScreenRenderer::build_storage_form_content() {
 					.label = juce_text(key), .handler = [this, key] {
 					apply_tag_key_candidate(storage_form.draft.tags, key);
 					refresh_all();
-				},
-					.enabled = mutation_allowed});
+				}, .enabled = mutation_allowed});
 			}
 			const int storage_form_storage_key_height =
 				ButtonGridComponent::preferred_height(

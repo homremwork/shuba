@@ -153,7 +153,8 @@ class TestPhotoOperationWorkerServiceFactory final
 public:
 	[[nodiscard]] std::unique_ptr<shuba::platform::ContentStagingService>
 	make_content_staging_service() const override {
-		return std::make_unique<shuba::platform::LinuxFakeContentStagingService>();
+		return std::make_unique<
+			shuba::platform::LinuxFakeContentStagingService>();
 	}
 
 	[[nodiscard]]
@@ -193,9 +194,10 @@ public:
 				shuba::platform::StagedContent>();
 		return shuba::platform::platform_value_success(
 			shuba::platform::StagedContent{
-				.staged_path = request.target_directory / request.target_file_name,
+				.staged_path =
+					request.target_directory / request.target_file_name,
 				.display_name = "provider-photo.jpg",
-				.byte_count = std::uint64_t{42}});
+				.byte_count	  = std::uint64_t{42}});
 	}
 
 private:
@@ -258,10 +260,10 @@ struct CoordinatorHarness final {
 	shuba::ui::AppShellPhotoOperationState photo_operation_state;
 	shuba::ui::AppShellPhotoOperationRunner photo_operation_runner{
 		shuba::ui::AppShellPhotoOperationRunner::Dependencies{
-			.operation_gate = operation_gate,
+			.operation_gate			= operation_gate,
 			.worker_service_factory = worker_service_factory,
-			.progress = {},
-			.failure = {}}};
+			.progress				= {},
+			.failure				= {}}};
 	DeferredPhotoSelectionService photo_selection;
 	DeferredDocumentExportService document_export;
 	shuba::platform::LinuxFakeContentStagingService content_staging;
@@ -298,7 +300,7 @@ struct CoordinatorHarness final {
 			.internal_photo_codec			   = internal_photo_codec,
 			.progress_events				   = progress,
 			.cancellation_token				   = cancellation,
-			.photo_operation_runner		   = photo_operation_runner,
+			.photo_operation_runner			   = photo_operation_runner,
 			.photo_operation_state			   = photo_operation_state,
 			.localization					   = localization,
 			.invalidate_all_previews		   = {},
@@ -357,12 +359,12 @@ TEST_CASE("R13 picker completion submits shallow sources before worker staging",
 	const std::filesystem::path staging_root =
 		std::filesystem::temp_directory_path() / "shuba-r13-picker-boundary";
 	harness.session.paths = shuba::platform::AppPrivatePaths{
-		.app_private_root = staging_root,
+		.app_private_root	 = staging_root,
 		.active_catalog_root = staging_root / "active",
-		.operation_tmp_root = staging_root / "operations",
+		.operation_tmp_root	 = staging_root / "operations",
 		.staged_content_root = staging_root / "staged",
-		.export_tmp_root = staging_root / "exports",
-		.media_root = staging_root / "active" / "media"};
+		.export_tmp_root	 = staging_root / "exports",
+		.media_root			 = staging_root / "active" / "media"};
 	std::shared_ptr<BlockingPoint> point = std::make_shared<BlockingPoint>();
 	BlockingPhotoOperationWorkerServiceFactory factory{point};
 	shuba::core::OperationGate gate;
@@ -370,49 +372,49 @@ TEST_CASE("R13 picker completion submits shallow sources before worker staging",
 	std::atomic_bool completed{};
 	shuba::ui::AppShellPhotoOperationRunner runner{
 		shuba::ui::AppShellPhotoOperationRunner::Dependencies{
-			.operation_gate = gate,
+			.operation_gate			= gate,
 			.worker_service_factory = factory,
-			.progress = {},
-			.failure = {}}};
+			.progress				= {},
+			.failure				= {}}};
 	shuba::ui::AppShellPhotoCoordinator coordinator{
 		shuba::ui::AppShellPhotoCoordinator::Dependencies{
-			.session = harness.session,
-			.route = harness.route,
-			.item_form = harness.item_form,
-			.storage_form = harness.storage_form,
-			.feedback = harness.feedback,
-			.photo_display = harness.photo_display,
-			.preview_cache = harness.preview_cache,
-			.identifiers = harness.identifiers,
-			.clock = harness.clock,
-			.operation_gate = gate,
-			.photo_selection_service = harness.photo_selection,
-			.document_export_service = harness.document_export,
-			.content_staging_service = harness.content_staging,
-			.source_fingerprint_service = harness.fingerprinting,
-			.source_decode_service = harness.source_decoder,
-			.jpeg_export_service = harness.jpeg_export,
-			.internal_photo_codec = harness.internal_photo_codec,
-			.progress_events = harness.progress,
-			.cancellation_token = harness.cancellation,
-			.photo_operation_runner = runner,
-			.photo_operation_state = operation_state,
-			.localization = harness.localization,
-			.invalidate_all_previews = {},
+			.session						   = harness.session,
+			.route							   = harness.route,
+			.item_form						   = harness.item_form,
+			.storage_form					   = harness.storage_form,
+			.feedback						   = harness.feedback,
+			.photo_display					   = harness.photo_display,
+			.preview_cache					   = harness.preview_cache,
+			.identifiers					   = harness.identifiers,
+			.clock							   = harness.clock,
+			.operation_gate					   = gate,
+			.photo_selection_service		   = harness.photo_selection,
+			.document_export_service		   = harness.document_export,
+			.content_staging_service		   = harness.content_staging,
+			.source_fingerprint_service		   = harness.fingerprinting,
+			.source_decode_service			   = harness.source_decoder,
+			.jpeg_export_service			   = harness.jpeg_export,
+			.internal_photo_codec			   = harness.internal_photo_codec,
+			.progress_events				   = harness.progress,
+			.cancellation_token				   = harness.cancellation,
+			.photo_operation_runner			   = runner,
+			.photo_operation_state			   = operation_state,
+			.localization					   = harness.localization,
+			.invalidate_all_previews		   = {},
 			.invalidate_internal_photo_preview = {},
-			.invalidate_staged_photo_preview = {},
+			.invalidate_staged_photo_preview   = {},
 			.refresh_all = [&harness] { ++harness.refresh_count; },
 			.begin_photo_operation =
 				[&](shuba::ui::PhotoOperationJobType type,
 					std::uint64_t generation) {
-					operation_state.state = shuba::ui::PhotoOperationState::Running;
-					operation_state.job_type = type;
-					operation_state.generation = generation;
-				},
+		operation_state.state	   = shuba::ui::PhotoOperationState::Running;
+		operation_state.job_type   = type;
+		operation_state.generation = generation;
+	},
 			.complete_photo_operation = [&] {
-				operation_state.state = shuba::ui::PhotoOperationState::Idle;
-				completed.store(true, std::memory_order_release);
-			}}};
+		operation_state.state = shuba::ui::PhotoOperationState::Idle;
+		completed.store(true, std::memory_order_release);
+	}}};
 
 	coordinator.request_add_pending_item_photos();
 	REQUIRE(harness.photo_selection.has_pending_completion());
@@ -425,7 +427,8 @@ TEST_CASE("R13 picker completion submits shallow sources before worker staging",
 	REQUIRE(juce::MessageManager::callAsync(
 		[&sentinel] { sentinel.store(true, std::memory_order_release); }));
 	for (std::size_t attempt = 0U;
-		 attempt < 1000U && !sentinel.load(std::memory_order_acquire); ++attempt) {
+		 attempt < 1000U && !sentinel.load(std::memory_order_acquire);
+		 ++attempt) {
 		REQUIRE(juce::MessageManager::getInstance()->runDispatchLoopUntil(1));
 	}
 	REQUIRE(sentinel.load(std::memory_order_acquire));
@@ -433,15 +436,17 @@ TEST_CASE("R13 picker completion submits shallow sources before worker staging",
 
 	point->release();
 	for (std::size_t attempt = 0U;
-		 attempt < 1000U && !completed.load(std::memory_order_acquire); ++attempt) {
+		 attempt < 1000U && !completed.load(std::memory_order_acquire);
+		 ++attempt) {
 		REQUIRE(juce::MessageManager::getInstance()->runDispatchLoopUntil(1));
 	}
 	REQUIRE(completed.load(std::memory_order_acquire));
 	REQUIRE_FALSE(gate.is_busy());
 }
 
-TEST_CASE("R13 item and storage picker paths publish staged results and restore idle",
-		  "[r13][photo-coordinator][picker][forms]") {
+TEST_CASE(
+	"R13 item and storage picker paths publish staged results and restore idle",
+	"[r13][photo-coordinator][picker][forms]") {
 	juce::ScopedJuceInitialiser_GUI juce_initialiser;
 	for (const bool item_target : {true, false}) {
 		CoordinatorHarness harness;
@@ -455,32 +460,34 @@ TEST_CASE("R13 item and storage picker paths publish staged results and restore 
 			output << "r13-form-source";
 		}
 		harness.session.paths = shuba::platform::AppPrivatePaths{
-			.app_private_root = root,
+			.app_private_root	 = root,
 			.active_catalog_root = root / "active",
-			.operation_tmp_root = root / "operations",
+			.operation_tmp_root	 = root / "operations",
 			.staged_content_root = root / "staged",
-			.export_tmp_root = root / "exports",
-			.media_root = root / "active" / "media"};
+			.export_tmp_root	 = root / "exports",
+			.media_root			 = root / "active" / "media"};
 		shuba::ui::AppShellPhotoOperationState operation_state;
 		std::atomic_bool completed{};
 		std::atomic_uint32_t invalidation_count{};
 		shuba::ui::AppShellPhotoCoordinator::Dependencies dependencies =
 			harness.dependencies();
-		dependencies.photo_operation_state = operation_state;
+		dependencies.photo_operation_state	 = operation_state;
 		dependencies.invalidate_all_previews = [&] {
 			invalidation_count.fetch_add(1U, std::memory_order_acq_rel);
 		};
 		dependencies.begin_photo_operation =
-			[&](shuba::ui::PhotoOperationJobType type, std::uint64_t generation) {
-				operation_state.state = shuba::ui::PhotoOperationState::Running;
-				operation_state.job_type = type;
-				operation_state.generation = generation;
-			};
+			[&](shuba::ui::PhotoOperationJobType type,
+				std::uint64_t generation) {
+			operation_state.state	 = shuba::ui::PhotoOperationState::Running;
+			operation_state.job_type = type;
+			operation_state.generation = generation;
+		};
 		dependencies.complete_photo_operation = [&] {
 			operation_state.state = shuba::ui::PhotoOperationState::Idle;
 			completed.store(true, std::memory_order_release);
 		};
-		shuba::ui::AppShellPhotoCoordinator coordinator{std::move(dependencies)};
+		shuba::ui::AppShellPhotoCoordinator coordinator{
+			std::move(dependencies)};
 
 		if (item_target)
 			coordinator.request_add_pending_item_photos();
@@ -491,7 +498,8 @@ TEST_CASE("R13 item and storage picker paths publish staged results and restore 
 		for (std::size_t attempt = 0U;
 			 attempt < 1000U && !completed.load(std::memory_order_acquire);
 			 ++attempt) {
-			REQUIRE(juce::MessageManager::getInstance()->runDispatchLoopUntil(1));
+			REQUIRE(
+				juce::MessageManager::getInstance()->runDispatchLoopUntil(1));
 		}
 		REQUIRE(completed.load(std::memory_order_acquire));
 		REQUIRE(operation_state.state == shuba::ui::PhotoOperationState::Idle);

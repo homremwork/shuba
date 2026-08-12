@@ -426,6 +426,13 @@ std::string Localization::item_storage_field(std::string_view storage) const {
 		"{storage}", storage);
 }
 
+std::string Localization::open_storage_action(std::string_view storage) const {
+	return replace_placeholder(
+		translate_template(local_template_message(
+			detail::TemplateMessageIndex::OpenStorageAction)),
+		"{storage}", storage);
+}
+
 std::string Localization::parent_storage_field(std::string_view storage) const {
 	return replace_placeholder(
 		translate_template(local_template_message(

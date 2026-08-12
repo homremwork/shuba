@@ -272,11 +272,10 @@ void append_item_save_nudges(EntityEditResult& result,
 			   == catalog::PhotoPresenceState::NoPhotoRecords;
 	if (item_has_no_photos && !draft.pending_photo_import_planned) {
 		append_edit_diagnostic(
-			result,
-			make_entity_diagnostic(
-				core::DiagnosticSeverity::RecoverableWarning,
-				"item_saved_without_photo",
-				"Item has no photos yet. Add photos now or later."));
+			result, make_entity_diagnostic(
+						core::DiagnosticSeverity::RecoverableWarning,
+						"item_saved_without_photo",
+						"Item has no photos yet. Add photos now or later."));
 	}
 }
 

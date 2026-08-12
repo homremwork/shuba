@@ -4,8 +4,8 @@
 #include "Core/Clock.hpp"
 #include "Core/Identifier.hpp"
 #include "Platform/PlatformServices.hpp"
-#include "UI/AppShellState.hpp"
 #include "UI/AppShellPhotoOperationRunner.hpp"
+#include "UI/AppShellState.hpp"
 #include "UI/Session/CatalogSessionState.hpp"
 #include "UI/Session/EntityEditTypes.hpp"
 #include "UI/Session/ImagePreviewSession.hpp"
@@ -16,10 +16,12 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <optional>
 #include <span>
 #include <string>
+#include <vector>
 
 namespace shuba::localization {
 class Localization;
@@ -27,6 +29,24 @@ class Localization;
 
 namespace shuba::ui {
 class AppShellContentComponent;
+
+enum class ItemDetailActionKind : std::uint8_t {
+	EditItem,
+	OpenStorage,
+};
+
+struct ItemDetailAction final {
+	ItemDetailActionKind kind{ItemDetailActionKind::EditItem};
+	std::optional<core::StableIdentifier> destination_id;
+
+	friend bool operator==(const ItemDetailAction&,
+						   const ItemDetailAction&) = default;
+};
+
+[[nodiscard]] std::vector<ItemDetailAction> item_detail_actions(
+	const persistence::ItemEnvelope& item,
+	const catalog::ItemProjection& projection,
+	const catalog::CatalogRepositoryState& repository);
 
 class AppShellScreenRenderer final {
 public:
