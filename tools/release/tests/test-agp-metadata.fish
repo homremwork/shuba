@@ -74,25 +74,28 @@ function shuba_agp_test_main
     shuba_contract_load $shuba_project_root/release/release.properties; or return 1
     shuba_validate_structured_tools; or return 1
     set --global shuba_agp_test_root (mktemp --directory /tmp/shuba-r12f-agp-metadata.XXXXXX); or return 1
+    set --local shuba_application_id (shuba_contract_get app.application_id); or return 1
+    set --local shuba_version_code (shuba_contract_get app.version_code); or return 1
+    set --local shuba_version_name (shuba_contract_get app.version_name); or return 1
 
     set --local shuba_case_root (shuba_agp_new_case positive); or return 1
-    shuba_agp_write_metadata $shuba_case_root release_/release com.shuba.catalog 1 1.0.0 app-release_-release.apk release_Release; or return 1
+    shuba_agp_write_metadata $shuba_case_root release_/release $shuba_application_id $shuba_version_code $shuba_version_name app-release_-release.apk release_Release; or return 1
     shuba_agp_require_verdict $shuba_case_root true positive; or return 1
 
     set shuba_case_root (shuba_agp_new_case absent); or return 1
     shuba_agp_require_verdict $shuba_case_root false absent-metadata; or return 1
 
     set shuba_case_root (shuba_agp_new_case duplicate); or return 1
-    shuba_agp_write_metadata $shuba_case_root release_/a com.shuba.catalog 1 1.0.0 a.apk release_Release; or return 1
-    shuba_agp_write_metadata $shuba_case_root release_/b com.shuba.catalog 1 1.0.0 b.apk release_Release; or return 1
+    shuba_agp_write_metadata $shuba_case_root release_/a $shuba_application_id $shuba_version_code $shuba_version_name a.apk release_Release; or return 1
+    shuba_agp_write_metadata $shuba_case_root release_/b $shuba_application_id $shuba_version_code $shuba_version_name b.apk release_Release; or return 1
     shuba_agp_require_verdict $shuba_case_root false duplicate-release-output; or return 1
 
     set shuba_case_root (shuba_agp_new_case wrong-identity); or return 1
-    shuba_agp_write_metadata $shuba_case_root release_/release com.shuba.catalog 2 1.0.0 app.apk release_Release; or return 1
+    shuba_agp_write_metadata $shuba_case_root release_/release $shuba_application_id (math $shuba_version_code + 1) $shuba_version_name app.apk release_Release; or return 1
     shuba_agp_require_verdict $shuba_case_root false wrong-version-code; or return 1
 
     set shuba_case_root (shuba_agp_new_case traversal); or return 1
-    shuba_agp_write_metadata $shuba_case_root release_/release com.shuba.catalog 1 1.0.0 placeholder.apk release_Release; or return 1
+    shuba_agp_write_metadata $shuba_case_root release_/release $shuba_application_id $shuba_version_code $shuba_version_name placeholder.apk release_Release; or return 1
     $shuba_jq_path '.elements[0].outputFile = "../outside.apk"' $shuba_case_root/release_/release/output-metadata.json >$shuba_case_root/mutated
     and mv $shuba_case_root/mutated $shuba_case_root/release_/release/output-metadata.json
     or return 1
@@ -104,26 +107,26 @@ function shuba_agp_test_main
     shuba_agp_require_verdict $shuba_case_root false malformed-json; or return 1
 
     set shuba_case_root (shuba_agp_new_case wrong-types); or return 1
-    shuba_agp_write_metadata $shuba_case_root release com.shuba.catalog 1 1.0.0 app.apk release_Release; or return 1
+    shuba_agp_write_metadata $shuba_case_root release $shuba_application_id $shuba_version_code $shuba_version_name app.apk release_Release; or return 1
     $shuba_jq_path '.elements[0].versionCode = true' $shuba_case_root/release/output-metadata.json >$shuba_case_root/mutated
     and mv $shuba_case_root/mutated $shuba_case_root/release/output-metadata.json
     or return 1
     shuba_agp_require_verdict $shuba_case_root false wrong-field-type; or return 1
 
     set shuba_case_root (shuba_agp_new_case ignored-variant); or return 1
-    shuba_agp_write_metadata $shuba_case_root debug com.shuba.catalog 1 1.0.0 debug.apk debug_Debug; or return 1
-    shuba_agp_write_metadata $shuba_case_root release com.shuba.catalog 1 1.0.0 release.apk release_Release; or return 1
+    shuba_agp_write_metadata $shuba_case_root debug $shuba_application_id $shuba_version_code $shuba_version_name debug.apk debug_Debug; or return 1
+    shuba_agp_write_metadata $shuba_case_root release $shuba_application_id $shuba_version_code $shuba_version_name release.apk release_Release; or return 1
     shuba_agp_require_verdict $shuba_case_root true ignored-nonrelease-variant; or return 1
 
     set shuba_case_root (shuba_agp_new_case control-character); or return 1
-    shuba_agp_write_metadata $shuba_case_root release com.shuba.catalog 1 1.0.0 placeholder.apk release_Release; or return 1
+    shuba_agp_write_metadata $shuba_case_root release $shuba_application_id $shuba_version_code $shuba_version_name placeholder.apk release_Release; or return 1
     $shuba_jq_path '.elements[0].outputFile = "bad\u0001.apk"' $shuba_case_root/release/output-metadata.json >$shuba_case_root/mutated
     and mv $shuba_case_root/mutated $shuba_case_root/release/output-metadata.json
     or return 1
     shuba_agp_require_new_rejection $shuba_case_root control-character-filename; or return 1
 
     set shuba_case_root (shuba_agp_new_case nonascii-filename); or return 1
-    shuba_agp_write_metadata $shuba_case_root release com.shuba.catalog 1 1.0.0 placeholder.apk release_Release; or return 1
+    shuba_agp_write_metadata $shuba_case_root release $shuba_application_id $shuba_version_code $shuba_version_name placeholder.apk release_Release; or return 1
     $shuba_jq_path '.elements[0].outputFile = "Шуба.apk"' $shuba_case_root/release/output-metadata.json >$shuba_case_root/mutated
     and mv $shuba_case_root/mutated $shuba_case_root/release/output-metadata.json
     or return 1
@@ -136,7 +139,7 @@ function shuba_agp_test_main
     shuba_agp_require_new_rejection $shuba_case_root symbolic-link-metadata; or return 1
 
     set shuba_case_root (shuba_agp_new_case symlink-apk); or return 1
-    shuba_agp_write_metadata $shuba_case_root release com.shuba.catalog 1 1.0.0 app.apk release_Release; or return 1
+    shuba_agp_write_metadata $shuba_case_root release $shuba_application_id $shuba_version_code $shuba_version_name app.apk release_Release; or return 1
     rm $shuba_case_root/release/app.apk
     printf 'outside\n' >$shuba_case_root/outside.apk
     ln -s ../outside.apk $shuba_case_root/release/app.apk

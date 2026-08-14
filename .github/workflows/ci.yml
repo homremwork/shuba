@@ -1,0 +1,187 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+
+jobs:
+  lint-and-release-tools:
+    name: Lint and release-tool tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out recursive sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          submodules: recursive
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Install system dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install --yes --no-install-recommends
+          jq libarchive-tools shellcheck xmlstarlet
+      - name: Install Fish 4
+        uses: fish-actions/install-fish@4bb37a71daebb76c6fb7d83771cff31b8a78c28e # v1.2.0
+      - name: Enforce Fish release contract
+        shell: fish {0}
+        run: |
+          source tools/release/lib/core.fish
+          source tools/release/lib/release-contract.fish
+          shuba_contract_load release/release.properties
+          shuba_require_fish_version (shuba_contract_get tool.fish_min_version)
+          fish --version
+      - name: Run workflow and repository lint
+        run: tools/ci/lint-ci.fish
+      - name: Run hermetic release-tool tests
+        run: tools/ci/run-release-tool-tests.fish --hermetic
+
+  host-libjxl:
+    name: Host libjxl cache
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    outputs:
+      fingerprint: ${{ steps.fingerprint.outputs.value }}
+    steps:
+      - name: Check out recursive sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          submodules: recursive
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends ninja-build pkg-config
+      - name: Install Fish 4
+        uses: fish-actions/install-fish@4bb37a71daebb76c6fb7d83771cff31b8a78c28e # v1.2.0
+      - name: Enforce Fish release contract
+        shell: fish {0}
+        run: |
+          source tools/release/lib/core.fish
+          source tools/release/lib/release-contract.fish
+          shuba_contract_load release/release.properties
+          shuba_require_fish_version (shuba_contract_get tool.fish_min_version)
+      - name: Calculate host libjxl fingerprint
+        id: fingerprint
+        shell: fish {0}
+        run: echo "value="(tools/ci/build-libjxl-host.fish --print-fingerprint) >>$GITHUB_OUTPUT
+      - name: Restore host libjxl
+        id: cache
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: |
+            build/ci/libjxl-host-build
+            build/ci/libjxl-host-prefix
+          key: host-libjxl-ubuntu-24.04-${{ steps.fingerprint.outputs.value }}
+      - name: Build or validate host libjxl
+        run: tools/ci/build-libjxl-host.fish
+      - name: Read-only host libjxl validation
+        run: tools/ci/build-libjxl-host.fish --check
+
+  host-tests:
+    name: GCC host tests and localization
+    needs: host-libjxl
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Check out recursive sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          submodules: recursive
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Install host dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install --yes --no-install-recommends
+          catch2 gettext libasound2-dev libfontconfig1-dev libfreetype-dev
+          libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev
+          libxrandr-dev libxrender-dev ninja-build pkg-config
+      - name: Restore host libjxl
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: |
+            build/ci/libjxl-host-build
+            build/ci/libjxl-host-prefix
+          key: host-libjxl-ubuntu-24.04-${{ needs.host-libjxl.outputs.fingerprint }}
+          fail-on-cache-miss: true
+      - name: Validate host dependency
+        run: tools/ci/build-libjxl-host.fish --check
+      - name: Configure and build
+        run: cmake --preset ci-host && cmake --build --preset ci-host
+      - name: Validate localization
+        run: cmake --build build/ci/ci-host --target shuba_validate_localization
+      - name: Run all registered tests
+        run: ctest --preset ci-host
+
+  asan:
+    name: GCC AddressSanitizer
+    needs: host-libjxl
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Check out recursive sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          submodules: recursive
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Install host dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install --yes --no-install-recommends
+          catch2 gettext libasound2-dev libfontconfig1-dev libfreetype-dev
+          libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev
+          libxrandr-dev libxrender-dev ninja-build pkg-config
+      - name: Restore host libjxl
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: |
+            build/ci/libjxl-host-build
+            build/ci/libjxl-host-prefix
+          key: host-libjxl-ubuntu-24.04-${{ needs.host-libjxl.outputs.fingerprint }}
+          fail-on-cache-miss: true
+      - name: Configure, build, and test
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1:strict_string_checks=1
+        run: cmake --preset ci-asan && cmake --build --preset ci-asan && ctest --preset ci-asan
+
+  static-analysis:
+    name: Clang-Tidy and Cppcheck
+    needs: host-libjxl
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - name: Check out recursive sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          submodules: recursive
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Install analyzer dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install --yes --no-install-recommends
+          catch2 clang-tidy cppcheck gettext libasound2-dev libfontconfig1-dev
+          libfreetype-dev libx11-dev libxcomposite-dev libxcursor-dev libxext-dev
+          libxinerama-dev libxrandr-dev libxrender-dev ninja-build pkg-config
+      - name: Restore host libjxl
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: |
+            build/ci/libjxl-host-build
+            build/ci/libjxl-host-prefix
+          key: host-libjxl-ubuntu-24.04-${{ needs.host-libjxl.outputs.fingerprint }}
+          fail-on-cache-miss: true
+      - name: Configure compile database and generated resources
+        run: cmake --preset ci-static && cmake --build --preset ci-static
+      - name: Run standalone analyzers
+        run: cmake --build build/ci/ci-static --target shuba_static_checks

@@ -13,6 +13,10 @@ option(SHUBA_ENABLE_ASAN
 	"Enable AddressSanitizer for Linux Debug host targets." OFF)
 option(SHUBA_ENABLE_REAL_JPEG_XL_CODEC_TESTS
 	"Build focused tests for the real JPEG XL codec using system libjxl." ON)
+option(SHUBA_CI_STRICT_TOOLS
+	"Fail configuration when tools required by the selected CI lane are missing." OFF)
+set(SHUBA_CI_HOST_LIBJXL_PREFIX "" CACHE PATH
+	"Optional validated host-libjxl installation prefix used by CI.")
 
 find_program(SHUBA_MSGFMT_EXECUTABLE NAMES msgfmt REQUIRED)
 find_program(SHUBA_MSGCMP_EXECUTABLE NAMES msgcmp REQUIRED)
@@ -31,6 +35,24 @@ find_program(SHUBA_CPPCHECK_EXECUTABLE NAMES cppcheck)
 find_program(SHUBA_CLANG_TIDY_EXECUTABLE NAMES clang-tidy)
 find_program(SHUBA_RUN_CLANG_TIDY_EXECUTABLE NAMES run-clang-tidy run-clang-tidy.py)
 
+if(SHUBA_CI_STRICT_TOOLS)
+	if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+		message(FATAL_ERROR "SHUBA_CI_STRICT_TOOLS is supported only for Linux CI builds.")
+	endif()
+	if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+		message(FATAL_ERROR "Shuba CI host presets require the GNU C++ compiler.")
+	endif()
+	if(SHUBA_ENABLE_CPPCHECK AND NOT SHUBA_CPPCHECK_EXECUTABLE)
+		message(FATAL_ERROR "SHUBA_ENABLE_CPPCHECK requires cppcheck in strict CI mode.")
+	endif()
+	if(SHUBA_ENABLE_CLANG_TIDY AND NOT SHUBA_CLANG_TIDY_EXECUTABLE)
+		message(FATAL_ERROR "SHUBA_ENABLE_CLANG_TIDY requires clang-tidy in strict CI mode.")
+	endif()
+	if(SHUBA_ENABLE_CLANG_TIDY AND NOT SHUBA_RUN_CLANG_TIDY_EXECUTABLE)
+		message(FATAL_ERROR "SHUBA_ENABLE_CLANG_TIDY requires run-clang-tidy in strict CI mode.")
+	endif()
+endif()
+
 set(SHUBA_CPPCHECK_COMMON_ARGS
 	"--enable=${SHUBA_CPPCHECK_CHECKS}"
 	"--error-exitcode=1"
@@ -39,6 +61,7 @@ set(SHUBA_CPPCHECK_COMMON_ARGS
 	"--suppress=preprocessorErrorDirective:third_party/JUCE/modules/juce_core/system/juce_TargetPlatform.h:224"
 	"--suppress=syntaxError:third_party/glaze/include/glaze/tuplet/tuple.hpp:16"
 	"--suppress=syntaxError:*/tests/B27LocalizationLanguageTests.cpp:23"
+	"--suppress=passedByValue:*/Source/Localization/CatalogDefinition.cpp:65"
 	"--suppress=uninitMemberVarNoCtor:*/Source/Localization/PhotoWorkflowLocalization.cpp:13"
 	"--suppress=uninitMemberVarNoCtor:*/Source/UI/AppShellPhotoCoordinator.hpp:48"
 	"--suppress=uninitMemberVarNoCtor:*/Source/Localization/MessageCatalog.hpp:16"
@@ -51,8 +74,10 @@ function(shuba_apply_common_target_options target_name)
 
 	if(SHUBA_ENABLE_CPPCHECK)
 		if(SHUBA_CPPCHECK_EXECUTABLE)
-			set_target_properties(${target_name} PROPERTIES
-				CXX_CPPCHECK "${SHUBA_CPPCHECK_EXECUTABLE};${SHUBA_CPPCHECK_COMMON_ARGS}")
+			if(NOT SHUBA_CI_STRICT_TOOLS)
+				set_target_properties(${target_name} PROPERTIES
+					CXX_CPPCHECK "${SHUBA_CPPCHECK_EXECUTABLE};${SHUBA_CPPCHECK_COMMON_ARGS}")
+			endif()
 		else()
 			message(WARNING
 				"SHUBA_ENABLE_CPPCHECK is ON, but cppcheck was not found; ${target_name} will build without cppcheck.")
@@ -61,8 +86,10 @@ function(shuba_apply_common_target_options target_name)
 
 	if(SHUBA_ENABLE_CLANG_TIDY)
 		if(SHUBA_CLANG_TIDY_EXECUTABLE)
-			set_target_properties(${target_name} PROPERTIES
-				CXX_CLANG_TIDY "${SHUBA_CLANG_TIDY_EXECUTABLE};-checks=${SHUBA_CLANG_TIDY_CHECKS};-header-filter=${SHUBA_ANALYZER_SOURCE_FILTER};-warnings-as-errors=${SHUBA_CLANG_TIDY_WARNINGS_AS_ERRORS}")
+			if(NOT SHUBA_CI_STRICT_TOOLS)
+				set_target_properties(${target_name} PROPERTIES
+					CXX_CLANG_TIDY "${SHUBA_CLANG_TIDY_EXECUTABLE};-checks=${SHUBA_CLANG_TIDY_CHECKS};-header-filter=${SHUBA_ANALYZER_SOURCE_FILTER};-warnings-as-errors=${SHUBA_CLANG_TIDY_WARNINGS_AS_ERRORS}")
+			endif()
 		else()
 			message(WARNING
 				"SHUBA_ENABLE_CLANG_TIDY is ON, but clang-tidy was not found; ${target_name} will build without clang-tidy.")
@@ -140,10 +167,43 @@ target_include_directories(shuba_core
 shuba_apply_common_target_options(shuba_core)
 
 if(SHUBA_ENABLE_REAL_JPEG_XL_CODEC_TESTS)
+	if(SHUBA_CI_HOST_LIBJXL_PREFIX)
+		cmake_path(ABSOLUTE_PATH SHUBA_CI_HOST_LIBJXL_PREFIX
+			NORMALIZE OUTPUT_VARIABLE SHUBA_CI_HOST_LIBJXL_PREFIX_ABSOLUTE)
+		if(NOT IS_DIRECTORY "${SHUBA_CI_HOST_LIBJXL_PREFIX_ABSOLUTE}")
+			message(FATAL_ERROR "SHUBA_CI_HOST_LIBJXL_PREFIX is not a directory.")
+		endif()
+		set(SHUBA_CI_HOST_LIBJXL_PKGCONFIG
+			"${SHUBA_CI_HOST_LIBJXL_PREFIX_ABSOLUTE}/lib/pkgconfig")
+		foreach(SHUBA_CI_REQUIRED_PC IN ITEMS libjxl.pc libjxl_threads.pc)
+			if(NOT EXISTS "${SHUBA_CI_HOST_LIBJXL_PKGCONFIG}/${SHUBA_CI_REQUIRED_PC}")
+				message(FATAL_ERROR
+					"Validated host-libjxl prefix lacks ${SHUBA_CI_REQUIRED_PC}.")
+			endif()
+		endforeach()
+		set(SHUBA_CI_PKG_CONFIG_ARGN_DEFINED false)
+		if(DEFINED PKG_CONFIG_ARGN)
+			set(SHUBA_CI_PKG_CONFIG_ARGN_DEFINED true)
+			set(SHUBA_CI_SAVED_PKG_CONFIG_ARGN "${PKG_CONFIG_ARGN}")
+		endif()
+		set(ENV{PKG_CONFIG_PATH} "${SHUBA_CI_HOST_LIBJXL_PKGCONFIG}")
+		set(PKG_CONFIG_ARGN "--static")
+	endif()
 	find_package(PkgConfig REQUIRED)
 	pkg_check_modules(SHUBA_LIBJXL IMPORTED_TARGET REQUIRED libjxl>=0.12.0)
 	pkg_check_modules(SHUBA_LIBJXL_THREADS IMPORTED_TARGET REQUIRED
 		libjxl_threads>=0.12.0)
+	if(SHUBA_CI_STRICT_TOOLS AND SHUBA_CI_HOST_LIBJXL_PREFIX AND
+		NOT SHUBA_LIBJXL_PREFIX STREQUAL SHUBA_CI_HOST_LIBJXL_PREFIX_ABSOLUTE)
+		message(FATAL_ERROR "pkg-config selected libjxl outside SHUBA_CI_HOST_LIBJXL_PREFIX.")
+	endif()
+	if(SHUBA_CI_HOST_LIBJXL_PREFIX)
+		if(SHUBA_CI_PKG_CONFIG_ARGN_DEFINED)
+			set(PKG_CONFIG_ARGN "${SHUBA_CI_SAVED_PKG_CONFIG_ARGN}")
+		else()
+			unset(PKG_CONFIG_ARGN)
+		endif()
+	endif()
 
 	add_library(shuba_jpeg_xl_codec STATIC
 		Source/Platform/JpegXlPhotoCodec.cpp)

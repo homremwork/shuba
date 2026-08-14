@@ -28,6 +28,13 @@ function shuba_test_mutated_contract --argument-names shuba_source shuba_pattern
 end
 
 function shuba_test_main
+    set --local shuba_with_android false
+    if test (count $argv) -eq 1; and test $argv[1] = --with-android-toolchain
+        set shuba_with_android true
+    else if test (count $argv) -ne 0
+        shuba_test_fail 'usage: test-foundations.fish [--with-android-toolchain]'
+        return 1
+    end
     set --global shuba_test_root (mktemp --directory /tmp/shuba-r12f-foundations.XXXXXX); or return 1
     set --local shuba_script_directory (status dirname)
     set --local shuba_project_root (realpath --canonicalize-existing -- $shuba_script_directory/../../..); or return 1
@@ -41,10 +48,13 @@ function shuba_test_main
     end
     shuba_contract_load $shuba_contract; or return 1
     shuba_validate_structured_tools; or return 1
-    shuba_validate_android_toolchain; or return 1
+    if test $shuba_with_android = true
+        shuba_validate_android_toolchain; or return 1
+    end
 
+    set --local shuba_version_code (shuba_contract_get app.version_code); or return 1
     shuba_test_mutated_contract $shuba_contract '^contract.schema_version=2$' 'contract.schema_version=1' 'unsupported release contract schema'; or return 1
-    shuba_test_mutated_contract $shuba_contract '^app.version_code=1$' 'app.version_code=0' 'invalid value for app.version_code'; or return 1
+    shuba_test_mutated_contract $shuba_contract "^app.version_code=$shuba_version_code\$" 'app.version_code=0' 'invalid value for app.version_code'; or return 1
     shuba_test_mutated_contract $shuba_contract '^tool.jq_min_version=1.7.0$' 'tool.jq_min_version=01.7.0' 'invalid value for tool.jq_min_version'; or return 1
     shuba_test_mutated_contract $shuba_contract '^android.target_sdk=34$' 'android.target_sdk=35' 'android.target_sdk exceeds android.compile_sdk'; or return 1
     cat $shuba_contract $shuba_contract >$shuba_test_root/duplicate.properties
@@ -65,7 +75,12 @@ function shuba_test_main
     test -s $shuba_descriptor; or return 1
     grep --quiet '^tool.xmlstarlet.version=unreported$' $shuba_descriptor; or return 1
     grep --quiet '^tool.xmlstarlet.version_output_sha256=[0-9a-f]\{64\}$' $shuba_descriptor; or return 1
-    grep --quiet '^tool.apkanalyzer.sha256=[0-9a-f]\{64\}$' $shuba_descriptor; or return 1
+    if test $shuba_with_android = true
+        grep --quiet '^tool.apkanalyzer.sha256=[0-9a-f]\{64\}$' $shuba_descriptor; or return 1
+    else if grep --quiet '^tool.apkanalyzer[.]' $shuba_descriptor
+        shuba_test_fail 'hermetic structured-tool descriptor unexpectedly contains Android tooling'
+        return 1
+    end
 
     set --local shuba_repository $shuba_test_root/repository
     mkdir $shuba_repository
@@ -112,6 +127,6 @@ function shuba_test_cleanup --on-event fish_exit
     end
 end
 
-shuba_test_main
+shuba_test_main $argv
 set --local shuba_main_status $status
 exit $shuba_main_status

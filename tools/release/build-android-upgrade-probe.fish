@@ -110,9 +110,14 @@ function shuba_probe_main
     $shuba_signing_preparer --check; or return 1
     shuba_require_executable_file $shuba_gradle_wrapper; or return 1
 
-    set --global shuba_probe_version_code (math (shuba_contract_get app.version_code) + 1)
-    set --global shuba_probe_basename (string replace --regex '[.]apk$' \
-        "-upgrade-code-$shuba_probe_version_code.apk" -- (shuba_contract_get artifact.basename))
+    set --local shuba_source_version_code (shuba_contract_get app.version_code); or return 1
+    set --global shuba_probe_version_code (math $shuba_source_version_code + 1); or return 1
+    set --global shuba_probe_basename (string replace --regex '[.]apk$' -- \
+        "-upgrade-code-$shuba_probe_version_code.apk" (shuba_contract_get artifact.basename)); or return 1
+    if test -z "$shuba_probe_basename"; or string match --regex --quiet '[[:cntrl:]/]' -- $shuba_probe_basename
+        shuba_fail 'derived Android upgrade-probe basename is empty or unsafe'
+        return 1
+    end
     set --global shuba_probe_destination $shuba_probe_non_final_root/upgrade-probe-code-$shuba_probe_version_code
     set --global --export JAVA_HOME $shuba_java_home
     set --global --export ANDROID_SDK_ROOT $shuba_android_sdk_root
@@ -121,6 +126,7 @@ function shuba_probe_main
     set --global shuba_probe_state_root (mktemp --directory $shuba_probe_project_root/build/.shuba-upgrade-probe-state.XXXXXX); or return 1
     shuba_capture_release_state $shuba_probe_state_root/initial $shuba_probe_project_root; or return 1
     set --local --export ORG_GRADLE_PROJECT_shubaUpgradeProbeApplicationId (shuba_contract_get app.application_id)
+    set --local --export ORG_GRADLE_PROJECT_shubaUpgradeProbeSourceVersionCode $shuba_source_version_code
     set --local --export ORG_GRADLE_PROJECT_shubaUpgradeProbeVersionCode $shuba_probe_version_code
     printf '%s\n' 'Android upgrade-probe build: assembling the isolated signed code-2 Release variant.'
     pushd $shuba_android_project >/dev/null; or return 1

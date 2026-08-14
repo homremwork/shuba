@@ -27,8 +27,8 @@ function shuba_apk_test_write_manifest --argument-names shuba_path shuba_extra_a
     set shuba_application_open "$shuba_application_open>"
     printf '%s\n' \
         '<?xml version="1.0" encoding="utf-8"?>' \
-        '<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.shuba.catalog" android:versionCode="1" android:versionName="1.0.0">' \
-        '  <uses-sdk android:minSdkVersion="34" android:targetSdkVersion="34"/>' \
+        '<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="'(shuba_contract_get app.application_id)'" android:versionCode="'(shuba_contract_get app.version_code)'" android:versionName="'(shuba_contract_get app.version_name)'">' \
+        '  <uses-sdk android:minSdkVersion="'(shuba_contract_get android.min_sdk)'" android:targetSdkVersion="'(shuba_contract_get android.target_sdk)'"/>' \
         $shuba_application_open \
         '    <receiver android:name="com.rmsl.juce.Receiver" android:exported="false"/>' \
         '    <activity android:name="android.app.Activity" android:exported="true">' \
@@ -89,6 +89,13 @@ function shuba_apk_test_make_archive --argument-names shuba_archive shuba_native
 end
 
 function shuba_apk_test_main
+    set --local shuba_with_real false
+    if test (count $argv) -eq 1; and test $argv[1] = --with-real-apk
+        set shuba_with_real true
+    else if test (count $argv) -ne 0
+        shuba_apk_test_fail 'usage: test-apk-validation.fish [--with-real-apk]'
+        return 1
+    end
     set --local shuba_script_directory (status dirname)
     set --global shuba_project_root (realpath --canonicalize-existing -- $shuba_script_directory/../../..); or return 1
     shuba_contract_load $shuba_project_root/release/release.properties; or return 1
@@ -98,10 +105,12 @@ function shuba_apk_test_main
     set --local shuba_valid_manifest $shuba_apk_test_root/valid-manifest.xml
     shuba_apk_test_write_manifest $shuba_valid_manifest ''; or return 1
 
-    set --local shuba_real_apk $shuba_project_root/dist/release/(shuba_contract_get artifact.basename)
-    shuba_validate_android_toolchain; or return 1
-    shuba_resolve_android_verification_tools; or return 1
-    shuba_validate_android_apk $shuba_project_root $shuba_real_apk final >/dev/null; or return 1
+    if test $shuba_with_real = true
+        set --local shuba_real_apk $shuba_project_root/dist/release/(shuba_contract_get artifact.basename)
+        shuba_validate_android_toolchain; or return 1
+        shuba_resolve_android_verification_tools; or return 1
+        shuba_validate_android_apk $shuba_project_root $shuba_real_apk final >/dev/null; or return 1
+    end
 
     shuba_apk_test_prepare_fakes; or return 1
     shuba_apk_test_use_fakes $shuba_valid_manifest valid valid valid
@@ -154,6 +163,6 @@ function shuba_apk_test_cleanup --on-event fish_exit
     end
 end
 
-shuba_apk_test_main
+shuba_apk_test_main $argv
 set --local shuba_main_status $status
 exit $shuba_main_status

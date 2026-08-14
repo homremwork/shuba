@@ -43,6 +43,38 @@ function shuba_extract_first_semantic_version
     return 1
 end
 
+function shuba_resolve_android_command_line_tools_root
+    if not set --query shuba_android_sdk_root
+        set --global shuba_android_sdk_root (shuba_resolve_android_sdk_root); or return 1
+    end
+    set --local shuba_required_version (shuba_contract_get android.command_line_tools_version); or return 1
+    set --local shuba_candidates \
+        $shuba_android_sdk_root/cmdline-tools/$shuba_required_version \
+        $shuba_android_sdk_root/cmdline-tools/latest
+    set --local shuba_matches
+    for shuba_candidate in $shuba_candidates
+        if not test -d $shuba_candidate; or test -L $shuba_candidate
+            continue
+        end
+        set --local shuba_source_properties $shuba_candidate/source.properties
+        if not test -f $shuba_source_properties; or test -L $shuba_source_properties
+            continue
+        end
+        set --local shuba_version (sed -n 's/^Pkg[.]Revision[[:space:]]*=[[:space:]]*//p' $shuba_source_properties)
+        if test (count $shuba_version) -eq 1; and test "$shuba_version" = "$shuba_required_version"
+            set --local shuba_resolved (realpath --canonicalize-existing -- $shuba_candidate); or return 1
+            if not contains -- $shuba_resolved $shuba_matches
+                set --append shuba_matches $shuba_resolved
+            end
+        end
+    end
+    if test (count $shuba_matches) -ne 1
+        shuba_fail "expected exactly one Android command-line tools $shuba_required_version installation"
+        return 1
+    end
+    printf '%s\n' $shuba_matches[1]
+end
+
 function shuba_validate_structured_tools
     set --global shuba_fish_path (realpath --canonicalize-existing -- (status fish-path)); or return 1
     set --global shuba_fish_version $version
@@ -133,7 +165,7 @@ end
 
 function shuba_validate_android_toolchain
     set --global shuba_android_sdk_root (shuba_resolve_android_sdk_root); or return 1
-    set --local shuba_command_line_tools_root $shuba_android_sdk_root/cmdline-tools/latest
+    set --local shuba_command_line_tools_root (shuba_resolve_android_command_line_tools_root); or return 1
     set --local shuba_source_properties $shuba_command_line_tools_root/source.properties
     shuba_require_regular_file $shuba_source_properties; or return 1
     set --global shuba_apkanalyzer_path $shuba_command_line_tools_root/bin/apkanalyzer

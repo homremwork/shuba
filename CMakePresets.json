@@ -1,0 +1,85 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 22,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "ci-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ci/${presetName}",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "SHUBA_BUILD_HEADLESS_TESTS": "ON",
+        "SHUBA_CI_HOST_LIBJXL_PREFIX": "${sourceDir}/build/ci/libjxl-host-prefix",
+        "SHUBA_CI_STRICT_TOOLS": "ON",
+        "SHUBA_ENABLE_ASAN": "OFF",
+        "SHUBA_ENABLE_CLANG_TIDY": "OFF",
+        "SHUBA_ENABLE_CPPCHECK": "OFF",
+        "SHUBA_ENABLE_REAL_JPEG_XL_CODEC_TESTS": "ON"
+      }
+    },
+    {
+      "name": "ci-host",
+      "displayName": "CI host tests",
+      "inherits": "ci-base"
+    },
+    {
+      "name": "ci-asan",
+      "displayName": "CI GCC AddressSanitizer",
+      "inherits": "ci-base",
+      "cacheVariables": {
+        "SHUBA_ENABLE_ASAN": "ON"
+      }
+    },
+    {
+      "name": "ci-static",
+      "displayName": "CI static analysis",
+      "inherits": "ci-base",
+      "cacheVariables": {
+        "SHUBA_ENABLE_CLANG_TIDY": "ON",
+        "SHUBA_ENABLE_CPPCHECK": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "ci-host",
+      "configurePreset": "ci-host",
+      "jobs": 2,
+      "targets": ["shuba_headless_tests", "shuba_jpeg_xl_codec_tests", "shuba_localization_contract"]
+    },
+    {
+      "name": "ci-asan",
+      "configurePreset": "ci-asan",
+      "jobs": 2,
+      "targets": ["shuba_headless_tests", "shuba_jpeg_xl_codec_tests"]
+    },
+    {
+      "name": "ci-static",
+      "configurePreset": "ci-static",
+      "jobs": 2,
+      "targets": ["shuba_localization_resources"]
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "ci-host",
+      "configurePreset": "ci-host",
+      "output": {"outputOnFailure": true},
+      "execution": {"noTestsAction": "error", "jobs": 2}
+    },
+    {
+      "name": "ci-asan",
+      "configurePreset": "ci-asan",
+      "output": {"outputOnFailure": true},
+      "execution": {"noTestsAction": "error", "jobs": 1}
+    }
+  ]
+}

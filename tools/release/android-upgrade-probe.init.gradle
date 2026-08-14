@@ -8,6 +8,7 @@ final String expectedFlavorName = 'release_'
 final String expectedVariantName = 'release_Release'
 final List<String> requiredProbeProperties = [
     'shubaUpgradeProbeApplicationId',
+    'shubaUpgradeProbeSourceVersionCode',
     'shubaUpgradeProbeVersionCode',
 ]
 
@@ -37,10 +38,17 @@ gradle.beforeProject { Project project ->
             probeProperties[propertyName] = requiredProbeProperty(project, propertyName)
         }
         final String expectedApplicationId = probeProperties.shubaUpgradeProbeApplicationId
+        final int sourceVersionCode = requiredPositiveInteger(
+            'shubaUpgradeProbeSourceVersionCode',
+            probeProperties.shubaUpgradeProbeSourceVersionCode,
+        )
         final int upgradeProbeVersionCode = requiredPositiveInteger(
             'shubaUpgradeProbeVersionCode',
             probeProperties.shubaUpgradeProbeVersionCode,
         )
+        if (upgradeProbeVersionCode != sourceVersionCode + 1) {
+            throw new GradleException('Shuba upgrade probe version code must be exactly one greater than source version code.')
+        }
         final Object androidComponentsExtension = project.extensions.findByName('androidComponents')
         if (androidComponentsExtension == null) {
             throw new GradleException('Shuba upgrade probe could not find the Android Components extension.')
@@ -71,25 +79,15 @@ gradle.beforeProject { Project project ->
             }
         }
 
-        // This callback runs after JUCE has defined its generated DSL. It proves
-        // the override starts from code-1 project authority rather than replacing
-        // tracked identity or generated source state.
+        // This callback runs after JUCE has defined its generated DSL. JUCE owns
+        // version identity in AndroidManifest.xml rather than defaultConfig, so
+        // the validated public-contract source code is checked above and the APK
+        // verifier later proves both source code and derived output code.
         androidComponentsExtension.finalizeDsl { Object androidExtension ->
             if (androidExtension.defaultConfig.applicationId != expectedApplicationId) {
                 throw new GradleException(
                     "Shuba upgrade probe refuses unexpected application ID '${androidExtension.defaultConfig.applicationId}'."
                 )
-            }
-            final Object sourceVersionCode = androidExtension.defaultConfig.versionCode
-            if (!(sourceVersionCode instanceof Integer) || sourceVersionCode <= 0) {
-                throw new GradleException('Shuba upgrade probe requires one positive generated source version code.')
-            }
-            if (upgradeProbeVersionCode != sourceVersionCode + 1) {
-                throw new GradleException('Shuba upgrade probe version code must be exactly one greater than source version code.')
-            }
-            final Object sourceVersionName = androidExtension.defaultConfig.versionName
-            if (!(sourceVersionName instanceof String) || sourceVersionName.isEmpty()) {
-                throw new GradleException('Shuba upgrade probe requires a non-empty generated source version name.')
             }
         }
     }
