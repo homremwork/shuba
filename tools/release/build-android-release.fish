@@ -227,6 +227,7 @@ source $shuba_script_directory/lib/repository-state.fish
 source $shuba_script_directory/lib/fingerprint.fish
 source $shuba_script_directory/lib/agp-metadata.fish
 source $shuba_script_directory/lib/atomic-publication.fish
+source $shuba_script_directory/lib/apk-validation.fish
 source $shuba_script_directory/lib/release-artifact.fish
 
 shuba_release_main $argv

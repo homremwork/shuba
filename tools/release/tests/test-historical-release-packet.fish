@@ -96,8 +96,13 @@ end
 function shuba_historical_packet_test_main
     set --local shuba_script_directory (status dirname)
     set --global shuba_release_project_root (realpath --canonicalize-existing -- $shuba_script_directory/../../..); or return 1
+    set --local shuba_release_builder $shuba_release_project_root/tools/release/build-android-release.fish
     shuba_contract_load $shuba_release_project_root/release/release.properties; or return 1
     set --global shuba_historical_packet_test_root (mktemp --directory /tmp/shuba-r12f-historical-packet.XXXXXX); or return 1
+    grep --fixed-strings --quiet -- 'source $shuba_script_directory/lib/apk-validation.fish' $shuba_release_builder; or begin
+        shuba_historical_packet_test_fail 'release coordinator does not load historical APK validation'
+        return 1
+    end
 
     set --local shuba_directory (shuba_historical_packet_test_prepare valid); or return 1
     shuba_validate_historical_release_packet $shuba_directory; or return 1
