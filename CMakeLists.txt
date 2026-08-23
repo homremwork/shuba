@@ -63,7 +63,7 @@ set(SHUBA_CPPCHECK_COMMON_ARGS
 	"--suppress=syntaxError:*/tests/B27LocalizationLanguageTests.cpp:23"
 	"--suppress=passedByValue:*/Source/Localization/CatalogDefinition.cpp:65"
 	"--suppress=uninitMemberVarNoCtor:*/Source/Localization/PhotoWorkflowLocalization.cpp:13"
-	"--suppress=uninitMemberVarNoCtor:*/Source/UI/AppShellPhotoCoordinator.hpp:48"
+	"--suppress=uninitMemberVarNoCtor:*/Source/UI/AppShell/PhotoCoordinator.hpp:48"
 	"--suppress=uninitMemberVarNoCtor:*/Source/Localization/MessageCatalog.hpp:16"
 	"--suppress=uninitMemberVarNoCtor:*/Source/Localization/Types.hpp:121")
 set(SHUBA_ANALYZER_SOURCE_FILTER "^${CMAKE_SOURCE_DIR}/(Source|tests)/")
@@ -247,19 +247,19 @@ add_library(shuba_juce_platform STATIC
 	Source/Platform/JuceAndroidPreviousExit.cpp
 	Source/Platform/JuceJpegExport.cpp
 	Source/Platform/JuceZipArchive.cpp
-	Source/UI/AppShellOperationRunner.cpp
-	Source/UI/AppShellPreviewScheduler.cpp
-	Source/UI/AppShellEditCoordinator.cpp
-	Source/UI/AppShellPhotoCoordinator.cpp
-	Source/UI/AppShellRouteCoordinator.cpp
-	Source/UI/AppShell.cpp
-	Source/UI/Screens/AppShellScreenRenderer.cpp
+	Source/UI/AppShell/OperationRunner.cpp
+	Source/UI/AppShell/PreviewScheduler.cpp
+	Source/UI/AppShell/EditCoordinator.cpp
+	Source/UI/AppShell/PhotoCoordinator.cpp
+	Source/UI/AppShell/RouteCoordinator.cpp
+	Source/UI/AppShell/Component.cpp
+	Source/UI/AppShell/ScreenRenderer.cpp
 	Source/UI/Screens/CatalogScreens.cpp
 	Source/UI/Screens/FormAndPhotoScreens.cpp
 	Source/UI/Screens/MaintenanceScreens.cpp
 	Source/UI/Screens/StorageScreens.cpp
-	Source/UI/View/AppShellChromeComponent.cpp
-	Source/UI/View/AppShellContentComponent.cpp
+	Source/UI/AppShell/ChromeComponent.cpp
+	Source/UI/AppShell/ContentComponent.cpp
 	Source/UI/View/Primitives/Palette.cpp
 	Source/UI/View/Primitives/TouchGuards.cpp
 	Source/UI/View/Primitives/PhotoViewerPinchGesture.cpp

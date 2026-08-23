@@ -1,7 +1,7 @@
 #include "Catalog/CatalogRepository.hpp"
 #include "Localization/Facade.hpp"
 #include "Platform/LinuxFakes.hpp"
-#include "UI/AppShellPreviewScheduler.hpp"
+#include "UI/AppShell/PreviewScheduler.hpp"
 #include "UI/Session/ImagePreviewSession.hpp"
 #include "UI/View/Primitives/PhotoManagement.hpp"
 #include "UI/View/Primitives/PhotoViewerPinchGesture.hpp"
@@ -624,7 +624,7 @@ TEST_CASE("JI.4 preview completion burst coalesces one delayed content rebuild",
 	write_text(second_staged_path, "ji4-second-source");
 	harness.source_decoder.set_decoded_pixels(make_pixels(4U, 2U));
 	shuba::ui::CatalogSessionState session;
-	shuba::ui::AppShellPhotoDisplayState photo_display;
+	shuba::ui::PhotoDisplayState photo_display;
 	shuba::ui::ImagePreviewCache cache{shuba::ui::ImagePreviewCacheSettings{
 		.maximum_entries = 4U, .maximum_pixel_bytes = 1024U}};
 	shuba::localization::Localization localization =
@@ -635,8 +635,8 @@ TEST_CASE("JI.4 preview completion burst coalesces one delayed content rebuild",
 		rendered_cache_entries =
 			static_cast<std::uint32_t>(cache.stats().entry_count);
 	}};
-	shuba::ui::AppShellPreviewScheduler scheduler{
-		shuba::ui::AppShellPreviewScheduler::Dependencies{
+	shuba::ui::PreviewScheduler scheduler{
+		shuba::ui::PreviewScheduler::Dependencies{
 			.session				 = session,
 			.photo_display			 = photo_display,
 			.preview_cache			 = cache,
@@ -674,15 +674,15 @@ TEST_CASE(
 	write_text(staged_path, "ji4-stale-source");
 	BlockingSourceImageDecodeService source_decoder{make_pixels(4U, 2U)};
 	shuba::ui::CatalogSessionState session;
-	shuba::ui::AppShellPhotoDisplayState photo_display;
+	shuba::ui::PhotoDisplayState photo_display;
 	shuba::ui::ImagePreviewCache cache;
 	shuba::localization::Localization localization =
 		shuba::localization::make_localization(
 			shuba::localization::Language::English, {});
 	std::uint32_t refresh_requests{};
 	{
-		shuba::ui::AppShellPreviewScheduler scheduler{
-			shuba::ui::AppShellPreviewScheduler::Dependencies{
+		shuba::ui::PreviewScheduler scheduler{
+			shuba::ui::PreviewScheduler::Dependencies{
 				.session				 = session,
 				.photo_display			 = photo_display,
 				.preview_cache			 = cache,
@@ -729,7 +729,7 @@ TEST_CASE(
 	write_text(staged_path, "ji9-lifecycle-source");
 	BlockingSourceImageDecodeService source_decoder{make_pixels(4U, 2U)};
 	shuba::ui::CatalogSessionState session;
-	shuba::ui::AppShellPhotoDisplayState photo_display{
+	shuba::ui::PhotoDisplayState photo_display{
 		.result =
 			shuba::catalog::PhotoDisplayResult{
 				.status = shuba::catalog::PhotoDisplayStatus::Decoded},
@@ -768,8 +768,8 @@ TEST_CASE(
 			shuba::localization::Language::English, {});
 	std::uint32_t refresh_requests{};
 	{
-		shuba::ui::AppShellPreviewScheduler scheduler{
-			shuba::ui::AppShellPreviewScheduler::Dependencies{
+		shuba::ui::PreviewScheduler scheduler{
+			shuba::ui::PreviewScheduler::Dependencies{
 				.session				 = session,
 				.photo_display			 = photo_display,
 				.preview_cache			 = cache,
@@ -842,15 +842,15 @@ TEST_CASE(
 	write_text(staged_path, "ji9-fresh-source");
 	BlockingSourceImageDecodeService source_decoder{make_pixels(4U, 2U)};
 	shuba::ui::CatalogSessionState session;
-	shuba::ui::AppShellPhotoDisplayState photo_display;
+	shuba::ui::PhotoDisplayState photo_display;
 	shuba::ui::ImagePreviewCache cache;
 	shuba::localization::Localization localization =
 		shuba::localization::make_localization(
 			shuba::localization::Language::English, {});
 	std::uint32_t refresh_requests{};
 	{
-		shuba::ui::AppShellPreviewScheduler scheduler{
-			shuba::ui::AppShellPreviewScheduler::Dependencies{
+		shuba::ui::PreviewScheduler scheduler{
+			shuba::ui::PreviewScheduler::Dependencies{
 				.session				 = session,
 				.photo_display			 = photo_display,
 				.preview_cache			 = cache,

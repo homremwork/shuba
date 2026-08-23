@@ -1,4 +1,4 @@
-#include "UI/AppShellOperationRunner.hpp"
+#include "UI/AppShell/OperationRunner.hpp"
 
 #include "Catalog/PhotoExport.hpp"
 #include "Core/Identifier.hpp"
@@ -21,7 +21,7 @@
 #include <vector>
 
 namespace shuba::ui {
-bool AppShellOperationState::active() const noexcept {
+bool OperationState::active() const noexcept {
 	return state != ShellOperationState::Idle;
 }
 
@@ -138,9 +138,9 @@ struct LifetimeToken final {
 };
 }	 // namespace
 
-class AppShellOperationRunner::Impl final {
+class OperationRunner::Impl final {
 public:
-	explicit Impl(AppShellOperationRunner::Dependencies dependencies)
+	explicit Impl(OperationRunner::Dependencies dependencies)
 		: operation_gate(dependencies.operation_gate)
 		, worker_service_factory(dependencies.worker_service_factory)
 		, progress_handler(std::move(dependencies.progress))
@@ -705,72 +705,72 @@ private:
 	bool stopping{};
 };
 
-AppShellOperationRunner::AppShellOperationRunner(Dependencies dependencies)
+OperationRunner::OperationRunner(Dependencies dependencies)
 	: impl(std::make_unique<Impl>(std::move(dependencies))) {}
 
-AppShellOperationRunner::~AppShellOperationRunner() = default;
+OperationRunner::~OperationRunner() = default;
 
-AppShellOperationRunner::Submission
-AppShellOperationRunner::submit_pending_staging(
+OperationRunner::Submission
+OperationRunner::submit_pending_staging(
 	ShellOperationJobType job_type, const PendingPhotoStagingRequest& request,
 	Completion completion) {
 	return impl->submit_pending_staging(job_type, request,
 										std::move(completion));
 }
 
-AppShellOperationRunner::Submission
-AppShellOperationRunner::submit_direct_import(
+OperationRunner::Submission
+OperationRunner::submit_direct_import(
 	const PhotoImportSessionRequest& request, Completion completion) {
 	return impl->submit_direct_import(request, std::move(completion));
 }
 
-AppShellOperationRunner::Submission AppShellOperationRunner::submit_item_save(
+OperationRunner::Submission OperationRunner::submit_item_save(
 	const ItemSaveWithPendingPhotosRequest& request, Completion completion) {
 	return impl->submit_item_save(request, std::move(completion));
 }
 
-AppShellOperationRunner::Submission
-AppShellOperationRunner::submit_storage_save(
+OperationRunner::Submission
+OperationRunner::submit_storage_save(
 	const StorageSaveWithPendingPhotosRequest& request, Completion completion) {
 	return impl->submit_storage_save(request, std::move(completion));
 }
 
-AppShellOperationRunner::Submission AppShellOperationRunner::submit_jpeg_export(
+OperationRunner::Submission OperationRunner::submit_jpeg_export(
 	const catalog::PhotoExportRequest& request, Completion completion) {
 	return impl->submit_jpeg_export(request, std::move(completion));
 }
 
-AppShellOperationRunner::Submission
-AppShellOperationRunner::submit_backup_export(
+OperationRunner::Submission
+OperationRunner::submit_backup_export(
 	const BackupExportSessionRequest& request, bool diagnostic_archive,
 	Completion completion) {
 	return impl->submit_backup_export(request, diagnostic_archive,
 									  std::move(completion));
 }
 
-AppShellOperationRunner::Submission
-AppShellOperationRunner::submit_backup_import_staging(
+OperationRunner::Submission
+OperationRunner::submit_backup_import_staging(
 	const BackupImportStagingSessionRequest& request, Completion completion) {
 	return impl->submit_backup_import_staging(request, std::move(completion));
 }
 
-AppShellOperationRunner::Submission
-AppShellOperationRunner::submit_backup_import_replacement(
+OperationRunner::Submission
+OperationRunner::submit_backup_import_replacement(
 	const BackupImportReplacementSessionRequest& request,
 	Completion completion) {
 	return impl->submit_backup_import_replacement(request,
 												  std::move(completion));
 }
 
-bool AppShellOperationRunner::active() const {
+bool OperationRunner::active() const {
 	return impl->active();
 }
 
-void AppShellOperationRunner::request_cancellation() {
+void OperationRunner::request_cancellation() {
 	impl->request_cancellation();
 }
 
-void AppShellOperationRunner::stop() {
+void OperationRunner::stop() {
 	impl->stop();
 }
 }	 // namespace shuba::ui

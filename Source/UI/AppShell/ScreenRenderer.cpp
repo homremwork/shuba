@@ -1,8 +1,8 @@
-#include "UI/Screens/AppShellScreenRenderer.hpp"
+#include "UI/AppShell/ScreenRenderer.hpp"
 
 #include "Localization/Facade.hpp"
 #include "UI/Session/PhotoSession.hpp"
-#include "UI/View/AppShellContentComponent.hpp"
+#include "UI/AppShell/ContentComponent.hpp"
 #include "UI/View/ScreenText.hpp"
 
 #include <algorithm>
@@ -41,7 +41,7 @@ void append_summary_part(std::string& text, std::string_view part) {
 	return "Photo preview is unavailable.";
 }
 }	 // namespace
-AppShellScreenRenderer::AppShellScreenRenderer(Dependencies dependencies)
+ScreenRenderer::ScreenRenderer(Dependencies dependencies)
 	: session(dependencies.session)
 	, route(dependencies.route)
 	, catalog_filter_state(dependencies.catalog_filter_state)
@@ -142,16 +142,16 @@ AppShellScreenRenderer::AppShellScreenRenderer(Dependencies dependencies)
 	, refresh_content_handler(std::move(dependencies.actions.refresh_content)) {
 }
 
-std::string AppShellScreenRenderer::catalog_query() const {
+std::string ScreenRenderer::catalog_query() const {
 	return catalog_query_provider ? catalog_query_provider() : std::string{};
 }
 
-std::string AppShellScreenRenderer::storage_query() const {
+std::string ScreenRenderer::storage_query() const {
 	return storage_query_provider ? storage_query_provider() : std::string{};
 }
 
-AppShellScreenRenderer::PreviewCardBuildResult
-AppShellScreenRenderer::build_item_result_preview_card(
+ScreenRenderer::PreviewCardBuildResult
+ScreenRenderer::build_item_result_preview_card(
 	const catalog::SearchResult& result,
 	ImagePreviewRequestPriority preview_priority) {
 	PreviewCardBuildResult card;
@@ -190,8 +190,8 @@ AppShellScreenRenderer::build_item_result_preview_card(
 	return card;
 }
 
-AppShellScreenRenderer::PreviewCardBuildResult
-AppShellScreenRenderer::build_storage_result_preview_card(
+ScreenRenderer::PreviewCardBuildResult
+ScreenRenderer::build_storage_result_preview_card(
 	const catalog::SearchResult& result,
 	ImagePreviewRequestPriority preview_priority) {
 	PreviewCardBuildResult card;
@@ -232,7 +232,7 @@ AppShellScreenRenderer::build_storage_result_preview_card(
 }
 
 CompactStorageCardContent
-AppShellScreenRenderer::build_storage_result_compact_card(
+ScreenRenderer::build_storage_result_compact_card(
 	const catalog::SearchResult& result,
 	ImagePreviewRequestPriority preview_priority) {
 	CompactStorageCardContent card;
@@ -247,8 +247,8 @@ AppShellScreenRenderer::build_storage_result_compact_card(
 	return card;
 }
 
-AppShellScreenRenderer::PreviewCardBuildResult
-AppShellScreenRenderer::build_item_preview_card(
+ScreenRenderer::PreviewCardBuildResult
+ScreenRenderer::build_item_preview_card(
 	const persistence::ItemEnvelope& item,
 	const catalog::ItemProjection& projection,
 	ImagePreviewRequestPriority preview_priority) {
@@ -287,8 +287,8 @@ AppShellScreenRenderer::build_item_preview_card(
 	return card;
 }
 
-AppShellScreenRenderer::PreviewCardBuildResult
-AppShellScreenRenderer::build_storage_preview_card(
+ScreenRenderer::PreviewCardBuildResult
+ScreenRenderer::build_storage_preview_card(
 	const persistence::StorageEnvelope& storage,
 	const catalog::StorageProjection& projection,
 	ImagePreviewRequestPriority preview_priority) {
@@ -337,7 +337,7 @@ AppShellScreenRenderer::build_storage_preview_card(
 	return card;
 }
 
-CompactStorageCardContent AppShellScreenRenderer::build_storage_compact_card(
+CompactStorageCardContent ScreenRenderer::build_storage_compact_card(
 	const persistence::StorageEnvelope& storage,
 	const catalog::StorageProjection& projection,
 	ImagePreviewRequestPriority preview_priority) {
@@ -355,7 +355,7 @@ CompactStorageCardContent AppShellScreenRenderer::build_storage_compact_card(
 	return card;
 }
 
-void AppShellScreenRenderer::apply_representative_preview(
+void ScreenRenderer::apply_representative_preview(
 	const catalog::SearchResult& result,
 	ImagePreviewRequestPriority preview_priority,
 	PreviewCardBuildResult& card) {
@@ -364,7 +364,7 @@ void AppShellScreenRenderer::apply_representative_preview(
 		result.representative_usable_photo_id, preview_priority, card);
 }
 
-void AppShellScreenRenderer::apply_representative_preview(
+void ScreenRenderer::apply_representative_preview(
 	const catalog::SearchResult& result,
 	ImagePreviewRequestPriority preview_priority,
 	CompactStorageCardContent& card) {
@@ -373,7 +373,7 @@ void AppShellScreenRenderer::apply_representative_preview(
 		result.representative_usable_photo_id, preview_priority, card);
 }
 
-void AppShellScreenRenderer::apply_representative_preview(
+void ScreenRenderer::apply_representative_preview(
 	catalog::PhotoPresenceState photo_presence,
 	const std::optional<core::StableIdentifier>& representative_photo_id,
 	const std::optional<core::StableIdentifier>& representative_usable_photo_id,
@@ -399,7 +399,7 @@ void AppShellScreenRenderer::apply_representative_preview(
 	card.content.placeholder = preview.placeholder;
 }
 
-void AppShellScreenRenderer::apply_representative_preview(
+void ScreenRenderer::apply_representative_preview(
 	catalog::PhotoPresenceState photo_presence,
 	const std::optional<core::StableIdentifier>& representative_photo_id,
 	const std::optional<core::StableIdentifier>& representative_usable_photo_id,
@@ -424,8 +424,8 @@ void AppShellScreenRenderer::apply_representative_preview(
 	card.placeholder = preview.placeholder;
 }
 
-AppShellScreenRenderer::ImagePreviewRenderState
-AppShellScreenRenderer::load_internal_preview_image(
+ScreenRenderer::ImagePreviewRenderState
+ScreenRenderer::load_internal_preview_image(
 	const core::StableIdentifier& photo_id, ImagePreviewSize target_size,
 	ImagePreviewRequestPriority priority) {
 	ImagePreviewRenderState state;
@@ -465,8 +465,8 @@ AppShellScreenRenderer::load_internal_preview_image(
 	return state;
 }
 
-AppShellScreenRenderer::ImagePreviewRenderState
-AppShellScreenRenderer::load_staged_preview_image(
+ScreenRenderer::ImagePreviewRenderState
+ScreenRenderer::load_staged_preview_image(
 	const PendingPhotoSource& source, ImagePreviewSize target_size,
 	ImagePreviewRequestPriority priority) {
 	ImagePreviewRenderState state;
@@ -507,7 +507,7 @@ AppShellScreenRenderer::load_staged_preview_image(
 }
 
 std::vector<StagedPhotoCardEntry>
-AppShellScreenRenderer::build_staged_photo_card_entries(
+ScreenRenderer::build_staged_photo_card_entries(
 	std::span<const PendingPhotoSource> sources, ImagePreviewSize target_size,
 	std::optional<std::size_t> immediate_preview_index,
 	bool load_default_previews) {
@@ -536,7 +536,7 @@ AppShellScreenRenderer::build_staged_photo_card_entries(
 }
 
 std::vector<CurrentPhotoCardEntry>
-AppShellScreenRenderer::build_current_photo_card_entries(
+ScreenRenderer::build_current_photo_card_entries(
 	const domain::PhotoOwner& owner, ImagePreviewSize target_size,
 	std::optional<std::size_t> immediate_preview_index,
 	bool load_default_previews) {
@@ -595,7 +595,7 @@ AppShellScreenRenderer::build_current_photo_card_entries(
 	return entries;
 }
 
-std::size_t AppShellScreenRenderer::current_photo_count_for_owner(
+std::size_t ScreenRenderer::current_photo_count_for_owner(
 	const std::optional<domain::PhotoOwner>& owner) const {
 	if (!owner.has_value())
 		return 0U;
@@ -604,10 +604,10 @@ std::size_t AppShellScreenRenderer::current_photo_count_for_owner(
 	return projection == nullptr ? 0U : projection->ordered_photo_ids.size();
 }
 
-void AppShellScreenRenderer::add_photo_management_deck(
+void ScreenRenderer::add_photo_management_deck(
 	std::optional<domain::PhotoOwner> owner,
 	std::span<const PendingPhotoSource> pending_sources,
-	AppShellManagedPhotoDeckState& deck_state,
+	ManagedPhotoDeckState& deck_state,
 	std::function<void()> add_staged_handler,
 	std::function<void()> clear_staged_handler,
 	std::function<void(std::size_t)> remove_staged_handler,
@@ -718,7 +718,7 @@ void AppShellScreenRenderer::add_photo_management_deck(
 }
 
 std::optional<core::StableIdentifier>
-AppShellScreenRenderer::selected_photo_id_for_owner(
+ScreenRenderer::selected_photo_id_for_owner(
 	const domain::PhotoOwner& owner) const {
 	const catalog::OwnerPhotoProjection* projection =
 		owner_photo_projection(session.repository, owner);
@@ -736,7 +736,7 @@ AppShellScreenRenderer::selected_photo_id_for_owner(
 }
 
 std::optional<core::StableIdentifier>
-AppShellScreenRenderer::selected_usable_photo_id_for_owner(
+ScreenRenderer::selected_usable_photo_id_for_owner(
 	const domain::PhotoOwner& owner) const {
 	const catalog::OwnerPhotoProjection* projection =
 		owner_photo_projection(session.repository, owner);
@@ -754,7 +754,7 @@ AppShellScreenRenderer::selected_usable_photo_id_for_owner(
 	return projection->representative_usable_photo_id;
 }
 
-void AppShellScreenRenderer::add_owner_photo_carousel(
+void ScreenRenderer::add_owner_photo_carousel(
 	const domain::PhotoOwner& owner, catalog::PhotoPresenceState photo_presence,
 	juce::String empty_title, juce::String empty_caption) {
 	const catalog::OwnerPhotoProjection* projection =
@@ -865,178 +865,178 @@ void AppShellScreenRenderer::add_owner_photo_carousel(
 	}, detail_carousel_height);
 }
 
-void AppShellScreenRenderer::select_root(RootDestination destination) {
+void ScreenRenderer::select_root(RootDestination destination) {
 	if (select_root_handler)
 		select_root_handler(destination);
 }
 
-void AppShellScreenRenderer::open_item_detail(core::StableIdentifier item_id) {
+void ScreenRenderer::open_item_detail(core::StableIdentifier item_id) {
 	if (open_item_detail_handler)
 		open_item_detail_handler(std::move(item_id));
 }
 
-void AppShellScreenRenderer::open_storage_detail(
+void ScreenRenderer::open_storage_detail(
 	core::StableIdentifier storage_id) {
 	if (open_storage_detail_handler)
 		open_storage_detail_handler(std::move(storage_id));
 }
 
-void AppShellScreenRenderer::open_photo_viewer(
+void ScreenRenderer::open_photo_viewer(
 	const domain::PhotoOwner& owner,
 	const std::optional<core::StableIdentifier>& requested_photo_id) {
 	if (open_photo_viewer_handler)
 		open_photo_viewer_handler(owner, requested_photo_id);
 }
 
-void AppShellScreenRenderer::open_new_item_form(
+void ScreenRenderer::open_new_item_form(
 	std::optional<core::StableIdentifier> storage_id) {
 	if (open_new_item_form_handler)
 		open_new_item_form_handler(std::move(storage_id));
 }
 
-void AppShellScreenRenderer::open_existing_item_form(
+void ScreenRenderer::open_existing_item_form(
 	core::StableIdentifier item_id) {
 	if (open_existing_item_form_handler)
 		open_existing_item_form_handler(std::move(item_id));
 }
 
-void AppShellScreenRenderer::open_new_storage_form(
+void ScreenRenderer::open_new_storage_form(
 	std::optional<core::StableIdentifier> parent_id) {
 	if (open_new_storage_form_handler)
 		open_new_storage_form_handler(std::move(parent_id));
 }
 
-void AppShellScreenRenderer::open_existing_storage_form(
+void ScreenRenderer::open_existing_storage_form(
 	core::StableIdentifier storage_id) {
 	if (open_existing_storage_form_handler)
 		open_existing_storage_form_handler(std::move(storage_id));
 }
 
-void AppShellScreenRenderer::request_add_photos(
+void ScreenRenderer::request_add_photos(
 	const domain::PhotoOwner& owner) {
 	if (request_add_photos_handler)
 		request_add_photos_handler(owner);
 }
 
-void AppShellScreenRenderer::request_add_pending_item_photos() {
+void ScreenRenderer::request_add_pending_item_photos() {
 	if (request_add_pending_item_photos_handler)
 		request_add_pending_item_photos_handler();
 }
 
-void AppShellScreenRenderer::request_add_pending_storage_photos() {
+void ScreenRenderer::request_add_pending_storage_photos() {
 	if (request_add_pending_storage_photos_handler)
 		request_add_pending_storage_photos_handler();
 }
 
-void AppShellScreenRenderer::request_export_photo(
+void ScreenRenderer::request_export_photo(
 	const core::StableIdentifier& photo_id) {
 	if (request_export_photo_handler)
 		request_export_photo_handler(photo_id);
 }
 
-void AppShellScreenRenderer::request_export_backup() {
+void ScreenRenderer::request_export_backup() {
 	if (request_export_backup_handler)
 		request_export_backup_handler();
 }
 
-void AppShellScreenRenderer::request_export_diagnostic_archive() {
+void ScreenRenderer::request_export_diagnostic_archive() {
 	if (request_export_diagnostic_archive_handler)
 		request_export_diagnostic_archive_handler();
 }
 
-void AppShellScreenRenderer::request_import_backup() {
+void ScreenRenderer::request_import_backup() {
 	if (request_import_backup_handler)
 		request_import_backup_handler();
 }
 
-void AppShellScreenRenderer::retry_normal_startup() {
+void ScreenRenderer::retry_normal_startup() {
 	if (retry_normal_startup_handler)
 		retry_normal_startup_handler();
 }
 
-void AppShellScreenRenderer::confirm_staged_backup_import() {
+void ScreenRenderer::confirm_staged_backup_import() {
 	if (confirm_staged_backup_import_handler)
 		confirm_staged_backup_import_handler();
 }
 
-void AppShellScreenRenderer::cleanup_item_pending_photos() {
+void ScreenRenderer::cleanup_item_pending_photos() {
 	if (cleanup_item_pending_photos_handler)
 		cleanup_item_pending_photos_handler();
 }
 
-void AppShellScreenRenderer::cleanup_storage_pending_photos() {
+void ScreenRenderer::cleanup_storage_pending_photos() {
 	if (cleanup_storage_pending_photos_handler)
 		cleanup_storage_pending_photos_handler();
 }
 
-void AppShellScreenRenderer::remove_item_pending_photo(
+void ScreenRenderer::remove_item_pending_photo(
 	std::size_t pending_photo_index) {
 	if (remove_item_pending_photo_handler)
 		remove_item_pending_photo_handler(pending_photo_index);
 }
 
-void AppShellScreenRenderer::remove_storage_pending_photo(
+void ScreenRenderer::remove_storage_pending_photo(
 	std::size_t pending_photo_index) {
 	if (remove_storage_pending_photo_handler)
 		remove_storage_pending_photo_handler(pending_photo_index);
 }
 
-void AppShellScreenRenderer::set_item_pending_photo_as_main(
+void ScreenRenderer::set_item_pending_photo_as_main(
 	std::size_t pending_photo_index) {
 	if (set_item_pending_photo_as_main_handler)
 		set_item_pending_photo_as_main_handler(pending_photo_index);
 }
 
-void AppShellScreenRenderer::set_storage_pending_photo_as_main(
+void ScreenRenderer::set_storage_pending_photo_as_main(
 	std::size_t pending_photo_index) {
 	if (set_storage_pending_photo_as_main_handler)
 		set_storage_pending_photo_as_main_handler(pending_photo_index);
 }
 
-void AppShellScreenRenderer::request_delete_photo(
+void ScreenRenderer::request_delete_photo(
 	const core::StableIdentifier& photo_id) {
 	if (request_delete_photo_handler)
 		request_delete_photo_handler(photo_id);
 }
 
-void AppShellScreenRenderer::confirm_delete_photo(
+void ScreenRenderer::confirm_delete_photo(
 	const core::StableIdentifier& photo_id) {
 	if (confirm_delete_photo_handler)
 		confirm_delete_photo_handler(photo_id);
 }
 
-void AppShellScreenRenderer::cancel_delete_photo() {
+void ScreenRenderer::cancel_delete_photo() {
 	if (cancel_delete_photo_handler)
 		cancel_delete_photo_handler();
 }
 
-void AppShellScreenRenderer::apply_catalog_filters() {
+void ScreenRenderer::apply_catalog_filters() {
 	if (apply_catalog_filters_handler)
 		apply_catalog_filters_handler();
 }
 
-void AppShellScreenRenderer::reset_catalog_filters() {
+void ScreenRenderer::reset_catalog_filters() {
 	if (reset_catalog_filters_handler)
 		reset_catalog_filters_handler();
 }
 
-void AppShellScreenRenderer::apply_entity_edit_result(EntityEditResult result) {
+void ScreenRenderer::apply_entity_edit_result(EntityEditResult result) {
 	if (apply_entity_edit_result_handler)
 		apply_entity_edit_result_handler(std::move(result));
 }
 
-void AppShellScreenRenderer::apply_photo_edit_result(
+void ScreenRenderer::apply_photo_edit_result(
 	EntityEditResult result, const core::StableIdentifier& selected_photo_id) {
 	if (apply_photo_edit_result_handler)
 		apply_photo_edit_result_handler(std::move(result), selected_photo_id);
 }
 
-void AppShellScreenRenderer::refresh_all() {
+void ScreenRenderer::refresh_all() {
 	if (refresh_all_handler)
 		refresh_all_handler();
 }
 
-void AppShellScreenRenderer::refresh_content() {
+void ScreenRenderer::refresh_content() {
 	if (refresh_content_handler)
 		refresh_content_handler();
 }

@@ -131,10 +131,10 @@ TEST_CASE("R13 Android photo picker completion performs shallow capture only",
 
 TEST_CASE("R13 progress application cannot rebuild the routed content tree",
 		  "[r13][ui][progress][static-contract]") {
-	const std::string source = read_source_file("Source/UI/AppShell.cpp");
+	const std::string source = read_source_file("Source/UI/AppShell/Component.cpp");
 	const std::string progress_application = function_body(
-		source, "void AppShellComponent::apply_shell_operation_progress(",
-		"void AppShellComponent::update_shell_operation_progress_surface()");
+		source, "void Component::apply_shell_operation_progress(",
+		"void Component::update_shell_operation_progress_surface()");
 	REQUIRE(progress_application.find("MessageManager::callAsync")
 			== std::string::npos);
 	REQUIRE(progress_application.find("refresh_all()") == std::string::npos);
@@ -146,9 +146,9 @@ TEST_CASE("R13 progress application cannot rebuild the routed content tree",
 
 	const std::string stable_surface = function_body(
 		source,
-		"void AppShellComponent::update_shell_operation_progress_surface()",
+		"void Component::update_shell_operation_progress_surface()",
 		"std::optional<juce::String> "
-		"AppShellComponent::preview_failure_message(");
+		"Component::preview_failure_message(");
 	REQUIRE(stable_surface.find("shell_operation_progress->update_model")
 			!= std::string::npos);
 	REQUIRE(stable_surface.find("refresh_all()") == std::string::npos);
@@ -158,11 +158,11 @@ TEST_CASE("R13 progress application cannot rebuild the routed content tree",
 
 TEST_CASE("JI.4 preview completions use the shell timer refresh boundary",
 		  "[ji4][ui][preview][static-contract]") {
-	const std::string shell_source = read_source_file("Source/UI/AppShell.cpp");
+	const std::string shell_source = read_source_file("Source/UI/AppShell/Component.cpp");
 	const std::string scheduler_construction = function_body(
 		shell_source,
-		"preview_scheduler = std::make_unique<AppShellPreviewScheduler>(",
-		"route_coordinator = std::make_unique<AppShellRouteCoordinator>(");
+		"preview_scheduler = std::make_unique<PreviewScheduler>(",
+		"route_coordinator = std::make_unique<RouteCoordinator>(");
 	REQUIRE(scheduler_construction.find(
 				".refresh_content\t\t = [this] { schedule_content_refresh(); }")
 			!= std::string::npos);
@@ -171,7 +171,7 @@ TEST_CASE("JI.4 preview completions use the shell timer refresh boundary",
 
 	const std::string renderer_construction = function_body(
 		shell_source,
-		"screen_renderer = std::make_unique<AppShellScreenRenderer>(",
+		"screen_renderer = std::make_unique<ScreenRenderer>(",
 		"viewport.setViewedComponent(content.get(), false);");
 	REQUIRE(
 		renderer_construction.find(".refresh_all = [this] { refresh_all(); },")
@@ -181,8 +181,8 @@ TEST_CASE("JI.4 preview completions use the shell timer refresh boundary",
 			!= std::string::npos);
 
 	const std::string timer_callback =
-		function_body(shell_source, "void AppShellComponent::timerCallback()",
-					  "void AppShellComponent::refresh_all()");
+		function_body(shell_source, "void Component::timerCallback()",
+					  "void Component::refresh_all()");
 	REQUIRE(timer_callback.find("stopTimer()") != std::string::npos);
 	REQUIRE(timer_callback.find("refresh_content()") != std::string::npos);
 }
@@ -192,9 +192,9 @@ TEST_CASE("Maintenance document picker callbacks use shell lifetime guards",
 	const std::string source =
 		read_source_file("Source/UI/Screens/MaintenanceScreens.cpp");
 	for (const std::string_view signature :
-		 {"void AppShellComponent::request_export_backup()",
-		  "void AppShellComponent::request_export_diagnostic_archive()",
-		  "void AppShellComponent::request_import_backup()"}) {
+		 {"void Component::request_export_backup()",
+		  "void Component::request_export_diagnostic_archive()",
+		  "void Component::request_import_backup()"}) {
 		const std::size_t begin = source.find(signature);
 		REQUIRE(begin != std::string::npos);
 		const std::size_t callback_begin =
@@ -205,10 +205,10 @@ TEST_CASE("Maintenance document picker callbacks use shell lifetime guards",
 			!= std::string::npos);
 	}
 
-	const std::string shell_source = read_source_file("Source/UI/AppShell.cpp");
+	const std::string shell_source = read_source_file("Source/UI/AppShell/Component.cpp");
 	const std::string destructor =
-		function_body(shell_source, "AppShellComponent::~AppShellComponent()",
-					  "void AppShellComponent::paint(");
+		function_body(shell_source, "Component::~Component()",
+					  "void Component::paint(");
 	REQUIRE(destructor.find("picker_lifetime->invalidate_and_wait()")
 			!= std::string::npos);
 }

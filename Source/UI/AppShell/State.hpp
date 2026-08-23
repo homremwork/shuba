@@ -33,22 +33,22 @@ enum class FormMode : std::uint8_t {
 	Edit,
 };
 
-struct AppShellManagedPhotoDeckState final {
+struct ManagedPhotoDeckState final {
 	bool staged_selected{};
 	std::size_t selected_index{};
 	std::optional<std::size_t> staged_main_index;
 };
 
-struct AppShellRouteLocation final {
+struct RouteLocation final {
 	RootDestination destination{RootDestination::Catalog};
 	std::optional<core::StableIdentifier> selected_item_id;
 	std::optional<core::StableIdentifier> selected_storage_id;
 
-	friend bool operator==(const AppShellRouteLocation&,
-						   const AppShellRouteLocation&) = default;
+	friend bool operator==(const RouteLocation&,
+						   const RouteLocation&) = default;
 };
 
-struct AppShellRouteState final {
+struct RouteState final {
 	static constexpr std::size_t maximum_contextual_return_locations{64U};
 
 	RootDestination destination{RootDestination::Catalog};
@@ -57,37 +57,37 @@ struct AppShellRouteState final {
 	std::optional<domain::PhotoOwner> selected_photo_owner;
 	std::optional<core::StableIdentifier> selected_photo_id;
 	std::optional<RootDestination> form_return_destination;
-	std::vector<AppShellRouteLocation> contextual_return_locations;
+	std::vector<RouteLocation> contextual_return_locations;
 };
 
-struct AppShellCatalogFilterState final {
+struct CatalogFilterState final {
 	catalog::CatalogSearchFilters applied;
 	catalog::CatalogSearchFilters draft;
 	bool panel_visible{};
 };
 
-struct AppShellItemFormState final {
+struct ItemFormState final {
 	ItemDraft draft;
 	FormMode mode{FormMode::Create};
 	std::vector<PendingPhotoSource> pending_photos;
-	AppShellManagedPhotoDeckState photo_deck;
+	ManagedPhotoDeckState photo_deck;
 	bool storage_candidates_expanded{};
 	bool tag_candidates_expanded{};
 	bool listing_expanded{};
 	bool finance_expanded{};
 };
 
-struct AppShellStorageFormState final {
+struct StorageFormState final {
 	StorageDraft draft;
 	FormMode mode{FormMode::Create};
 	std::vector<PendingPhotoSource> pending_photos;
-	AppShellManagedPhotoDeckState photo_deck;
+	ManagedPhotoDeckState photo_deck;
 	bool parent_candidates_expanded{};
 	bool tag_candidates_expanded{};
 	bool archive_warning_acknowledged{};
 };
 
-struct AppShellFeedbackState final {
+struct FeedbackState final {
 	std::string edit_message;
 	std::vector<EntityEditDiagnostic> edit_diagnostics;
 	std::string photo_message;
@@ -96,12 +96,12 @@ struct AppShellFeedbackState final {
 	std::vector<core::Diagnostic> backup_diagnostics;
 };
 
-struct AppShellBackupState final {
+struct BackupState final {
 	std::optional<catalog::BackupImportStagingResult> pending_import_staging;
 	bool pending_import_degraded_acknowledged{};
 };
 
-struct AppShellPhotoDisplayState final {
+struct PhotoDisplayState final {
 	catalog::PhotoDisplayResult result;
 	std::optional<core::StableIdentifier> displayed_photo_id;
 	std::optional<core::StableIdentifier> requested_display_photo_id;
@@ -111,7 +111,7 @@ struct AppShellPhotoDisplayState final {
 	int viewer_rotation_quarter_turns{};
 };
 
-struct AppShellStorageDetailState final {
+struct StorageDetailState final {
 	bool include_nested{true};
 };
 }	 // namespace shuba::ui

@@ -1,4 +1,4 @@
-#include "UI/AppShellPhotoCoordinator.hpp"
+#include "UI/AppShell/PhotoCoordinator.hpp"
 
 #include "Localization/Facade.hpp"
 #include "UI/Session/PhotoSession.hpp"
@@ -15,7 +15,7 @@
 namespace shuba::ui {
 namespace {
 void copy_entity_diagnostics_to_photo_feedback(
-	AppShellFeedbackState& feedback,
+	FeedbackState& feedback,
 	const std::vector<EntityEditDiagnostic>& diagnostics) {
 	feedback.photo_diagnostics.clear();
 	for (const EntityEditDiagnostic& diagnostic : diagnostics) {
@@ -58,7 +58,7 @@ next_photo_selection_after_delete(
 
 }	 // namespace
 
-AppShellPhotoCoordinator::AppShellPhotoCoordinator(Dependencies dependencies)
+PhotoCoordinator::PhotoCoordinator(Dependencies dependencies)
 	: session(dependencies.session)
 	, route(dependencies.route)
 	, item_form(dependencies.item_form)
@@ -93,14 +93,14 @@ AppShellPhotoCoordinator::AppShellPhotoCoordinator(Dependencies dependencies)
 	, complete_shell_operation_handler(
 		  std::move(dependencies.complete_shell_operation)) {}
 
-AppShellPhotoCoordinator::~AppShellPhotoCoordinator() {
+PhotoCoordinator::~PhotoCoordinator() {
 	const std::shared_ptr<CallbackLifetimeToken> token =
 		std::move(lifetime_token);
 	if (token != nullptr)
 		token->invalidate_and_wait();
 }
 
-void AppShellPhotoCoordinator::request_add_photos(
+void PhotoCoordinator::request_add_photos(
 	const domain::PhotoOwner& owner) {
 	if (shell_operation_state.active()) {
 		apply_busy_result();
@@ -137,7 +137,7 @@ void AppShellPhotoCoordinator::request_add_photos(
 			refresh_all();
 			return;
 		}
-		const AppShellOperationRunner::Submission submission =
+		const OperationRunner::Submission submission =
 			shell_operation_runner.submit_direct_import(
 				PhotoImportSessionRequest{
 					.current_session	 = session,
@@ -150,7 +150,7 @@ void AppShellPhotoCoordinator::request_add_photos(
 					.photo_codec		 = internal_photo_codec,
 					.owner				 = owner,
 					.sources			 = std::move(*result.value)},
-				[this](AppShellOperationRunner::CompletionResult completion) {
+				[this](OperationRunner::CompletionResult completion) {
 			if (shell_operation_state.generation != completion.generation
 				|| shell_operation_state.job_type != completion.job_type) {
 				return;
@@ -175,15 +175,15 @@ void AppShellPhotoCoordinator::request_add_photos(
 	}
 }
 
-void AppShellPhotoCoordinator::request_add_pending_item_photos() {
+void PhotoCoordinator::request_add_pending_item_photos() {
 	request_add_pending_photos(PendingPhotoDraftTarget::Item);
 }
 
-void AppShellPhotoCoordinator::request_add_pending_storage_photos() {
+void PhotoCoordinator::request_add_pending_storage_photos() {
 	request_add_pending_photos(PendingPhotoDraftTarget::Storage);
 }
 
-void AppShellPhotoCoordinator::request_add_pending_photos(
+void PhotoCoordinator::request_add_pending_photos(
 	PendingPhotoDraftTarget target) {
 	if (shell_operation_state.active()) {
 		apply_busy_result();
@@ -236,7 +236,7 @@ void AppShellPhotoCoordinator::request_add_pending_photos(
 			target == PendingPhotoDraftTarget::Item
 				? ShellOperationJobType::PendingItemStaging
 				: ShellOperationJobType::PendingStorageStaging;
-		const AppShellOperationRunner::Submission submission =
+		const OperationRunner::Submission submission =
 			shell_operation_runner.submit_pending_staging(
 				job_type,
 				PendingPhotoStagingRequest{
@@ -249,7 +249,7 @@ void AppShellPhotoCoordinator::request_add_pending_photos(
 					.existing_pending_sources = pending_sources_for(target),
 					.existing_owner = owner_for_pending_target(target)},
 				[this,
-				 target](AppShellOperationRunner::CompletionResult completion) {
+				 target](OperationRunner::CompletionResult completion) {
 			if (shell_operation_state.generation != completion.generation
 				|| shell_operation_state.job_type != completion.job_type) {
 				return;
@@ -275,7 +275,7 @@ void AppShellPhotoCoordinator::request_add_pending_photos(
 	}
 }
 
-std::vector<PendingPhotoSource> AppShellPhotoCoordinator::pending_sources_for(
+std::vector<PendingPhotoSource> PhotoCoordinator::pending_sources_for(
 	PendingPhotoDraftTarget target) const {
 	if (target == PendingPhotoDraftTarget::Item)
 		return item_form.pending_photos;
@@ -283,7 +283,7 @@ std::vector<PendingPhotoSource> AppShellPhotoCoordinator::pending_sources_for(
 }
 
 std::optional<domain::PhotoOwner>
-AppShellPhotoCoordinator::owner_for_pending_target(
+PhotoCoordinator::owner_for_pending_target(
 	PendingPhotoDraftTarget target) const {
 	if (target == PendingPhotoDraftTarget::Item) {
 		if (item_form.mode == FormMode::Edit
@@ -302,7 +302,7 @@ AppShellPhotoCoordinator::owner_for_pending_target(
 	return std::nullopt;
 }
 
-void AppShellPhotoCoordinator::request_export_photo(
+void PhotoCoordinator::request_export_photo(
 	const core::StableIdentifier& photo_id) {
 	feedback.photo_diagnostics.clear();
 	const std::string suggested_name =
@@ -341,7 +341,7 @@ void AppShellPhotoCoordinator::request_export_photo(
 			return;
 		}
 
-		const AppShellOperationRunner::Submission submission =
+		const OperationRunner::Submission submission =
 			shell_operation_runner.submit_jpeg_export(
 				catalog::PhotoExportRequest{
 					.current_state = session.repository,
@@ -349,7 +349,7 @@ void AppShellPhotoCoordinator::request_export_photo(
 					.photo_id	   = photo_id,
 					.destination   = std::move(*result.value),
 					.jpeg_quality  = 90},
-				[this](AppShellOperationRunner::CompletionResult completion) {
+				[this](OperationRunner::CompletionResult completion) {
 			if (!shell_operation_state.active()
 				|| shell_operation_state.generation != completion.generation
 				|| shell_operation_state.job_type != completion.job_type) {
@@ -386,7 +386,7 @@ void AppShellPhotoCoordinator::request_export_photo(
 	}
 }
 
-void AppShellPhotoCoordinator::request_delete_photo_confirmation(
+void PhotoCoordinator::request_delete_photo_confirmation(
 	const core::StableIdentifier& photo_id) {
 	photo_display.pending_delete_photo_id = photo_id;
 	feedback.photo_message				  = localization.photo_workflow_text(
@@ -394,14 +394,14 @@ void AppShellPhotoCoordinator::request_delete_photo_confirmation(
 	refresh_all();
 }
 
-void AppShellPhotoCoordinator::cancel_delete_photo_confirmation() {
+void PhotoCoordinator::cancel_delete_photo_confirmation() {
 	photo_display.pending_delete_photo_id.reset();
 	feedback.photo_message = localization.photo_workflow_text(
 		localization::PhotoWorkflowMessageId::DeleteCancelled);
 	refresh_all();
 }
 
-void AppShellPhotoCoordinator::confirm_delete_photo(
+void PhotoCoordinator::confirm_delete_photo(
 	const core::StableIdentifier& photo_id) {
 	if (!photo_display.pending_delete_photo_id.has_value()
 		|| *photo_display.pending_delete_photo_id != photo_id) {
@@ -425,13 +425,13 @@ void AppShellPhotoCoordinator::confirm_delete_photo(
 	apply_photo_delete_result(std::move(result), std::move(next_photo_id));
 }
 
-void AppShellPhotoCoordinator::apply_pending_photo_staging_result(
+void PhotoCoordinator::apply_pending_photo_staging_result(
 	PendingPhotoStagingResult result, PendingPhotoDraftTarget target) {
 	feedback.photo_diagnostics = std::move(result.diagnostics);
 	std::vector<PendingPhotoSource>& pending_photos =
 		target == PendingPhotoDraftTarget::Item ? item_form.pending_photos
 												: storage_form.pending_photos;
-	AppShellManagedPhotoDeckState& photo_deck =
+	ManagedPhotoDeckState& photo_deck =
 		target == PendingPhotoDraftTarget::Item ? item_form.photo_deck
 												: storage_form.photo_deck;
 	const std::size_t first_new_index = pending_photos.size();
@@ -458,24 +458,24 @@ void AppShellPhotoCoordinator::apply_pending_photo_staging_result(
 	refresh_all();
 }
 
-void AppShellPhotoCoordinator::apply_busy_result() {
+void PhotoCoordinator::apply_busy_result() {
 	feedback.photo_message =
 		localization.text(localization::MessageId::ShellOperationBusy);
 	refresh_all();
 }
 
-void AppShellPhotoCoordinator::begin_shell_operation(
+void PhotoCoordinator::begin_shell_operation(
 	ShellOperationJobType job_type, std::uint64_t generation) {
 	if (begin_shell_operation_handler)
 		begin_shell_operation_handler(job_type, generation);
 }
 
-void AppShellPhotoCoordinator::complete_shell_operation() {
+void PhotoCoordinator::complete_shell_operation() {
 	if (complete_shell_operation_handler)
 		complete_shell_operation_handler();
 }
 
-void AppShellPhotoCoordinator::apply_photo_import_result(
+void PhotoCoordinator::apply_photo_import_result(
 	PhotoImportSessionResult result) {
 	feedback.photo_diagnostics.clear();
 	for (const EntityEditDiagnostic& diagnostic : result.diagnostics) {
@@ -508,7 +508,7 @@ void AppShellPhotoCoordinator::apply_photo_import_result(
 	refresh_all();
 }
 
-void AppShellPhotoCoordinator::apply_photo_edit_result(
+void PhotoCoordinator::apply_photo_edit_result(
 	EntityEditResult result,
 	const core::StableIdentifier& selected_photo_id_value) {
 	copy_entity_diagnostics_to_photo_feedback(feedback, result.diagnostics);
@@ -532,7 +532,7 @@ void AppShellPhotoCoordinator::apply_photo_edit_result(
 	refresh_all();
 }
 
-void AppShellPhotoCoordinator::apply_photo_delete_result(
+void PhotoCoordinator::apply_photo_delete_result(
 	EntityEditResult result,
 	std::optional<core::StableIdentifier> next_photo_id) {
 	copy_entity_diagnostics_to_photo_feedback(feedback, result.diagnostics);
@@ -562,18 +562,18 @@ void AppShellPhotoCoordinator::apply_photo_delete_result(
 	refresh_all();
 }
 
-void AppShellPhotoCoordinator::cleanup_item_pending_photos() {
+void PhotoCoordinator::cleanup_item_pending_photos() {
 	cleanup_pending_photos(item_form.pending_photos, item_form.photo_deck);
 }
 
-void AppShellPhotoCoordinator::cleanup_storage_pending_photos() {
+void PhotoCoordinator::cleanup_storage_pending_photos() {
 	cleanup_pending_photos(storage_form.pending_photos,
 						   storage_form.photo_deck);
 }
 
-void AppShellPhotoCoordinator::cleanup_pending_photos(
+void PhotoCoordinator::cleanup_pending_photos(
 	std::vector<PendingPhotoSource>& pending_photos,
-	AppShellManagedPhotoDeckState& photo_deck) {
+	ManagedPhotoDeckState& photo_deck) {
 	if (pending_photos.empty())
 		return;
 
@@ -599,21 +599,21 @@ void AppShellPhotoCoordinator::cleanup_pending_photos(
 			: localization::PhotoWorkflowMessageId::PendingCleared);
 }
 
-void AppShellPhotoCoordinator::remove_item_pending_photo(
+void PhotoCoordinator::remove_item_pending_photo(
 	std::size_t pending_photo_index) {
 	remove_pending_photo(item_form.pending_photos, item_form.photo_deck,
 						 pending_photo_index);
 }
 
-void AppShellPhotoCoordinator::remove_storage_pending_photo(
+void PhotoCoordinator::remove_storage_pending_photo(
 	std::size_t pending_photo_index) {
 	remove_pending_photo(storage_form.pending_photos, storage_form.photo_deck,
 						 pending_photo_index);
 }
 
-void AppShellPhotoCoordinator::remove_pending_photo(
+void PhotoCoordinator::remove_pending_photo(
 	std::vector<PendingPhotoSource>& pending_photos,
-	AppShellManagedPhotoDeckState& photo_deck,
+	ManagedPhotoDeckState& photo_deck,
 	std::size_t pending_photo_index) {
 	if (pending_photo_index >= pending_photos.size())
 		return;
@@ -661,7 +661,7 @@ void AppShellPhotoCoordinator::remove_pending_photo(
 	refresh_all();
 }
 
-void AppShellPhotoCoordinator::refresh_all() {
+void PhotoCoordinator::refresh_all() {
 	if (refresh_all_handler)
 		refresh_all_handler();
 }

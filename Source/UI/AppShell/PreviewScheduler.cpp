@@ -1,4 +1,4 @@
-#include "UI/AppShellPreviewScheduler.hpp"
+#include "UI/AppShell/PreviewScheduler.hpp"
 
 #include "Localization/Facade.hpp"
 
@@ -30,9 +30,9 @@ namespace {
 }
 }	 // namespace
 
-class AppShellPreviewScheduler::Impl final {
+class PreviewScheduler::Impl final {
 public:
-	explicit Impl(AppShellPreviewScheduler::Dependencies dependencies)
+	explicit Impl(PreviewScheduler::Dependencies dependencies)
 		: session(dependencies.session)
 		, photo_display(dependencies.photo_display)
 		, preview_cache(dependencies.preview_cache)
@@ -587,7 +587,7 @@ private:
 	}
 
 	CatalogSessionState& session;
-	AppShellPhotoDisplayState& photo_display;
+	PhotoDisplayState& photo_display;
 	ImagePreviewCache& preview_cache;
 	platform::InternalPhotoCodec& internal_photo_codec;
 	platform::SourceImageDecodeService& source_decode_service;
@@ -610,56 +610,56 @@ private:
 	bool stopping{};
 };
 
-AppShellPreviewScheduler::AppShellPreviewScheduler(Dependencies dependencies)
+PreviewScheduler::PreviewScheduler(Dependencies dependencies)
 	: impl(std::make_unique<Impl>(std::move(dependencies))) {}
 
-AppShellPreviewScheduler::~AppShellPreviewScheduler() = default;
+PreviewScheduler::~PreviewScheduler() = default;
 
-std::optional<juce::String> AppShellPreviewScheduler::failure_message(
+std::optional<juce::String> PreviewScheduler::failure_message(
 	const ImagePreviewRequestIdentity& identity) const {
 	return impl->failure_message(identity);
 }
 
-void AppShellPreviewScheduler::clear_failure(
+void PreviewScheduler::clear_failure(
 	const ImagePreviewRequestIdentity& identity) {
 	impl->clear_failure(identity);
 }
 
-void AppShellPreviewScheduler::enqueue_internal_preview(
+void PreviewScheduler::enqueue_internal_preview(
 	core::StableIdentifier photo_id, ImagePreviewSize target_size,
 	ImagePreviewRequestPriority priority) {
 	impl->enqueue_internal_preview(std::move(photo_id), target_size, priority);
 }
 
-void AppShellPreviewScheduler::enqueue_staged_preview(
+void PreviewScheduler::enqueue_staged_preview(
 	PendingPhotoSource source, ImagePreviewSize target_size,
 	ImagePreviewRequestPriority priority) {
 	impl->enqueue_staged_preview(std::move(source), target_size, priority);
 }
 
-void AppShellPreviewScheduler::enqueue_display(
+void PreviewScheduler::enqueue_display(
 	core::StableIdentifier photo_id) {
 	impl->enqueue_display(std::move(photo_id));
 }
 
-void AppShellPreviewScheduler::cancel_display_requests() {
+void PreviewScheduler::cancel_display_requests() {
 	impl->cancel_display_requests();
 }
 
-void AppShellPreviewScheduler::invalidate_all() {
+void PreviewScheduler::invalidate_all() {
 	impl->invalidate_all();
 }
 
-void AppShellPreviewScheduler::release_disposable_preview_memory() {
+void PreviewScheduler::release_disposable_preview_memory() {
 	impl->release_disposable_preview_memory();
 }
 
-void AppShellPreviewScheduler::invalidate_internal_photo(
+void PreviewScheduler::invalidate_internal_photo(
 	const core::StableIdentifier& photo_id) {
 	impl->invalidate_internal_photo(photo_id);
 }
 
-void AppShellPreviewScheduler::invalidate_staged_photo(
+void PreviewScheduler::invalidate_staged_photo(
 	const std::filesystem::path& staged_path) {
 	impl->invalidate_staged_photo(staged_path);
 }

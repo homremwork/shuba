@@ -1,11 +1,11 @@
 #pragma once
 
-#include "UI/AppShellState.hpp"
+#include "UI/AppShell/State.hpp"
 
 #include <cstdint>
 
 namespace shuba::ui {
-enum class AppShellBackAction : std::uint8_t {
+enum class BackAction : std::uint8_t {
 	Unhandled,
 	CloseCatalogFilterPanel,
 	CancelPhotoDeletion,
@@ -16,13 +16,13 @@ enum class AppShellBackAction : std::uint8_t {
 	ReturnBackupRecoveryToMore,
 };
 
-struct AppShellBackDecision final {
-	AppShellBackAction action{AppShellBackAction::Unhandled};
+struct BackDecision final {
+	BackAction action{BackAction::Unhandled};
 
 	[[nodiscard]] bool consumed() const noexcept;
 };
 
-struct AppShellBackNavigationState final {
+struct BackNavigationState final {
 	RootDestination destination{RootDestination::Catalog};
 	bool shell_operation_active{};
 	bool session_fatal{};
@@ -35,6 +35,6 @@ struct AppShellBackNavigationState final {
 	RootDestination form_return_destination{RootDestination::Catalog};
 };
 
-[[nodiscard]] AppShellBackDecision decide_app_shell_back_navigation(
-	const AppShellBackNavigationState& state) noexcept;
+[[nodiscard]] BackDecision decide_back_navigation(
+	const BackNavigationState& state) noexcept;
 }	 // namespace shuba::ui

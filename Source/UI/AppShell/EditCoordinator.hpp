@@ -2,8 +2,8 @@
 
 #include "Persistence/MetadataSchema.hpp"
 #include "Platform/PlatformServices.hpp"
-#include "UI/AppShellOperationRunner.hpp"
-#include "UI/AppShellState.hpp"
+#include "UI/AppShell/OperationRunner.hpp"
+#include "UI/AppShell/State.hpp"
 #include "UI/Session/CatalogSessionState.hpp"
 #include "UI/Session/EntityEditTypes.hpp"
 #include "UI/Session/PhotoSessionTypes.hpp"
@@ -20,7 +20,7 @@ class Localization;
 }
 
 namespace shuba::ui {
-class AppShellEditCoordinator final {
+class EditCoordinator final {
 public:
 	struct Editors final {
 		juce::TextEditor& item_name_editor;
@@ -38,10 +38,10 @@ public:
 
 	struct Dependencies final {
 		CatalogSessionState& session;
-		AppShellRouteState& route;
-		AppShellItemFormState& item_form;
-		AppShellStorageFormState& storage_form;
-		AppShellFeedbackState& feedback;
+		RouteState& route;
+		ItemFormState& item_form;
+		StorageFormState& storage_form;
+		FeedbackState& feedback;
 		core::IdentifierSource& identifiers;
 		core::Clock& clock;
 		core::OperationGate& operation_gate;
@@ -49,8 +49,8 @@ public:
 		platform::SourceByteFingerprintService& source_fingerprint_service;
 		platform::SourceImageDecodeService& source_decode_service;
 		platform::InternalPhotoCodec& internal_photo_codec;
-		AppShellOperationRunner& shell_operation_runner;
-		AppShellOperationState& shell_operation_state;
+		OperationRunner& shell_operation_runner;
+		OperationState& shell_operation_state;
 		localization::Localization& localization;
 		Editors editors;
 		std::function<void()> cleanup_item_pending_photos;
@@ -63,7 +63,7 @@ public:
 		std::function<void()> complete_shell_operation;
 	};
 
-	explicit AppShellEditCoordinator(Dependencies dependencies);
+	explicit EditCoordinator(Dependencies dependencies);
 
 	void open_new_item_form(std::optional<core::StableIdentifier> storage_id);
 	void open_existing_item_form(core::StableIdentifier item_id);
@@ -77,7 +77,7 @@ public:
 
 private:
 	void set_pending_photo_as_main(
-		AppShellManagedPhotoDeckState& photo_deck,
+		ManagedPhotoDeckState& photo_deck,
 		std::vector<PendingPhotoSource>& pending_photos,
 		std::size_t pending_photo_index);
 	void clear_edit_feedback();
@@ -93,10 +93,10 @@ private:
 		StorageSaveWithPendingPhotosResult result);
 
 	CatalogSessionState& session;
-	AppShellRouteState& route;
-	AppShellItemFormState& item_form;
-	AppShellStorageFormState& storage_form;
-	AppShellFeedbackState& feedback;
+	RouteState& route;
+	ItemFormState& item_form;
+	StorageFormState& storage_form;
+	FeedbackState& feedback;
 	core::IdentifierSource& identifiers;
 	core::Clock& clock;
 	core::OperationGate& operation_gate;
@@ -104,8 +104,8 @@ private:
 	platform::SourceByteFingerprintService& source_fingerprint_service;
 	platform::SourceImageDecodeService& source_decode_service;
 	platform::InternalPhotoCodec& internal_photo_codec;
-	AppShellOperationRunner& shell_operation_runner;
-	AppShellOperationState& shell_operation_state;
+	OperationRunner& shell_operation_runner;
+	OperationState& shell_operation_state;
 	localization::Localization& localization;
 	juce::TextEditor& item_name_editor;
 	juce::TextEditor& item_category_editor;

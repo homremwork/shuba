@@ -5,8 +5,8 @@
 #include "Core/Identifier.hpp"
 #include "Core/OperationGate.hpp"
 #include "Platform/PlatformServices.hpp"
-#include "UI/AppShellOperationRunner.hpp"
-#include "UI/AppShellState.hpp"
+#include "UI/AppShell/OperationRunner.hpp"
+#include "UI/AppShell/State.hpp"
 #include "UI/CallbackLifetime.hpp"
 #include "UI/Session/CatalogSessionState.hpp"
 #include "UI/Session/ImagePreviewSession.hpp"
@@ -24,15 +24,15 @@ class Localization;
 }
 
 namespace shuba::ui {
-class AppShellPhotoCoordinator final {
+class PhotoCoordinator final {
 public:
 	struct Dependencies final {
 		CatalogSessionState& session;
-		AppShellRouteState& route;
-		AppShellItemFormState& item_form;
-		AppShellStorageFormState& storage_form;
-		AppShellFeedbackState& feedback;
-		AppShellPhotoDisplayState& photo_display;
+		RouteState& route;
+		ItemFormState& item_form;
+		StorageFormState& storage_form;
+		FeedbackState& feedback;
+		PhotoDisplayState& photo_display;
 		ImagePreviewCache& preview_cache;
 		core::IdentifierSource& identifiers;
 		core::Clock& clock;
@@ -46,8 +46,8 @@ public:
 		platform::InternalPhotoCodec& internal_photo_codec;
 		platform::ProgressCollector& progress_events;
 		platform::CancellationToken& cancellation_token;
-		AppShellOperationRunner& shell_operation_runner;
-		AppShellOperationState& shell_operation_state;
+		OperationRunner& shell_operation_runner;
+		OperationState& shell_operation_state;
 		localization::Localization& localization;
 		std::function<void()> invalidate_all_previews;
 		std::function<void(const core::StableIdentifier&)>
@@ -60,14 +60,14 @@ public:
 		std::function<void()> complete_shell_operation;
 	};
 
-	explicit AppShellPhotoCoordinator(Dependencies dependencies);
-	~AppShellPhotoCoordinator();
+	explicit PhotoCoordinator(Dependencies dependencies);
+	~PhotoCoordinator();
 
-	AppShellPhotoCoordinator(const AppShellPhotoCoordinator&) = delete;
-	AppShellPhotoCoordinator& operator=(const AppShellPhotoCoordinator&) =
+	PhotoCoordinator(const PhotoCoordinator&) = delete;
+	PhotoCoordinator& operator=(const PhotoCoordinator&) =
 		delete;
-	AppShellPhotoCoordinator(AppShellPhotoCoordinator&&) noexcept = delete;
-	AppShellPhotoCoordinator& operator=(AppShellPhotoCoordinator&&) noexcept =
+	PhotoCoordinator(PhotoCoordinator&&) noexcept = delete;
+	PhotoCoordinator& operator=(PhotoCoordinator&&) noexcept =
 		delete;
 
 	void request_add_photos(const domain::PhotoOwner& owner);
@@ -104,9 +104,9 @@ private:
 	[[nodiscard]] std::optional<domain::PhotoOwner> owner_for_pending_target(
 		PendingPhotoDraftTarget target) const;
 	void cleanup_pending_photos(std::vector<PendingPhotoSource>& pending_photos,
-								AppShellManagedPhotoDeckState& photo_deck);
+								ManagedPhotoDeckState& photo_deck);
 	void remove_pending_photo(std::vector<PendingPhotoSource>& pending_photos,
-							  AppShellManagedPhotoDeckState& photo_deck,
+							  ManagedPhotoDeckState& photo_deck,
 							  std::size_t pending_photo_index);
 	void apply_photo_import_result(PhotoImportSessionResult result);
 	void apply_photo_delete_result(
@@ -115,11 +115,11 @@ private:
 	void refresh_all();
 
 	CatalogSessionState& session;
-	AppShellRouteState& route;
-	AppShellItemFormState& item_form;
-	AppShellStorageFormState& storage_form;
-	AppShellFeedbackState& feedback;
-	AppShellPhotoDisplayState& photo_display;
+	RouteState& route;
+	ItemFormState& item_form;
+	StorageFormState& storage_form;
+	FeedbackState& feedback;
+	PhotoDisplayState& photo_display;
 	ImagePreviewCache& preview_cache;
 	core::IdentifierSource& identifiers;
 	core::Clock& clock;
@@ -133,8 +133,8 @@ private:
 	platform::InternalPhotoCodec& internal_photo_codec;
 	platform::ProgressCollector& progress_events;
 	platform::CancellationToken& cancellation_token;
-	AppShellOperationRunner& shell_operation_runner;
-	AppShellOperationState& shell_operation_state;
+	OperationRunner& shell_operation_runner;
+	OperationState& shell_operation_state;
 	localization::Localization& localization;
 	std::function<void()> invalidate_all_previews_handler;
 	std::function<void(const core::StableIdentifier&)>

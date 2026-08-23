@@ -1,6 +1,6 @@
 #include "Localization/Facade.hpp"
 #include "Platform/LinuxFakes.hpp"
-#include "UI/AppShellPhotoCoordinator.hpp"
+#include "UI/AppShell/PhotoCoordinator.hpp"
 #include "UI/CallbackLifetime.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -255,19 +255,19 @@ private:
 
 struct CoordinatorHarness final {
 	shuba::ui::CatalogSessionState session;
-	shuba::ui::AppShellRouteState route;
-	shuba::ui::AppShellItemFormState item_form;
-	shuba::ui::AppShellStorageFormState storage_form;
-	shuba::ui::AppShellFeedbackState feedback;
-	shuba::ui::AppShellPhotoDisplayState photo_display;
+	shuba::ui::RouteState route;
+	shuba::ui::ItemFormState item_form;
+	shuba::ui::StorageFormState storage_form;
+	shuba::ui::FeedbackState feedback;
+	shuba::ui::PhotoDisplayState photo_display;
 	shuba::ui::ImagePreviewCache preview_cache;
 	shuba::platform::ScriptedIdentifierSource identifiers;
 	shuba::core::ManualClock clock{shuba::core::EpochMilliseconds{1000}};
 	shuba::core::OperationGate operation_gate;
 	TestShellOperationWorkerServiceFactory worker_service_factory;
-	shuba::ui::AppShellOperationState shell_operation_state;
-	shuba::ui::AppShellOperationRunner shell_operation_runner{
-		shuba::ui::AppShellOperationRunner::Dependencies{
+	shuba::ui::OperationState shell_operation_state;
+	shuba::ui::OperationRunner shell_operation_runner{
+		shuba::ui::OperationRunner::Dependencies{
 			.operation_gate			= operation_gate,
 			.worker_service_factory = worker_service_factory,
 			.progress				= {},
@@ -286,9 +286,9 @@ struct CoordinatorHarness final {
 			shuba::localization::Language::English, {});
 	std::uint32_t refresh_count{};
 
-	[[nodiscard]] shuba::ui::AppShellPhotoCoordinator::Dependencies
+	[[nodiscard]] shuba::ui::PhotoCoordinator::Dependencies
 	dependencies() {
-		return shuba::ui::AppShellPhotoCoordinator::Dependencies{
+		return shuba::ui::PhotoCoordinator::Dependencies{
 			.session						   = session,
 			.route							   = route,
 			.item_form						   = item_form,
@@ -327,7 +327,7 @@ TEST_CASE(
 	"[b29][photo-coordinator][lifetime]") {
 	CoordinatorHarness harness;
 	{
-		shuba::ui::AppShellPhotoCoordinator coordinator{harness.dependencies()};
+		shuba::ui::PhotoCoordinator coordinator{harness.dependencies()};
 		coordinator.request_add_photos(shuba::domain::PhotoOwner{
 			.type = shuba::domain::PhotoOwnerType::Item,
 			.id	  = require_identifier("owner-b29-picker")});
@@ -349,7 +349,7 @@ TEST_CASE(
 	const shuba::core::StableIdentifier photo_id =
 		require_identifier("photo-b29-export");
 	{
-		shuba::ui::AppShellPhotoCoordinator coordinator{harness.dependencies()};
+		shuba::ui::PhotoCoordinator coordinator{harness.dependencies()};
 		coordinator.request_export_photo(photo_id);
 		REQUIRE(harness.document_export.has_pending_completion());
 	}
@@ -380,7 +380,7 @@ TEST_CASE(
 	"B29 direct and pending picker routes use the canonical image request",
 	"[b29][photo-coordinator][picker]") {
 	CoordinatorHarness harness;
-	shuba::ui::AppShellPhotoCoordinator coordinator{harness.dependencies()};
+	shuba::ui::PhotoCoordinator coordinator{harness.dependencies()};
 	const shuba::platform::PhotoSelectionRequest expected_request{
 		.allow_multiple = true,
 		.accepted_mime_types =
@@ -421,16 +421,16 @@ TEST_CASE("R13 picker completion submits shallow sources before worker staging",
 	std::shared_ptr<BlockingPoint> point = std::make_shared<BlockingPoint>();
 	BlockingShellOperationWorkerServiceFactory factory{point};
 	shuba::core::OperationGate gate;
-	shuba::ui::AppShellOperationState operation_state;
+	shuba::ui::OperationState operation_state;
 	std::atomic_bool completed{};
-	shuba::ui::AppShellOperationRunner runner{
-		shuba::ui::AppShellOperationRunner::Dependencies{
+	shuba::ui::OperationRunner runner{
+		shuba::ui::OperationRunner::Dependencies{
 			.operation_gate			= gate,
 			.worker_service_factory = factory,
 			.progress				= {},
 			.failure				= {}}};
-	shuba::ui::AppShellPhotoCoordinator coordinator{
-		shuba::ui::AppShellPhotoCoordinator::Dependencies{
+	shuba::ui::PhotoCoordinator coordinator{
+		shuba::ui::PhotoCoordinator::Dependencies{
 			.session						   = harness.session,
 			.route							   = harness.route,
 			.item_form						   = harness.item_form,
@@ -519,11 +519,11 @@ TEST_CASE(
 			.staged_content_root = root / "staged",
 			.export_tmp_root	 = root / "exports",
 			.media_root			 = root / "active" / "media"};
-		shuba::ui::AppShellOperationState& operation_state =
+		shuba::ui::OperationState& operation_state =
 			harness.shell_operation_state;
 		std::atomic_bool completed{};
 		std::atomic_uint32_t invalidation_count{};
-		shuba::ui::AppShellPhotoCoordinator::Dependencies dependencies =
+		shuba::ui::PhotoCoordinator::Dependencies dependencies =
 			harness.dependencies();
 		dependencies.invalidate_all_previews = [&] {
 			invalidation_count.fetch_add(1U, std::memory_order_acq_rel);
@@ -539,7 +539,7 @@ TEST_CASE(
 			operation_state.state = shuba::ui::ShellOperationState::Idle;
 			completed.store(true, std::memory_order_release);
 		};
-		shuba::ui::AppShellPhotoCoordinator coordinator{
+		shuba::ui::PhotoCoordinator coordinator{
 			std::move(dependencies)};
 
 		if (item_target)

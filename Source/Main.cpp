@@ -6,7 +6,7 @@
 #include "Platform/JpegXlPhotoCodec.hpp"
 #include "Platform/JuceAndroidPreviousExit.hpp"
 #include "Platform/JuceAndroidServices.hpp"
-#include "UI/AppShell.hpp"
+#include "UI/AppShell/Component.hpp"
 #include "UI/Session/CatalogStartupSession.hpp"
 #include "UI/Session/StartupRecoverySession.hpp"
 
@@ -62,12 +62,12 @@ namespace {
 			.android_previous_exit_service = &android_previous_exit_service});
 }
 
-[[nodiscard]] shuba::ui::AppShellComponent::PlatformServices shell_services(
+[[nodiscard]] shuba::ui::Component::PlatformServices shell_services(
 	shuba::platform::InternalPhotoCodec& internal_photo_codec,
 	shuba::platform::AppPrivatePathProvider& path_provider,
 	shuba::platform::AndroidPreviousExitService& android_previous_exit_service,
 	shuba::localization::Localization& localization) {
-	return shuba::ui::AppShellComponent::PlatformServices{
+	return shuba::ui::Component::PlatformServices{
 		.internal_photo_codec		   = internal_photo_codec,
 		.path_provider				   = path_provider,
 		.android_previous_exit_service = android_previous_exit_service,
@@ -129,7 +129,7 @@ public:
 		update_ui_construction_stage(startup_paths, startup_session.source);
 		try {
 			setContentOwned(
-				new shuba::ui::AppShellComponent(
+				new shuba::ui::Component(
 					std::move(startup_session),
 					shell_services(*internal_photo_codec, path_provider,
 								   android_previous_exit_service,
@@ -146,7 +146,7 @@ public:
 					"be "
 					"shown.");
 			setContentOwned(
-				new shuba::ui::AppShellComponent(
+				new shuba::ui::Component(
 					std::move(exception_session),
 					shell_services(*internal_photo_codec, path_provider,
 								   android_previous_exit_service,
@@ -163,17 +163,17 @@ public:
 					"before "
 					"the initial UI could be shown.");
 			setContentOwned(
-				new shuba::ui::AppShellComponent(
+				new shuba::ui::Component(
 					std::move(exception_session),
 					shell_services(*internal_photo_codec, path_provider,
 								   android_previous_exit_service,
 								   localization_service)),
 				true);
 		}
-		back_delegate.set_handler(dynamic_cast<shuba::ui::AppShellBackHandler*>(
+		back_delegate.set_handler(dynamic_cast<shuba::ui::BackHandler*>(
 			getContentComponent()));
 		lifecycle_delegate.set_handler(
-			dynamic_cast<shuba::ui::AppShellLifecycleHandler*>(
+			dynamic_cast<shuba::ui::LifecycleHandler*>(
 				getContentComponent()));
 #if JUCE_ANDROID
 		setFullScreen(true);
@@ -220,8 +220,8 @@ private:
 	shuba::platform::JuceAndroidPreviousExitService
 		android_previous_exit_service;
 	shuba::localization::Localization localization_service;
-	shuba::ui::AppShellBackDelegate back_delegate;
-	shuba::ui::AppShellLifecycleDelegate lifecycle_delegate;
+	shuba::ui::BackDelegate back_delegate;
+	shuba::ui::LifecycleDelegate lifecycle_delegate;
 };
 
 class ShubaApplication final : public juce::JUCEApplication {

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Platform/PlatformServices.hpp"
-#include "UI/AppShellState.hpp"
+#include "UI/AppShell/State.hpp"
 #include "UI/Session/CatalogSessionState.hpp"
 #include "UI/Session/ImagePreviewSession.hpp"
 
@@ -17,11 +17,11 @@ class Localization;
 }
 
 namespace shuba::ui {
-class AppShellPreviewScheduler final {
+class PreviewScheduler final {
 public:
 	struct Dependencies final {
 		CatalogSessionState& session;
-		AppShellPhotoDisplayState& photo_display;
+		PhotoDisplayState& photo_display;
 		ImagePreviewCache& preview_cache;
 		platform::InternalPhotoCodec& internal_photo_codec;
 		platform::SourceImageDecodeService& source_decode_service;
@@ -31,14 +31,14 @@ public:
 		std::function<void()> refresh_content;
 	};
 
-	explicit AppShellPreviewScheduler(Dependencies dependencies);
-	~AppShellPreviewScheduler();
+	explicit PreviewScheduler(Dependencies dependencies);
+	~PreviewScheduler();
 
-	AppShellPreviewScheduler(const AppShellPreviewScheduler&) = delete;
-	AppShellPreviewScheduler& operator=(const AppShellPreviewScheduler&) =
+	PreviewScheduler(const PreviewScheduler&) = delete;
+	PreviewScheduler& operator=(const PreviewScheduler&) =
 		delete;
-	AppShellPreviewScheduler(AppShellPreviewScheduler&&) noexcept = delete;
-	AppShellPreviewScheduler& operator=(AppShellPreviewScheduler&&) noexcept =
+	PreviewScheduler(PreviewScheduler&&) noexcept = delete;
+	PreviewScheduler& operator=(PreviewScheduler&&) noexcept =
 		delete;
 
 	[[nodiscard]] std::optional<juce::String> failure_message(

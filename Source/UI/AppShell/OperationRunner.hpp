@@ -34,7 +34,7 @@ enum class ShellOperationState : std::uint8_t {
 	Applying,
 };
 
-struct AppShellOperationState final {
+struct OperationState final {
 	ShellOperationState state{ShellOperationState::Idle};
 	std::optional<ShellOperationJobType> job_type;
 	std::optional<core::OperationIdentifier> operation_id;
@@ -80,7 +80,7 @@ public:
 	}
 };
 
-class AppShellOperationRunner final {
+class OperationRunner final {
 public:
 	using Result = std::variant<
 		PendingPhotoStagingResult, PhotoImportSessionResult,
@@ -108,13 +108,13 @@ public:
 		Failure failure;
 	};
 
-	explicit AppShellOperationRunner(Dependencies dependencies);
-	~AppShellOperationRunner();
+	explicit OperationRunner(Dependencies dependencies);
+	~OperationRunner();
 
-	AppShellOperationRunner(const AppShellOperationRunner&)			   = delete;
-	AppShellOperationRunner& operator=(const AppShellOperationRunner&) = delete;
-	AppShellOperationRunner(AppShellOperationRunner&&) noexcept		   = delete;
-	AppShellOperationRunner& operator=(AppShellOperationRunner&&) noexcept =
+	OperationRunner(const OperationRunner&)			   = delete;
+	OperationRunner& operator=(const OperationRunner&) = delete;
+	OperationRunner(OperationRunner&&) noexcept		   = delete;
+	OperationRunner& operator=(OperationRunner&&) noexcept =
 		delete;
 
 	[[nodiscard]] Submission submit_pending_staging(

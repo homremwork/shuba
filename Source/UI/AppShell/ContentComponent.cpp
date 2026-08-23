@@ -1,13 +1,13 @@
-#include "UI/View/AppShellContentComponent.hpp"
+#include "UI/AppShell/ContentComponent.hpp"
 
 #include <algorithm>
 
 namespace shuba::ui {
-AppShellContentComponent::AppShellContentComponent() {
+ContentComponent::ContentComponent() {
 	setOpaque(true);
 }
 
-AppShellContentComponent::~AppShellContentComponent() {
+ContentComponent::~ContentComponent() {
 	for (Row& row : rows)
 		if (!row.owned) {
 			juce::Component* const released_component = row.component.release();
@@ -15,7 +15,7 @@ AppShellContentComponent::~AppShellContentComponent() {
 		}
 }
 
-void AppShellContentComponent::clear_rows() {
+void ContentComponent::clear_rows() {
 	for (Row& row : rows) {
 		removeChildComponent(row.component.get());
 		if (!row.owned) {
@@ -28,16 +28,16 @@ void AppShellContentComponent::clear_rows() {
 		setSize(getWidth(), 1);
 }
 
-void AppShellContentComponent::begin_rebuild() noexcept {
+void ContentComponent::begin_rebuild() noexcept {
 	rebuilding = true;
 }
 
-void AppShellContentComponent::end_rebuild() {
+void ContentComponent::end_rebuild() {
 	rebuilding = false;
 	resized();
 }
 
-TextRowComponent& AppShellContentComponent::add_label(juce::String text,
+TextRowComponent& ContentComponent::add_label(juce::String text,
 													  int height,
 													  juce::Colour colour,
 													  bool bold) {
@@ -48,7 +48,7 @@ TextRowComponent& AppShellContentComponent::add_label(juce::String text,
 	return reference;
 }
 
-juce::Button& AppShellContentComponent::add_button(const juce::String& text,
+juce::Button& ContentComponent::add_button(const juce::String& text,
 												   int height) {
 	std::unique_ptr<RowButtonComponent> button =
 		std::make_unique<RowButtonComponent>(text, elevated_surface_colour());
@@ -57,7 +57,7 @@ juce::Button& AppShellContentComponent::add_button(const juce::String& text,
 	return reference;
 }
 
-ImagePanelComponent& AppShellContentComponent::add_image_panel(
+ImagePanelComponent& ContentComponent::add_image_panel(
 	juce::Image image, juce::String caption, juce::String placeholder,
 	int height) {
 	std::unique_ptr<ImagePanelComponent> panel =
@@ -68,7 +68,7 @@ ImagePanelComponent& AppShellContentComponent::add_image_panel(
 	return reference;
 }
 
-PhotoCarouselComponent& AppShellContentComponent::add_photo_carousel(
+PhotoCarouselComponent& ContentComponent::add_photo_carousel(
 	std::vector<PhotoCarouselSlide> slides, std::size_t selected_index,
 	localization::Localization& localization,
 	std::function<void(std::size_t)> select_handler,
@@ -82,7 +82,7 @@ PhotoCarouselComponent& AppShellContentComponent::add_photo_carousel(
 	return reference;
 }
 
-PhotoViewerImageComponent& AppShellContentComponent::add_photo_viewer_image(
+PhotoViewerImageComponent& ContentComponent::add_photo_viewer_image(
 	PhotoViewerImageModel model, PhotoViewerImageHandlers handlers,
 	localization::Localization& localization, int height) {
 	std::unique_ptr<PhotoViewerImageComponent> viewer =
@@ -93,7 +93,7 @@ PhotoViewerImageComponent& AppShellContentComponent::add_photo_viewer_image(
 	return reference;
 }
 
-PreviewCardButtonComponent& AppShellContentComponent::add_preview_card(
+PreviewCardButtonComponent& ContentComponent::add_preview_card(
 	PreviewCardContent content, localization::Localization& localization,
 	int height) {
 	std::unique_ptr<PreviewCardButtonComponent> card =
@@ -105,7 +105,7 @@ PreviewCardButtonComponent& AppShellContentComponent::add_preview_card(
 }
 
 CompactStorageStripComponent&
-AppShellContentComponent::add_compact_storage_strip(
+ContentComponent::add_compact_storage_strip(
 	std::vector<CompactStorageCardContent> cards,
 	localization::Localization& localization, int height) {
 	std::unique_ptr<CompactStorageStripComponent> strip =
@@ -116,7 +116,7 @@ AppShellContentComponent::add_compact_storage_strip(
 	return reference;
 }
 
-InlineButtonRowComponent& AppShellContentComponent::add_inline_buttons(
+InlineButtonRowComponent& ContentComponent::add_inline_buttons(
 	juce::String title, std::vector<InlineButtonRowComponent::Action> actions,
 	int height) {
 	std::unique_ptr<InlineButtonRowComponent> row =
@@ -127,7 +127,7 @@ InlineButtonRowComponent& AppShellContentComponent::add_inline_buttons(
 	return reference;
 }
 
-DirectChoiceGridComponent& AppShellContentComponent::add_direct_choice_grid(
+DirectChoiceGridComponent& ContentComponent::add_direct_choice_grid(
 	juce::String title, std::vector<DirectChoiceGridComponent::Choice> choices,
 	int height) {
 	std::unique_ptr<DirectChoiceGridComponent> grid =
@@ -138,7 +138,7 @@ DirectChoiceGridComponent& AppShellContentComponent::add_direct_choice_grid(
 	return reference;
 }
 
-ButtonGridComponent& AppShellContentComponent::add_button_grid(
+ButtonGridComponent& ContentComponent::add_button_grid(
 	juce::String title, std::vector<ButtonGridComponent::Action> actions,
 	int column_count, int height) {
 	std::unique_ptr<ButtonGridComponent> grid =
@@ -149,7 +149,7 @@ ButtonGridComponent& AppShellContentComponent::add_button_grid(
 	return reference;
 }
 
-ChipGridComponent& AppShellContentComponent::add_chip_grid(
+ChipGridComponent& ContentComponent::add_chip_grid(
 	juce::String title, std::vector<ChipGridComponent::Action> actions,
 	int column_count, int height) {
 	std::unique_ptr<ChipGridComponent> grid =
@@ -160,7 +160,7 @@ ChipGridComponent& AppShellContentComponent::add_chip_grid(
 	return reference;
 }
 
-EditorPairComponent& AppShellContentComponent::add_editor_pair(
+EditorPairComponent& ContentComponent::add_editor_pair(
 	juce::TextEditor& first_editor, const juce::String& first_placeholder,
 	juce::TextEditor& second_editor, const juce::String& second_placeholder,
 	int height) {
@@ -172,7 +172,7 @@ EditorPairComponent& AppShellContentComponent::add_editor_pair(
 	return reference;
 }
 
-ManagedPhotoDeckComponent& AppShellContentComponent::add_managed_photo_deck(
+ManagedPhotoDeckComponent& ContentComponent::add_managed_photo_deck(
 	ManagedPhotoDeckModel model, ManagedPhotoDeckHandlers handlers,
 	localization::Localization& localization, int height) {
 	std::unique_ptr<ManagedPhotoDeckComponent> deck =
@@ -183,7 +183,7 @@ ManagedPhotoDeckComponent& AppShellContentComponent::add_managed_photo_deck(
 	return reference;
 }
 
-TagRowEditorComponent& AppShellContentComponent::add_tag_editor_row(
+TagRowEditorComponent& ContentComponent::add_tag_editor_row(
 	std::size_t row_index, const domain::TagRow& tag,
 	localization::Localization& localization,
 	std::function<void(std::size_t, domain::TagRow)> change_handler,
@@ -197,7 +197,7 @@ TagRowEditorComponent& AppShellContentComponent::add_tag_editor_row(
 	return reference;
 }
 
-juce::ToggleButton& AppShellContentComponent::add_toggle(
+juce::ToggleButton& ContentComponent::add_toggle(
 	const juce::String& text, bool state, int height) {
 	std::unique_ptr<TouchSafeToggleButton> toggle =
 		std::make_unique<TouchSafeToggleButton>(text);
@@ -209,7 +209,7 @@ juce::ToggleButton& AppShellContentComponent::add_toggle(
 	return reference;
 }
 
-juce::TextEditor& AppShellContentComponent::add_editor(
+juce::TextEditor& ContentComponent::add_editor(
 	juce::TextEditor& editor, const juce::String& placeholder, int height,
 	bool multiline) {
 	removeChildComponent(&editor);
@@ -222,7 +222,7 @@ juce::TextEditor& AppShellContentComponent::add_editor(
 	return editor;
 }
 
-void AppShellContentComponent::resized() {
+void ContentComponent::resized() {
 	juce::Rectangle<int> bounds = getLocalBounds().reduced(6, 4);
 	int y						= bounds.getY();
 	const int width				= bounds.getWidth();
@@ -233,19 +233,19 @@ void AppShellContentComponent::resized() {
 	setSize(std::max(1, getWidth()), std::max(1, y + 8));
 }
 
-void AppShellContentComponent::paint(juce::Graphics& graphics) {
+void ContentComponent::paint(juce::Graphics& graphics) {
 	graphics.fillAll(background_colour());
 }
 
-void AppShellContentComponent::set_viewport_height_hint(int height) noexcept {
+void ContentComponent::set_viewport_height_hint(int height) noexcept {
 	viewport_height_hint_value = std::max(1, height);
 }
 
-int AppShellContentComponent::viewport_height_hint() const noexcept {
+int ContentComponent::viewport_height_hint() const noexcept {
 	return viewport_height_hint_value;
 }
 
-void AppShellContentComponent::add_row(
+void ContentComponent::add_row(
 	std::unique_ptr<juce::Component> component, int height, bool owned) {
 	addAndMakeVisible(*component);
 	rows.push_back(Row{

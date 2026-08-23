@@ -1,4 +1,4 @@
-#include "UI/View/AppShellChromeComponent.hpp"
+#include "UI/AppShell/ChromeComponent.hpp"
 
 #include "Localization/Facade.hpp"
 #include "UI/View/Primitives/Palette.hpp"
@@ -8,7 +8,7 @@
 #include <utility>
 
 namespace shuba::ui {
-AppShellChromeComponent::AppShellChromeComponent(
+ChromeComponent::ChromeComponent(
 	Callbacks callbacks_value, localization::Localization& localization_value)
 	: callbacks(std::move(callbacks_value)), localization(localization_value) {
 	setOpaque(false);
@@ -139,7 +139,7 @@ AppShellChromeComponent::AppShellChromeComponent(
 		juce_text(localization.text(localization::MessageId::NavigationMore)));
 }
 
-void AppShellChromeComponent::update_model(const Model& model) {
+void ChromeComponent::update_model(const Model& model) {
 	current_model = model;
 	title_label.setText(current_model.title, juce::dontSendNotification);
 	status_label.setText(current_model.status, juce::dontSendNotification);
@@ -191,7 +191,7 @@ void AppShellChromeComponent::update_model(const Model& model) {
 								  : normal_colour);
 }
 
-juce::Rectangle<int> AppShellChromeComponent::layout_shell(
+juce::Rectangle<int> ChromeComponent::layout_shell(
 	juce::Rectangle<int> bounds) {
 	const bool form_visible =
 		current_model.destination == RootDestination::ItemForm
@@ -300,26 +300,26 @@ juce::Rectangle<int> AppShellChromeComponent::layout_shell(
 	return bounds;
 }
 
-std::string AppShellChromeComponent::catalog_query() const {
+std::string ChromeComponent::catalog_query() const {
 	return catalog_search_editor.getText().toStdString();
 }
 
-std::string AppShellChromeComponent::storage_query() const {
+std::string ChromeComponent::storage_query() const {
 	return storage_search_editor.getText().toStdString();
 }
 
-void AppShellChromeComponent::clear_catalog_query_without_notification() {
+void ChromeComponent::clear_catalog_query_without_notification() {
 	catalog_search_editor.setText(juce::String{}, juce::dontSendNotification);
 }
 
-void AppShellChromeComponent::clear_storage_query_without_notification() {
+void ChromeComponent::clear_storage_query_without_notification() {
 	storage_search_editor.setText(juce::String{}, juce::dontSendNotification);
 }
 
-void AppShellChromeComponent::release_catalog_search_focus() {
+void ChromeComponent::release_catalog_search_focus() {
 	if (catalog_search_editor.hasKeyboardFocus(true))
 		catalog_search_editor.giveAwayKeyboardFocus();
 }
 
-void AppShellChromeComponent::paint(juce::Graphics&) {}
+void ChromeComponent::paint(juce::Graphics&) {}
 }	 // namespace shuba::ui

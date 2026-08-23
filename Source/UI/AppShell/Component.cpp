@@ -1,9 +1,9 @@
-#include "UI/AppShell.hpp"
+#include "UI/AppShell/Component.hpp"
 #include "Platform/JpegXlPhotoCodec.hpp"
-#include "UI/AppShellEditCoordinator.hpp"
-#include "UI/AppShellPreviewScheduler.hpp"
-#include "UI/AppShellRouteCoordinator.hpp"
-#include "UI/View/AppShellContentComponent.hpp"
+#include "UI/AppShell/EditCoordinator.hpp"
+#include "UI/AppShell/PreviewScheduler.hpp"
+#include "UI/AppShell/RouteCoordinator.hpp"
+#include "UI/AppShell/ContentComponent.hpp"
 #include "UI/View/Primitives/Palette.hpp"
 #include "UI/View/SafeArea.hpp"
 #include "UI/View/ScreenText.hpp"
@@ -38,37 +38,37 @@
 namespace shuba::ui {
 
 std::unique_ptr<platform::ContentStagingService>
-AppShellOperationWorkerServiceFactory::make_content_staging_service() const {
+OperationWorkerServiceFactory::make_content_staging_service() const {
 	return std::make_unique<platform::JuceAndroidContentStagingService>();
 }
 
 std::unique_ptr<platform::SourceByteFingerprintService>
-AppShellOperationWorkerServiceFactory::make_source_fingerprint_service() const {
+OperationWorkerServiceFactory::make_source_fingerprint_service() const {
 	return std::make_unique<platform::JuceMd5SourceByteFingerprintService>();
 }
 
 std::unique_ptr<platform::SourceImageDecodeService>
-AppShellOperationWorkerServiceFactory::make_source_decode_service() const {
+OperationWorkerServiceFactory::make_source_decode_service() const {
 	return std::make_unique<platform::JuceAndroidSourceImageDecodeService>();
 }
 
 std::unique_ptr<platform::InternalPhotoCodec>
-AppShellOperationWorkerServiceFactory::make_internal_photo_codec() const {
+OperationWorkerServiceFactory::make_internal_photo_codec() const {
 	return std::make_unique<platform::JpegXlInternalPhotoCodec>();
 }
 
 std::unique_ptr<platform::JpegExportService>
-AppShellOperationWorkerServiceFactory::make_jpeg_export_service() const {
+OperationWorkerServiceFactory::make_jpeg_export_service() const {
 	return std::make_unique<platform::JuceJpegExportService>();
 }
 
 std::unique_ptr<platform::ZipArchiveService>
-AppShellOperationWorkerServiceFactory::make_zip_archive_service() const {
+OperationWorkerServiceFactory::make_zip_archive_service() const {
 	return std::make_unique<platform::JuceZipArchiveService>();
 }
 
 std::unique_ptr<platform::DocumentExportService>
-AppShellOperationWorkerServiceFactory::make_document_export_service() const {
+OperationWorkerServiceFactory::make_document_export_service() const {
 	return std::make_unique<platform::JuceAndroidDocumentExportService>();
 }
 
@@ -84,7 +84,7 @@ core::EpochMilliseconds ShellClock::now() const {
 	return core::SystemClock{}.now();
 }
 
-AppShellComponent::AppShellComponent(CatalogSessionState session_state,
+Component::Component(CatalogSessionState session_state,
 									 PlatformServices platform_services)
 	: session(std::move(session_state))
 	, path_provider(platform_services.path_provider)
@@ -95,13 +95,13 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 	, platform_name(std::move(platform_services.platform_name))
 	, debug_demo_seed_enabled(platform_services.debug_demo_seed_enabled)
 	, internal_photo_codec(platform_services.internal_photo_codec)
-	, content(std::make_unique<AppShellContentComponent>()) {
+	, content(std::make_unique<ContentComponent>()) {
 	setOpaque(true);
 	setWantsKeyboardFocus(true);
 	setSize(480, 720);
 
-	chrome = std::make_unique<AppShellChromeComponent>(
-		AppShellChromeComponent::Callbacks{
+	chrome = std::make_unique<ChromeComponent>(
+		ChromeComponent::Callbacks{
 			.catalog_search_changed = [this] { schedule_content_refresh(); },
 			.storage_search_changed = [this] { schedule_content_refresh(); },
 			.catalog_clear =
@@ -151,8 +151,8 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 		std::make_unique<ShellOperationProgressComponent>(
 			[this] { request_shell_operation_cancellation(); });
 	addChildComponent(*shell_operation_progress);
-	shell_operation_runner = std::make_unique<AppShellOperationRunner>(
-		AppShellOperationRunner::Dependencies{
+	shell_operation_runner = std::make_unique<OperationRunner>(
+		OperationRunner::Dependencies{
 			.operation_gate			= ui_operation_gate,
 			.worker_service_factory = shell_operation_worker_services,
 			.progress =
@@ -165,8 +165,8 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 		apply_shell_operation_failure(job_type, generation, std::move(failure));
 	}});
 
-	photo_coordinator = std::make_unique<AppShellPhotoCoordinator>(
-		AppShellPhotoCoordinator::Dependencies{
+	photo_coordinator = std::make_unique<PhotoCoordinator>(
+		PhotoCoordinator::Dependencies{
 			.session					= session,
 			.route						= route,
 			.item_form					= item_form,
@@ -208,8 +208,8 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 		complete_shell_operation();
 	}});
 
-	preview_scheduler = std::make_unique<AppShellPreviewScheduler>(
-		AppShellPreviewScheduler::Dependencies{
+	preview_scheduler = std::make_unique<PreviewScheduler>(
+		PreviewScheduler::Dependencies{
 			.session				 = session,
 			.photo_display			 = photo_display,
 			.preview_cache			 = preview_cache,
@@ -220,8 +220,8 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 			.localization			 = localization,
 			.refresh_content		 = [this] { schedule_content_refresh(); }});
 
-	route_coordinator = std::make_unique<AppShellRouteCoordinator>(
-		AppShellRouteCoordinator::Dependencies{
+	route_coordinator = std::make_unique<RouteCoordinator>(
+		RouteCoordinator::Dependencies{
 			.session		= session,
 			.route			= route,
 			.backup			= backup,
@@ -234,8 +234,8 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 				[this] { cleanup_storage_pending_photos(); },
 			.refresh_all = [this] { refresh_all(); }});
 
-	edit_coordinator = std::make_unique<AppShellEditCoordinator>(
-		AppShellEditCoordinator::Dependencies{
+	edit_coordinator = std::make_unique<EditCoordinator>(
+		EditCoordinator::Dependencies{
 			.session					= session,
 			.route						= route,
 			.item_form					= item_form,
@@ -252,7 +252,7 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 			.shell_operation_state		= shell_operation,
 			.localization				= localization,
 			.editors =
-				AppShellEditCoordinator::Editors{
+				EditCoordinator::Editors{
 					.item_name_editor	  = item_name_editor,
 					.item_category_editor = item_category_editor,
 					.item_notes_editor	  = item_notes_editor,
@@ -281,8 +281,8 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 			.complete_shell_operation = [this] {
 		complete_shell_operation();
 	}});
-	screen_renderer = std::make_unique<AppShellScreenRenderer>(
-		AppShellScreenRenderer::Dependencies{
+	screen_renderer = std::make_unique<ScreenRenderer>(
+		ScreenRenderer::Dependencies{
 			.session = session,
 			.route = route,
 			.catalog_filter_state = catalog_filter_state,
@@ -298,7 +298,7 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 			.shell_operation_state = shell_operation,
 			.localization = localization,
 			.content = *content,
-			.editors = AppShellScreenRenderer::Editors{
+			.editors = ScreenRenderer::Editors{
 				.item_name_editor = item_name_editor,
 				.item_category_editor = item_category_editor,
 				.item_notes_editor = item_notes_editor,
@@ -312,7 +312,7 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 				.storage_type_editor = storage_type_editor,
 				.storage_location_editor = storage_location_editor,
 				.storage_notes_editor = storage_notes_editor},
-			.queries = AppShellScreenRenderer::Queries{
+			.queries = ScreenRenderer::Queries{
 				.catalog_query = [this] {
 					return chrome != nullptr ? chrome->catalog_query()
 									 : std::string{};
@@ -321,7 +321,7 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 					return chrome != nullptr ? chrome->storage_query()
 									 : std::string{};
 				}},
-			.actions = AppShellScreenRenderer::Actions{
+			.actions = ScreenRenderer::Actions{
 				.select_root = [this](RootDestination destination_value) {
 					select_root(destination_value);
 				},
@@ -460,7 +460,7 @@ AppShellComponent::AppShellComponent(CatalogSessionState session_state,
 	clear_controlled_startup_attempt_marker();
 }
 
-AppShellComponent::~AppShellComponent() {
+Component::~Component() {
 	stopTimer();
 	const std::shared_ptr<CallbackLifetimeToken> picker_lifetime =
 		std::move(document_picker_callback_lifetime);
@@ -474,11 +474,11 @@ AppShellComponent::~AppShellComponent() {
 	preview_scheduler.reset();
 }
 
-void AppShellComponent::paint(juce::Graphics& graphics) {
+void Component::paint(juce::Graphics& graphics) {
 	graphics.fillAll(background_colour());
 }
 
-void AppShellComponent::resized() {
+void Component::resized() {
 	juce::Rectangle<int> bounds =
 		fullscreen_safe_content_bounds(*this).reduced(10);
 	if (chrome != nullptr) {
@@ -498,7 +498,7 @@ void AppShellComponent::resized() {
 	}
 }
 
-bool AppShellComponent::handle_system_back() {
+bool Component::handle_system_back() {
 	if (route_coordinator == nullptr)
 		return false;
 
@@ -508,8 +508,8 @@ bool AppShellComponent::handle_system_back() {
 	const bool selected_viewer_owner_is_storage =
 		route.selected_photo_owner.has_value()
 		&& route.selected_photo_owner->type == domain::PhotoOwnerType::Storage;
-	const AppShellBackDecision decision =
-		decide_app_shell_back_navigation(AppShellBackNavigationState{
+	const BackDecision decision =
+		decide_back_navigation(BackNavigationState{
 			.destination				  = route.destination,
 			.shell_operation_active		  = shell_operation.active(),
 			.session_fatal				  = session.fatal(),
@@ -528,11 +528,11 @@ bool AppShellComponent::handle_system_back() {
 	if (!decision.consumed())
 		return false;
 
-	if (decision.action == AppShellBackAction::CloseCatalogFilterPanel) {
+	if (decision.action == BackAction::CloseCatalogFilterPanel) {
 		close_catalog_filters();
 		return true;
 	}
-	if (decision.action == AppShellBackAction::CancelPhotoDeletion) {
+	if (decision.action == BackAction::CancelPhotoDeletion) {
 		cancel_delete_photo_confirmation();
 		return true;
 	}
@@ -540,7 +540,7 @@ bool AppShellComponent::handle_system_back() {
 	return route_coordinator->handle_system_back(decision);
 }
 
-void AppShellComponent::handle_application_suspended() {
+void Component::handle_application_suspended() {
 	stopTimer();
 	if (preview_scheduler != nullptr)
 		preview_scheduler->release_disposable_preview_memory();
@@ -548,127 +548,127 @@ void AppShellComponent::handle_application_suspended() {
 		preview_cache.clear();
 }
 
-void AppShellComponent::handle_application_resumed() {
+void Component::handle_application_resumed() {
 	if (preview_scheduler != nullptr)
 		schedule_content_refresh();
 }
 
-void AppShellComponent::build_catalog_content() {
+void Component::build_catalog_content() {
 	if (screen_renderer != nullptr)
 		screen_renderer->build_catalog_content();
 }
 
-void AppShellComponent::build_filter_panel() {
+void Component::build_filter_panel() {
 	if (screen_renderer != nullptr)
 		screen_renderer->build_filter_panel();
 }
 
-void AppShellComponent::build_storages_content() {
+void Component::build_storages_content() {
 	if (screen_renderer != nullptr)
 		screen_renderer->build_storages_content();
 }
 
-void AppShellComponent::build_item_detail_content() {
+void Component::build_item_detail_content() {
 	if (screen_renderer != nullptr)
 		screen_renderer->build_item_detail_content();
 }
 
-void AppShellComponent::build_storage_detail_content() {
+void Component::build_storage_detail_content() {
 	if (screen_renderer != nullptr)
 		screen_renderer->build_storage_detail_content();
 }
 
-void AppShellComponent::build_item_form_content() {
+void Component::build_item_form_content() {
 	if (screen_renderer != nullptr)
 		screen_renderer->build_item_form_content();
 }
 
-void AppShellComponent::build_storage_form_content() {
+void Component::build_storage_form_content() {
 	if (screen_renderer != nullptr)
 		screen_renderer->build_storage_form_content();
 }
 
-void AppShellComponent::build_photo_viewer_content() {
+void Component::build_photo_viewer_content() {
 	if (screen_renderer != nullptr)
 		screen_renderer->build_photo_viewer_content();
 }
 
-void AppShellComponent::build_backup_recovery_content() {
+void Component::build_backup_recovery_content() {
 	if (screen_renderer != nullptr)
 		screen_renderer->build_backup_recovery_content();
 }
 
-void AppShellComponent::build_add_content() {
+void Component::build_add_content() {
 	if (screen_renderer != nullptr)
 		screen_renderer->build_add_content();
 }
 
-void AppShellComponent::build_more_content() {
+void Component::build_more_content() {
 	if (screen_renderer != nullptr)
 		screen_renderer->build_more_content();
 }
 
-void AppShellComponent::select_root(RootDestination destination_value) {
+void Component::select_root(RootDestination destination_value) {
 	if (!shell_operation.active() && route_coordinator != nullptr)
 		route_coordinator->select_root(destination_value);
 }
 
-void AppShellComponent::open_item_detail(core::StableIdentifier item_id) {
+void Component::open_item_detail(core::StableIdentifier item_id) {
 	if (!shell_operation.active() && route_coordinator != nullptr)
 		route_coordinator->open_item_detail(std::move(item_id));
 }
 
-void AppShellComponent::open_storage_detail(core::StableIdentifier storage_id) {
+void Component::open_storage_detail(core::StableIdentifier storage_id) {
 	if (!shell_operation.active() && route_coordinator != nullptr)
 		route_coordinator->open_storage_detail(std::move(storage_id));
 }
 
-void AppShellComponent::open_photo_viewer(
+void Component::open_photo_viewer(
 	const domain::PhotoOwner& owner,
 	const std::optional<core::StableIdentifier>& requested_photo_id) {
 	if (!shell_operation.active() && route_coordinator != nullptr)
 		route_coordinator->open_photo_viewer(owner, requested_photo_id);
 }
 
-void AppShellComponent::request_add_photos(const domain::PhotoOwner& owner) {
+void Component::request_add_photos(const domain::PhotoOwner& owner) {
 	if (photo_coordinator != nullptr)
 		photo_coordinator->request_add_photos(owner);
 }
 
-void AppShellComponent::request_add_pending_item_photos() {
+void Component::request_add_pending_item_photos() {
 	if (photo_coordinator != nullptr)
 		photo_coordinator->request_add_pending_item_photos();
 }
 
-void AppShellComponent::request_add_pending_storage_photos() {
+void Component::request_add_pending_storage_photos() {
 	if (photo_coordinator != nullptr)
 		photo_coordinator->request_add_pending_storage_photos();
 }
 
-void AppShellComponent::request_export_photo(
+void Component::request_export_photo(
 	const core::StableIdentifier& photo_id) {
 	if (!shell_operation.active() && photo_coordinator != nullptr)
 		photo_coordinator->request_export_photo(photo_id);
 }
 
-void AppShellComponent::request_delete_photo_confirmation(
+void Component::request_delete_photo_confirmation(
 	const core::StableIdentifier& photo_id) {
 	if (!shell_operation.active() && photo_coordinator != nullptr)
 		photo_coordinator->request_delete_photo_confirmation(photo_id);
 }
 
-void AppShellComponent::confirm_delete_photo(
+void Component::confirm_delete_photo(
 	const core::StableIdentifier& photo_id) {
 	if (!shell_operation.active() && photo_coordinator != nullptr)
 		photo_coordinator->confirm_delete_photo(photo_id);
 }
 
-void AppShellComponent::cancel_delete_photo_confirmation() {
+void Component::cancel_delete_photo_confirmation() {
 	if (!shell_operation.active() && photo_coordinator != nullptr)
 		photo_coordinator->cancel_delete_photo_confirmation();
 }
 
-void AppShellComponent::apply_photo_edit_result(
+void Component::apply_photo_edit_result(
 	EntityEditResult result,
 	const core::StableIdentifier& selected_photo_id_value) {
 	if (photo_coordinator != nullptr) {
@@ -677,35 +677,35 @@ void AppShellComponent::apply_photo_edit_result(
 	}
 }
 
-void AppShellComponent::cleanup_item_pending_photos() {
+void Component::cleanup_item_pending_photos() {
 	if (!shell_operation.active() && photo_coordinator != nullptr)
 		photo_coordinator->cleanup_item_pending_photos();
 }
 
-void AppShellComponent::cleanup_storage_pending_photos() {
+void Component::cleanup_storage_pending_photos() {
 	if (!shell_operation.active() && photo_coordinator != nullptr)
 		photo_coordinator->cleanup_storage_pending_photos();
 }
 
-void AppShellComponent::remove_item_pending_photo(
+void Component::remove_item_pending_photo(
 	std::size_t pending_photo_index) {
 	if (!shell_operation.active() && photo_coordinator != nullptr)
 		photo_coordinator->remove_item_pending_photo(pending_photo_index);
 }
 
-void AppShellComponent::remove_storage_pending_photo(
+void Component::remove_storage_pending_photo(
 	std::size_t pending_photo_index) {
 	if (!shell_operation.active() && photo_coordinator != nullptr)
 		photo_coordinator->remove_storage_pending_photo(pending_photo_index);
 }
 
-void AppShellComponent::reset_catalog_filters() {
+void Component::reset_catalog_filters() {
 	catalog_filter_state.applied	   = catalog::CatalogSearchFilters{};
 	catalog_filter_state.draft		   = catalog_filter_state.applied;
 	catalog_filter_state.panel_visible = false;
 }
 
-void AppShellComponent::toggle_catalog_filters() {
+void Component::toggle_catalog_filters() {
 	const bool opening_filters = !catalog_filter_state.panel_visible;
 	if (opening_filters) {
 		schedule_catalog_search_focus_release();
@@ -717,36 +717,36 @@ void AppShellComponent::toggle_catalog_filters() {
 		schedule_catalog_search_focus_release();
 }
 
-void AppShellComponent::apply_catalog_filters() {
+void Component::apply_catalog_filters() {
 	catalog_filter_state.applied	   = catalog_filter_state.draft;
 	catalog_filter_state.panel_visible = false;
 	refresh_all();
 	schedule_catalog_search_focus_release();
 }
 
-void AppShellComponent::close_catalog_filters() {
+void Component::close_catalog_filters() {
 	catalog_filter_state.draft		   = catalog_filter_state.applied;
 	catalog_filter_state.panel_visible = false;
 	refresh_all();
 	schedule_catalog_search_focus_release();
 }
 
-void AppShellComponent::release_catalog_search_focus() {
+void Component::release_catalog_search_focus() {
 	if (chrome != nullptr)
 		chrome->release_catalog_search_focus();
 	grabKeyboardFocus();
 }
 
-void AppShellComponent::schedule_catalog_search_focus_release() {
+void Component::schedule_catalog_search_focus_release() {
 	release_catalog_search_focus();
-	juce::Component::SafePointer<AppShellComponent> safe_this{this};
+	juce::Component::SafePointer<Component> safe_this{this};
 	juce::MessageManager::callAsync([safe_this] {
 		if (safe_this != nullptr)
 			safe_this->release_catalog_search_focus();
 	});
 }
 
-juce::String AppShellComponent::catalog_draft_result_count_text() const {
+juce::String Component::catalog_draft_result_count_text() const {
 	catalog::CatalogSearchOptions options{
 		.include_storage_results_for_empty_query = true};
 	const catalog::CatalogSearchResultSet results = catalog::search_catalog(
@@ -756,7 +756,7 @@ juce::String AppShellComponent::catalog_draft_result_count_text() const {
 	return juce_text(localization.draft_result_count(results.total_count));
 }
 
-void AppShellComponent::request_internal_preview_async(
+void Component::request_internal_preview_async(
 	core::StableIdentifier photo_id, ImagePreviewSize target_size,
 	ImagePreviewRequestPriority priority) {
 	if (preview_scheduler != nullptr)
@@ -764,7 +764,7 @@ void AppShellComponent::request_internal_preview_async(
 													target_size, priority);
 }
 
-void AppShellComponent::request_staged_preview_async(
+void Component::request_staged_preview_async(
 	PendingPhotoSource source, ImagePreviewSize target_size,
 	ImagePreviewRequestPriority priority) {
 	if (preview_scheduler != nullptr)
@@ -772,7 +772,7 @@ void AppShellComponent::request_staged_preview_async(
 												  target_size, priority);
 }
 
-void AppShellComponent::begin_shell_operation(ShellOperationJobType job_type,
+void Component::begin_shell_operation(ShellOperationJobType job_type,
 											  std::uint64_t generation) {
 	shell_operation.generation = generation;
 	shell_operation.state	   = ShellOperationState::Running;
@@ -783,7 +783,7 @@ void AppShellComponent::begin_shell_operation(ShellOperationJobType job_type,
 	refresh_all();
 }
 
-void AppShellComponent::complete_shell_operation() {
+void Component::complete_shell_operation() {
 	shell_operation.state = ShellOperationState::Idle;
 	shell_operation.job_type.reset();
 	shell_operation.operation_id.reset();
@@ -792,7 +792,7 @@ void AppShellComponent::complete_shell_operation() {
 	refresh_all();
 }
 
-void AppShellComponent::apply_shell_operation_failure(
+void Component::apply_shell_operation_failure(
 	ShellOperationJobType job_type, std::uint64_t generation,
 	std::string details) {
 	if (!shell_operation.active() || shell_operation.generation != generation
@@ -823,7 +823,7 @@ void AppShellComponent::apply_shell_operation_failure(
 	complete_shell_operation();
 }
 
-void AppShellComponent::request_shell_operation_cancellation() {
+void Component::request_shell_operation_cancellation() {
 	if (!shell_operation.active() || shell_operation_runner == nullptr
 		|| !shell_operation.latest_progress.has_value()
 		|| !shell_operation.latest_progress->cancellable) {
@@ -850,7 +850,7 @@ void AppShellComponent::request_shell_operation_cancellation() {
 	refresh_all();
 }
 
-void AppShellComponent::apply_shell_operation_progress(
+void Component::apply_shell_operation_progress(
 	std::uint64_t generation, platform::ProgressEvent event) {
 	if (shell_operation.generation != generation || !shell_operation.active())
 		return;
@@ -859,7 +859,7 @@ void AppShellComponent::apply_shell_operation_progress(
 	update_shell_operation_progress_surface();
 }
 
-void AppShellComponent::update_shell_operation_progress_surface() {
+void Component::update_shell_operation_progress_surface() {
 	if (shell_operation_progress == nullptr)
 		return;
 	const bool cancellation_available =
@@ -881,33 +881,33 @@ void AppShellComponent::update_shell_operation_progress_surface() {
 	resized();
 }
 
-std::optional<juce::String> AppShellComponent::preview_failure_message(
+std::optional<juce::String> Component::preview_failure_message(
 	const ImagePreviewRequestIdentity& identity) const {
 	return preview_scheduler == nullptr
 			   ? std::nullopt
 			   : preview_scheduler->failure_message(identity);
 }
 
-void AppShellComponent::request_photo_display_async(
+void Component::request_photo_display_async(
 	core::StableIdentifier photo_id) {
 	if (preview_scheduler != nullptr)
 		preview_scheduler->enqueue_display(std::move(photo_id));
 }
 
-void AppShellComponent::invalidate_preview_failure(
+void Component::invalidate_preview_failure(
 	const ImagePreviewRequestIdentity& identity) {
 	if (preview_scheduler != nullptr)
 		preview_scheduler->clear_failure(identity);
 }
 
-void AppShellComponent::invalidate_all_previews() {
+void Component::invalidate_all_previews() {
 	if (preview_scheduler != nullptr)
 		preview_scheduler->invalidate_all();
 	else
 		preview_cache.clear();
 }
 
-void AppShellComponent::invalidate_internal_photo_preview(
+void Component::invalidate_internal_photo_preview(
 	const core::StableIdentifier& photo_id) {
 	if (preview_scheduler != nullptr)
 		preview_scheduler->invalidate_internal_photo(photo_id);
@@ -915,7 +915,7 @@ void AppShellComponent::invalidate_internal_photo_preview(
 		preview_cache.remove_internal_photo(photo_id);
 }
 
-void AppShellComponent::invalidate_staged_photo_preview(
+void Component::invalidate_staged_photo_preview(
 	const std::filesystem::path& staged_path) {
 	if (preview_scheduler != nullptr)
 		preview_scheduler->invalidate_staged_photo(staged_path);
@@ -923,11 +923,11 @@ void AppShellComponent::invalidate_staged_photo_preview(
 		preview_cache.remove_staged_photo(staged_path);
 }
 
-void AppShellComponent::schedule_content_refresh() {
+void Component::schedule_content_refresh() {
 	startTimer(85);
 }
 
-void AppShellComponent::timerCallback() {
+void Component::timerCallback() {
 	stopTimer();
 	refresh_controls();
 	refresh_content();
@@ -935,7 +935,7 @@ void AppShellComponent::timerCallback() {
 	repaint();
 }
 
-void AppShellComponent::refresh_all() {
+void Component::refresh_all() {
 	stopTimer();
 	refresh_controls();
 	refresh_content();
@@ -943,7 +943,7 @@ void AppShellComponent::refresh_all() {
 	repaint();
 }
 
-void AppShellComponent::clear_controlled_startup_attempt_marker() {
+void Component::clear_controlled_startup_attempt_marker() {
 	if (!session.paths.has_value()
 		|| session.source
 			   == CatalogSessionStartupSource::StartupCrashSafeMode) {
@@ -957,7 +957,7 @@ void AppShellComponent::clear_controlled_startup_attempt_marker() {
 									   cleared.diagnostics.end());
 }
 
-void AppShellComponent::refresh_controls() {
+void Component::refresh_controls() {
 	juce::String title;
 	switch (route.destination) {
 		case RootDestination::Catalog:
@@ -1025,7 +1025,7 @@ void AppShellComponent::refresh_controls() {
 			catalog_filter_state.panel_visible
 				? catalog_draft_result_count_text()
 				: juce::String{};
-		chrome->update_model(AppShellChromeComponent::Model{
+		chrome->update_model(ChromeComponent::Model{
 			.destination				= route.destination,
 			.item_form_mode				= item_form.mode,
 			.storage_form_mode			= storage_form.mode,
@@ -1041,7 +1041,7 @@ void AppShellComponent::refresh_controls() {
 	}
 }
 
-void AppShellComponent::refresh_content() {
+void Component::refresh_content() {
 	content->begin_rebuild();
 	content->clear_rows();
 	if (!session.ready_for_browsing() && session.fatal()) {

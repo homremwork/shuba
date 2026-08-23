@@ -1,7 +1,7 @@
 #include "Localization/Facade.hpp"
 #include "Platform/LinuxFakes.hpp"
-#include "UI/AppShellEditCoordinator.hpp"
-#include "UI/Screens/AppShellScreenRenderer.hpp"
+#include "UI/AppShell/EditCoordinator.hpp"
+#include "UI/AppShell/ScreenRenderer.hpp"
 #include "UI/Session/CatalogStartupSession.hpp"
 #include "UI/Session/EntityEditSession.hpp"
 
@@ -157,7 +157,7 @@ private:
 };
 
 [[nodiscard]] bool has_edit_diagnostic(
-	const shuba::ui::AppShellFeedbackState& feedback, std::string_view code) {
+	const shuba::ui::FeedbackState& feedback, std::string_view code) {
 	for (const shuba::ui::EntityEditDiagnostic& diagnostic :
 		 feedback.edit_diagnostics) {
 		if (diagnostic.code == code)
@@ -191,7 +191,7 @@ public:
 			  shuba::localization::Language::English, {}))
 		, blocking_point(std::make_shared<BlockingPoint>())
 		, worker_factory(blocking_point)
-		, runner(shuba::ui::AppShellOperationRunner::Dependencies{
+		, runner(shuba::ui::OperationRunner::Dependencies{
 			  .operation_gate		  = operation_gate,
 			  .worker_service_factory = worker_factory,
 			  .progress				  = {},
@@ -206,8 +206,8 @@ public:
 				.debug_demo_seed_enabled = false});
 		REQUIRE(session.ready_for_browsing());
 
-		coordinator = std::make_unique<shuba::ui::AppShellEditCoordinator>(
-			shuba::ui::AppShellEditCoordinator::Dependencies{
+		coordinator = std::make_unique<shuba::ui::EditCoordinator>(
+			shuba::ui::EditCoordinator::Dependencies{
 				.session					= session,
 				.route						= route,
 				.item_form					= item_form,
@@ -224,7 +224,7 @@ public:
 				.shell_operation_state		= operation_state,
 				.localization				= localization,
 				.editors =
-					shuba::ui::AppShellEditCoordinator::Editors{
+					shuba::ui::EditCoordinator::Editors{
 						.item_name_editor	  = item_name_editor,
 						.item_category_editor = item_category_editor,
 						.item_notes_editor	  = item_notes_editor,
@@ -308,19 +308,19 @@ public:
 	shuba::core::ManualClock clock;
 	shuba::localization::Localization localization;
 	shuba::ui::CatalogSessionState session;
-	shuba::ui::AppShellRouteState route;
-	shuba::ui::AppShellItemFormState item_form;
-	shuba::ui::AppShellStorageFormState storage_form;
-	shuba::ui::AppShellFeedbackState feedback;
+	shuba::ui::RouteState route;
+	shuba::ui::ItemFormState item_form;
+	shuba::ui::StorageFormState storage_form;
+	shuba::ui::FeedbackState feedback;
 	shuba::core::OperationGate operation_gate;
 	shuba::platform::LinuxFakeContentStagingService staging_service;
 	TestFingerprintService fingerprint_service;
 	shuba::platform::SyntheticSourceImageDecodeService decode_service;
 	shuba::platform::MarkerInternalPhotoCodec photo_codec;
-	shuba::ui::AppShellOperationState operation_state;
+	shuba::ui::OperationState operation_state;
 	std::shared_ptr<BlockingPoint> blocking_point;
 	TestWorkerServiceFactory worker_factory;
-	shuba::ui::AppShellOperationRunner runner;
+	shuba::ui::OperationRunner runner;
 	juce::TextEditor item_name_editor;
 	juce::TextEditor item_category_editor;
 	juce::TextEditor item_notes_editor;
@@ -332,7 +332,7 @@ public:
 	juce::TextEditor storage_type_editor;
 	juce::TextEditor storage_location_editor;
 	juce::TextEditor storage_notes_editor;
-	std::unique_ptr<shuba::ui::AppShellEditCoordinator> coordinator;
+	std::unique_ptr<shuba::ui::EditCoordinator> coordinator;
 	std::uint32_t refresh_count{};
 	std::uint32_t completion_count{};
 };

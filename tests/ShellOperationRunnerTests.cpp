@@ -1,7 +1,7 @@
 #include "Catalog/PhotoExport.hpp"
 #include "Platform/JuceZipArchive.hpp"
 #include "Platform/LinuxFakes.hpp"
-#include "UI/AppShellOperationRunner.hpp"
+#include "UI/AppShell/OperationRunner.hpp"
 #include "UI/Session/BackupRecoverySession.hpp"
 #include "UI/Session/CatalogStartupSession.hpp"
 #include "UI/Session/EntityEditSession.hpp"
@@ -340,19 +340,19 @@ TEST_CASE(
 	std::atomic_bool sentinel{};
 	std::atomic_bool completed{};
 	std::optional<shuba::ui::PendingPhotoStagingResult> result;
-	shuba::ui::AppShellOperationRunner runner{
-		shuba::ui::AppShellOperationRunner::Dependencies{
+	shuba::ui::OperationRunner runner{
+		shuba::ui::OperationRunner::Dependencies{
 			.operation_gate			= gate,
 			.worker_service_factory = factory,
 			.progress				= {},
 			.failure				= {}}};
 
-	const shuba::ui::AppShellOperationRunner::Submission submission =
+	const shuba::ui::OperationRunner::Submission submission =
 		runner.submit_pending_staging(
 			shuba::ui::ShellOperationJobType::PendingItemStaging,
 			make_request(session, identifiers, gate, staging, fingerprinting,
 						 "original.jpg"),
-			[&](shuba::ui::AppShellOperationRunner::CompletionResult
+			[&](shuba::ui::OperationRunner::CompletionResult
 					completion) {
 		result = std::get<shuba::ui::PendingPhotoStagingResult>(
 			std::move(completion.value));
@@ -366,7 +366,7 @@ TEST_CASE(
 	REQUIRE(session.repository.photos.size() == original_photo_count);
 	REQUIRE(session.paths->active_catalog_root == original_root);
 
-	const shuba::ui::AppShellOperationRunner::Submission second =
+	const shuba::ui::OperationRunner::Submission second =
 		runner.submit_pending_staging(
 			shuba::ui::ShellOperationJobType::PendingItemStaging,
 			make_request(session, identifiers, gate, staging, fingerprinting,
@@ -404,8 +404,8 @@ TEST_CASE("R13 runner coalesces a progress flood to the latest event",
 	std::atomic_uint64_t latest_units{};
 	std::atomic_bool sentinel{};
 	std::atomic_bool completed{};
-	shuba::ui::AppShellOperationRunner runner{
-		shuba::ui::AppShellOperationRunner::Dependencies{
+	shuba::ui::OperationRunner runner{
+		shuba::ui::OperationRunner::Dependencies{
 			.operation_gate			= gate,
 			.worker_service_factory = factory,
 			.progress =
@@ -417,12 +417,12 @@ TEST_CASE("R13 runner coalesces a progress flood to the latest event",
 	},
 			.failure = {}}};
 
-	const shuba::ui::AppShellOperationRunner::Submission submission =
+	const shuba::ui::OperationRunner::Submission submission =
 		runner.submit_pending_staging(
 			shuba::ui::ShellOperationJobType::PendingItemStaging,
 			make_request(session, identifiers, gate, staging, fingerprinting,
 						 "flood.jpg"),
-			[&](shuba::ui::AppShellOperationRunner::CompletionResult) {
+			[&](shuba::ui::OperationRunner::CompletionResult) {
 		completed.store(true, std::memory_order_release);
 	});
 	REQUIRE(submission.accepted);
@@ -454,20 +454,20 @@ TEST_CASE("R13 runner cancellation and destruction join the worker safely",
 	shuba::platform::LinuxFakeContentStagingService staging;
 	TestFingerprintService fingerprinting;
 	std::atomic_bool completion_called{};
-	std::unique_ptr<shuba::ui::AppShellOperationRunner> runner =
-		std::make_unique<shuba::ui::AppShellOperationRunner>(
-			shuba::ui::AppShellOperationRunner::Dependencies{
+	std::unique_ptr<shuba::ui::OperationRunner> runner =
+		std::make_unique<shuba::ui::OperationRunner>(
+			shuba::ui::OperationRunner::Dependencies{
 				.operation_gate			= gate,
 				.worker_service_factory = factory,
 				.progress				= {},
 				.failure				= {}});
 
-	const shuba::ui::AppShellOperationRunner::Submission submission =
+	const shuba::ui::OperationRunner::Submission submission =
 		runner->submit_pending_staging(
 			shuba::ui::ShellOperationJobType::PendingStorageStaging,
 			make_request(session, identifiers, gate, staging, fingerprinting,
 						 "cancel.jpg"),
-			[&](shuba::ui::AppShellOperationRunner::CompletionResult) {
+			[&](shuba::ui::OperationRunner::CompletionResult) {
 		completion_called.store(true, std::memory_order_release);
 	});
 	REQUIRE(submission.accepted);
@@ -493,20 +493,20 @@ TEST_CASE("R13 runner drops a completed result when destroyed before delivery",
 	shuba::platform::LinuxFakeContentStagingService staging;
 	TestFingerprintService fingerprinting;
 	std::atomic_bool completion_called{};
-	std::unique_ptr<shuba::ui::AppShellOperationRunner> runner =
-		std::make_unique<shuba::ui::AppShellOperationRunner>(
-			shuba::ui::AppShellOperationRunner::Dependencies{
+	std::unique_ptr<shuba::ui::OperationRunner> runner =
+		std::make_unique<shuba::ui::OperationRunner>(
+			shuba::ui::OperationRunner::Dependencies{
 				.operation_gate			= gate,
 				.worker_service_factory = factory,
 				.progress				= {},
 				.failure				= {}});
 
-	const shuba::ui::AppShellOperationRunner::Submission submission =
+	const shuba::ui::OperationRunner::Submission submission =
 		runner->submit_pending_staging(
 			shuba::ui::ShellOperationJobType::PendingItemStaging,
 			make_request(session, identifiers, gate, staging, fingerprinting,
 						 "completed-before-delivery.jpg"),
-			[&](shuba::ui::AppShellOperationRunner::CompletionResult) {
+			[&](shuba::ui::OperationRunner::CompletionResult) {
 		completion_called.store(true, std::memory_order_release);
 	});
 	REQUIRE(submission.accepted);
@@ -535,14 +535,14 @@ TEST_CASE("R13 runner becomes idle after an empty completion is delivered",
 	shuba::platform::ScriptedIdentifierSource identifiers;
 	shuba::platform::LinuxFakeContentStagingService staging;
 	TestFingerprintService fingerprinting;
-	shuba::ui::AppShellOperationRunner runner{
-		shuba::ui::AppShellOperationRunner::Dependencies{
+	shuba::ui::OperationRunner runner{
+		shuba::ui::OperationRunner::Dependencies{
 			.operation_gate			= gate,
 			.worker_service_factory = factory,
 			.progress				= {},
 			.failure				= {}}};
 
-	const shuba::ui::AppShellOperationRunner::Submission submission =
+	const shuba::ui::OperationRunner::Submission submission =
 		runner.submit_pending_staging(
 			shuba::ui::ShellOperationJobType::PendingStorageStaging,
 			make_request(session, identifiers, gate, staging, fingerprinting,
@@ -569,8 +569,8 @@ TEST_CASE("R13 runner executes every supported photo mutation from snapshots",
 	TestFingerprintService message_fingerprinting;
 	shuba::platform::SyntheticSourceImageDecodeService message_decoder;
 	shuba::platform::MarkerInternalPhotoCodec message_codec;
-	shuba::ui::AppShellOperationRunner runner{
-		shuba::ui::AppShellOperationRunner::Dependencies{
+	shuba::ui::OperationRunner runner{
+		shuba::ui::OperationRunner::Dependencies{
 			.operation_gate			= gate,
 			.worker_service_factory = factory,
 			.progress				= {},
@@ -616,7 +616,7 @@ TEST_CASE("R13 runner executes every supported photo mutation from snapshots",
 	REQUIRE(runner
 				.submit_direct_import(
 					direct_request,
-					[&](shuba::ui::AppShellOperationRunner::CompletionResult
+					[&](shuba::ui::OperationRunner::CompletionResult
 							completion) {
 		direct_result = std::get<shuba::ui::PhotoImportSessionResult>(
 			std::move(completion.value));
@@ -659,7 +659,7 @@ TEST_CASE("R13 runner executes every supported photo mutation from snapshots",
 	REQUIRE(runner
 				.submit_item_save(
 					item_request,
-					[&](shuba::ui::AppShellOperationRunner::CompletionResult
+					[&](shuba::ui::OperationRunner::CompletionResult
 							completion) {
 		item_result = std::get<shuba::ui::ItemSaveWithPendingPhotosResult>(
 			std::move(completion.value));
@@ -703,7 +703,7 @@ TEST_CASE("R13 runner executes every supported photo mutation from snapshots",
 	REQUIRE(runner
 				.submit_storage_save(
 					storage_request,
-					[&](shuba::ui::AppShellOperationRunner::CompletionResult
+					[&](shuba::ui::OperationRunner::CompletionResult
 							completion) {
 		storage_result =
 			std::get<shuba::ui::StorageSaveWithPendingPhotosResult>(
@@ -740,15 +740,15 @@ TEST_CASE(
 	shuba::platform::LinuxFakeContentStagingService message_staging;
 	shuba::platform::LinuxFakeDocumentExportService message_document_export;
 	shuba::platform::JuceZipArchiveService message_zip_archives;
-	shuba::ui::AppShellOperationRunner runner{
-		shuba::ui::AppShellOperationRunner::Dependencies{
+	shuba::ui::OperationRunner runner{
+		shuba::ui::OperationRunner::Dependencies{
 			.operation_gate			= gate,
 			.worker_service_factory = factory,
 			.progress				= {},
 			.failure				= {}}};
 
 	std::atomic_bool completed{};
-	const shuba::ui::AppShellOperationRunner::Submission first =
+	const shuba::ui::OperationRunner::Submission first =
 		runner.submit_jpeg_export(
 			shuba::catalog::PhotoExportRequest{
 				.current_state = session.repository,
@@ -759,7 +759,7 @@ TEST_CASE(
 				.destination = shuba::platform::make_local_file_destination(
 					temporary.path() / "busy.jpg"),
 				.jpeg_quality = 90},
-			[&](shuba::ui::AppShellOperationRunner::CompletionResult) {
+			[&](shuba::ui::OperationRunner::CompletionResult) {
 		completed.store(true, std::memory_order_release);
 	});
 	REQUIRE(first.accepted);
@@ -769,7 +769,7 @@ TEST_CASE(
 		std::this_thread::yield();
 	REQUIRE(runner.active());
 
-	const shuba::ui::AppShellOperationRunner::Submission second =
+	const shuba::ui::OperationRunner::Submission second =
 		runner.submit_backup_export(
 			shuba::ui::BackupExportSessionRequest{
 				.current_session		 = session,
@@ -805,8 +805,8 @@ TEST_CASE("Shell runner forwards cancellation into backup import staging",
 	shuba::platform::LinuxFakeContentStagingService message_staging;
 	shuba::platform::LinuxFakeDocumentExportService message_document_export;
 	shuba::platform::JuceZipArchiveService message_zip_archives;
-	shuba::ui::AppShellOperationRunner runner{
-		shuba::ui::AppShellOperationRunner::Dependencies{
+	shuba::ui::OperationRunner runner{
+		shuba::ui::OperationRunner::Dependencies{
 			.operation_gate			= gate,
 			.worker_service_factory = factory,
 			.progress				= {},
@@ -814,7 +814,7 @@ TEST_CASE("Shell runner forwards cancellation into backup import staging",
 
 	std::atomic_bool completed{};
 	std::optional<shuba::ui::BackupImportStagingSessionResult> result;
-	const shuba::ui::AppShellOperationRunner::Submission submission =
+	const shuba::ui::OperationRunner::Submission submission =
 		runner.submit_backup_import_staging(
 			shuba::ui::BackupImportStagingSessionRequest{
 				.current_session		 = session,
@@ -826,7 +826,7 @@ TEST_CASE("Shell runner forwards cancellation into backup import staging",
 				.content_staging_service = message_staging,
 				.source = shuba::platform::make_local_file_source(
 					temporary.path() / "cancel.zip")},
-			[&](shuba::ui::AppShellOperationRunner::CompletionResult
+			[&](shuba::ui::OperationRunner::CompletionResult
 					completion) {
 		result = std::get<shuba::ui::BackupImportStagingSessionResult>(
 			std::move(completion.value));
@@ -858,8 +858,8 @@ TEST_CASE("Shell runner executes non-photo workflows from immutable snapshots",
 	shuba::platform::LinuxFakeContentStagingService message_staging;
 	shuba::platform::LinuxFakeDocumentExportService message_document_export;
 	shuba::platform::JuceZipArchiveService message_zip_archives;
-	shuba::ui::AppShellOperationRunner runner{
-		shuba::ui::AppShellOperationRunner::Dependencies{
+	shuba::ui::OperationRunner runner{
+		shuba::ui::OperationRunner::Dependencies{
 			.operation_gate			= gate,
 			.worker_service_factory = factory,
 			.progress				= {},
@@ -867,7 +867,7 @@ TEST_CASE("Shell runner executes non-photo workflows from immutable snapshots",
 
 	std::atomic_bool jpeg_completed{};
 	std::optional<shuba::catalog::PhotoExportResult> jpeg_result;
-	std::optional<shuba::ui::AppShellOperationRunner::CompletionResult>
+	std::optional<shuba::ui::OperationRunner::CompletionResult>
 		jpeg_completion;
 	const std::filesystem::path jpeg_destination =
 		temporary.path() / "photo-original.jpg";
@@ -882,7 +882,7 @@ TEST_CASE("Shell runner executes non-photo workflows from immutable snapshots",
 	REQUIRE(runner
 				.submit_jpeg_export(
 					jpeg_request,
-					[&](shuba::ui::AppShellOperationRunner::CompletionResult
+					[&](shuba::ui::OperationRunner::CompletionResult
 							completion) {
 		jpeg_completion = std::move(completion);
 		jpeg_result		= std::get<shuba::catalog::PhotoExportResult>(
@@ -920,7 +920,7 @@ TEST_CASE("Shell runner executes non-photo workflows from immutable snapshots",
 		REQUIRE(runner
 					.submit_backup_export(
 						request, diagnostic_archive,
-						[&](shuba::ui::AppShellOperationRunner::CompletionResult
+						[&](shuba::ui::OperationRunner::CompletionResult
 								completion) {
 			result = std::get<shuba::ui::BackupExportSessionResult>(
 				std::move(completion.value));
@@ -957,7 +957,7 @@ TEST_CASE("Shell runner executes non-photo workflows from immutable snapshots",
 	REQUIRE(runner
 				.submit_backup_import_staging(
 					staging_request,
-					[&](shuba::ui::AppShellOperationRunner::CompletionResult
+					[&](shuba::ui::OperationRunner::CompletionResult
 							completion) {
 		staging_result = std::get<shuba::ui::BackupImportStagingSessionResult>(
 			std::move(completion.value));
@@ -985,7 +985,7 @@ TEST_CASE("Shell runner executes non-photo workflows from immutable snapshots",
 	REQUIRE(runner
 				.submit_backup_import_replacement(
 					replacement_request,
-					[&](shuba::ui::AppShellOperationRunner::CompletionResult
+					[&](shuba::ui::OperationRunner::CompletionResult
 							completion) {
 		replacement_result =
 			std::get<shuba::ui::BackupImportReplacementSessionResult>(

@@ -1,7 +1,7 @@
-#include "UI/AppShellBackHandler.hpp"
-#include "UI/AppShellBackNavigation.hpp"
-#include "UI/AppShellLifecycleHandler.hpp"
-#include "UI/AppShellRouteCoordinator.hpp"
+#include "UI/AppShell/BackHandler.hpp"
+#include "UI/AppShell/BackNavigation.hpp"
+#include "UI/AppShell/LifecycleHandler.hpp"
+#include "UI/AppShell/RouteCoordinator.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -9,7 +9,7 @@
 #include <string>
 
 namespace {
-class FakeBackHandler final : public shuba::ui::AppShellBackHandler {
+class FakeBackHandler final : public shuba::ui::BackHandler {
 public:
 	explicit FakeBackHandler(bool handled_value) : handled(handled_value) {}
 
@@ -22,7 +22,7 @@ public:
 	std::uint32_t calls{};
 };
 
-class FakeLifecycleHandler final : public shuba::ui::AppShellLifecycleHandler {
+class FakeLifecycleHandler final : public shuba::ui::LifecycleHandler {
 public:
 	void handle_application_suspended() override { ++suspended_calls; }
 	void handle_application_resumed() override { ++resumed_calls; }
@@ -35,28 +35,28 @@ public:
 	return *shuba::core::StableIdentifier::try_create(std::move(text));
 }
 
-[[nodiscard]] shuba::ui::AppShellBackNavigationState make_state(
+[[nodiscard]] shuba::ui::BackNavigationState make_state(
 	shuba::ui::RootDestination destination) {
-	return shuba::ui::AppShellBackNavigationState{.destination = destination};
+	return shuba::ui::BackNavigationState{.destination = destination};
 }
 
-void require_action(const shuba::ui::AppShellBackDecision& decision,
-					shuba::ui::AppShellBackAction action) {
+void require_action(const shuba::ui::BackDecision& decision,
+					shuba::ui::BackAction action) {
 	REQUIRE(decision.action == action);
 }
 
 struct RouteCoordinatorFixture final {
 	shuba::ui::CatalogSessionState session;
-	shuba::ui::AppShellRouteState route;
-	shuba::ui::AppShellBackupState backup;
-	shuba::ui::AppShellFeedbackState feedback;
-	shuba::ui::AppShellPhotoDisplayState photo_display;
-	shuba::ui::AppShellStorageDetailState storage_detail;
+	shuba::ui::RouteState route;
+	shuba::ui::BackupState backup;
+	shuba::ui::FeedbackState feedback;
+	shuba::ui::PhotoDisplayState photo_display;
+	shuba::ui::StorageDetailState storage_detail;
 	std::uint32_t refresh_count{};
 	std::uint32_t item_cleanup_count{};
 	std::uint32_t storage_cleanup_count{};
-	shuba::ui::AppShellRouteCoordinator coordinator{
-		shuba::ui::AppShellRouteCoordinator::Dependencies{
+	shuba::ui::RouteCoordinator coordinator{
+		shuba::ui::RouteCoordinator::Dependencies{
 			.session					 = session,
 			.route						 = route,
 			.backup						 = backup,
@@ -71,9 +71,9 @@ struct RouteCoordinatorFixture final {
 
 [[nodiscard]] bool restore_contextual_location(
 	RouteCoordinatorFixture& fixture) {
-	const shuba::ui::AppShellBackDecision decision =
-		shuba::ui::decide_app_shell_back_navigation(
-			shuba::ui::AppShellBackNavigationState{
+	const shuba::ui::BackDecision decision =
+		shuba::ui::decide_back_navigation(
+			shuba::ui::BackNavigationState{
 				.destination = fixture.route.destination,
 				.contextual_return_available =
 					!fixture.route.contextual_return_locations.empty()});
@@ -86,21 +86,21 @@ TEST_CASE(
 	"states",
 	"[b30][back-navigation]") {
 	SECTION("active operation and fatal recovery are unhandled") {
-		shuba::ui::AppShellBackNavigationState active =
+		shuba::ui::BackNavigationState active =
 			make_state(shuba::ui::RootDestination::ItemDetail);
 		active.shell_operation_active = true;
 		REQUIRE_FALSE(
-			shuba::ui::decide_app_shell_back_navigation(active).consumed());
+			shuba::ui::decide_back_navigation(active).consumed());
 
-		shuba::ui::AppShellBackNavigationState fatal =
+		shuba::ui::BackNavigationState fatal =
 			make_state(shuba::ui::RootDestination::BackupRecovery);
 		fatal.session_fatal = true;
 		REQUIRE_FALSE(
-			shuba::ui::decide_app_shell_back_navigation(fatal).consumed());
+			shuba::ui::decide_back_navigation(fatal).consumed());
 	}
 
 	SECTION("Catalog is unhandled and other bottom roots select Catalog") {
-		REQUIRE_FALSE(shuba::ui::decide_app_shell_back_navigation(
+		REQUIRE_FALSE(shuba::ui::decide_back_navigation(
 						  make_state(shuba::ui::RootDestination::Catalog))
 						  .consumed());
 		for (const shuba::ui::RootDestination root :
@@ -109,8 +109,8 @@ TEST_CASE(
 			  shuba::ui::RootDestination::More}) {
 			CAPTURE(static_cast<int>(root));
 			require_action(
-				shuba::ui::decide_app_shell_back_navigation(make_state(root)),
-				shuba::ui::AppShellBackAction::SelectCatalog);
+				shuba::ui::decide_back_navigation(make_state(root)),
+				shuba::ui::BackAction::SelectCatalog);
 		}
 	}
 }
@@ -118,7 +118,7 @@ TEST_CASE(
 TEST_CASE(
 	"JI.9 application lifecycle delegate forwards only while a shell exists",
 	"[ji9][b30][lifecycle]") {
-	shuba::ui::AppShellLifecycleDelegate delegate;
+	shuba::ui::LifecycleDelegate delegate;
 	delegate.handle_application_suspended();
 	delegate.handle_application_resumed();
 
@@ -142,53 +142,53 @@ TEST_CASE(
 	"actions",
 	"[b30][back-navigation]") {
 	SECTION("catalog filter discards its draft before root fallback") {
-		shuba::ui::AppShellBackNavigationState state =
+		shuba::ui::BackNavigationState state =
 			make_state(shuba::ui::RootDestination::Catalog);
 		state.catalog_filter_panel_visible = true;
-		require_action(shuba::ui::decide_app_shell_back_navigation(state),
-					   shuba::ui::AppShellBackAction::CloseCatalogFilterPanel);
+		require_action(shuba::ui::decide_back_navigation(state),
+					   shuba::ui::BackAction::CloseCatalogFilterPanel);
 	}
 
 	SECTION("photo deletion confirmation cancels before viewer return") {
-		shuba::ui::AppShellBackNavigationState state =
+		shuba::ui::BackNavigationState state =
 			make_state(shuba::ui::RootDestination::PhotoViewer);
 		state.photo_deletion_confirmation_pending = true;
 		state.selected_viewer_owner_is_item		  = true;
-		require_action(shuba::ui::decide_app_shell_back_navigation(state),
-					   shuba::ui::AppShellBackAction::CancelPhotoDeletion);
+		require_action(shuba::ui::decide_back_navigation(state),
+					   shuba::ui::BackAction::CancelPhotoDeletion);
 	}
 
 	SECTION(
 		"detail restore, form return, viewer owner, and recovery actions are "
 		"explicit") {
-		shuba::ui::AppShellBackNavigationState detail =
+		shuba::ui::BackNavigationState detail =
 			make_state(shuba::ui::RootDestination::ItemDetail);
 		detail.contextual_return_available = true;
 		require_action(
-			shuba::ui::decide_app_shell_back_navigation(detail),
-			shuba::ui::AppShellBackAction::RestoreContextualLocation);
+			shuba::ui::decide_back_navigation(detail),
+			shuba::ui::BackAction::RestoreContextualLocation);
 		detail.contextual_return_available = false;
 		REQUIRE_FALSE(
-			shuba::ui::decide_app_shell_back_navigation(detail).consumed());
+			shuba::ui::decide_back_navigation(detail).consumed());
 
-		require_action(shuba::ui::decide_app_shell_back_navigation(
+		require_action(shuba::ui::decide_back_navigation(
 						   make_state(shuba::ui::RootDestination::ItemForm)),
-					   shuba::ui::AppShellBackAction::ReturnToFormDestination);
+					   shuba::ui::BackAction::ReturnToFormDestination);
 
-		shuba::ui::AppShellBackNavigationState viewer =
+		shuba::ui::BackNavigationState viewer =
 			make_state(shuba::ui::RootDestination::PhotoViewer);
 		viewer.selected_viewer_owner_is_storage = true;
-		require_action(shuba::ui::decide_app_shell_back_navigation(viewer),
-					   shuba::ui::AppShellBackAction::ReturnPhotoViewerToOwner);
+		require_action(shuba::ui::decide_back_navigation(viewer),
+					   shuba::ui::BackAction::ReturnPhotoViewerToOwner);
 
-		shuba::ui::AppShellBackNavigationState recovery =
+		shuba::ui::BackNavigationState recovery =
 			make_state(shuba::ui::RootDestination::BackupRecovery);
 		require_action(
-			shuba::ui::decide_app_shell_back_navigation(recovery),
-			shuba::ui::AppShellBackAction::ReturnBackupRecoveryToMore);
+			shuba::ui::decide_back_navigation(recovery),
+			shuba::ui::BackAction::ReturnBackupRecoveryToMore);
 		recovery.staged_import_confirmation_pending = true;
 		REQUIRE_FALSE(
-			shuba::ui::decide_app_shell_back_navigation(recovery).consumed());
+			shuba::ui::decide_back_navigation(recovery).consumed());
 	}
 }
 
@@ -228,9 +228,9 @@ TEST_CASE(
 	fixture.coordinator.open_storage_detail(storage_one);
 	fixture.coordinator.select_root(shuba::ui::RootDestination::More);
 	REQUIRE(fixture.route.contextual_return_locations.empty());
-	require_action(shuba::ui::decide_app_shell_back_navigation(
+	require_action(shuba::ui::decide_back_navigation(
 					   make_state(shuba::ui::RootDestination::More)),
-				   shuba::ui::AppShellBackAction::SelectCatalog);
+				   shuba::ui::BackAction::SelectCatalog);
 }
 
 TEST_CASE(
@@ -247,9 +247,9 @@ TEST_CASE(
 		std::nullopt);
 
 	REQUIRE(
-		fixture.coordinator.handle_system_back(shuba::ui::AppShellBackDecision{
+		fixture.coordinator.handle_system_back(shuba::ui::BackDecision{
 			.action =
-				shuba::ui::AppShellBackAction::ReturnPhotoViewerToOwner}));
+				shuba::ui::BackAction::ReturnPhotoViewerToOwner}));
 	REQUIRE(fixture.route.destination
 			== shuba::ui::RootDestination::StorageDetail);
 	REQUIRE(fixture.route.selected_storage_id == storage_id);
@@ -280,7 +280,7 @@ TEST_CASE("B30 contextual chain retains its root anchor at the bounded maximum",
 	RouteCoordinatorFixture fixture;
 	for (std::size_t index = 0U;
 		 index
-		 < shuba::ui::AppShellRouteState::maximum_contextual_return_locations
+		 < shuba::ui::RouteState::maximum_contextual_return_locations
 			   + 32U;
 		 ++index) {
 		fixture.coordinator.open_storage_detail(
@@ -289,7 +289,7 @@ TEST_CASE("B30 contextual chain retains its root anchor at the bounded maximum",
 
 	REQUIRE(
 		fixture.route.contextual_return_locations.size()
-		== shuba::ui::AppShellRouteState::maximum_contextual_return_locations);
+		== shuba::ui::RouteState::maximum_contextual_return_locations);
 	REQUIRE(fixture.route.contextual_return_locations.front().destination
 			== shuba::ui::RootDestination::Catalog);
 	while (!fixture.route.contextual_return_locations.empty())
@@ -299,7 +299,7 @@ TEST_CASE("B30 contextual chain retains its root anchor at the bounded maximum",
 
 TEST_CASE("B30 application back delegate preserves handler consumption",
 		  "[b30][back-navigation][delegate]") {
-	shuba::ui::AppShellBackDelegate delegate;
+	shuba::ui::BackDelegate delegate;
 	FakeBackHandler handled{true};
 	FakeBackHandler unhandled{false};
 

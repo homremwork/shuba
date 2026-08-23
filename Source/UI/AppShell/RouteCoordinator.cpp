@@ -1,4 +1,4 @@
-#include "UI/AppShellRouteCoordinator.hpp"
+#include "UI/AppShell/RouteCoordinator.hpp"
 
 #include "UI/Session/PhotoSession.hpp"
 #include "UI/View/ScreenText.hpp"
@@ -6,63 +6,63 @@
 #include <utility>
 
 namespace shuba::ui {
-bool AppShellBackDecision::consumed() const noexcept {
-	return action != AppShellBackAction::Unhandled;
+bool BackDecision::consumed() const noexcept {
+	return action != BackAction::Unhandled;
 }
 
-AppShellBackDecision decide_app_shell_back_navigation(
-	const AppShellBackNavigationState& state) noexcept {
+BackDecision decide_back_navigation(
+	const BackNavigationState& state) noexcept {
 	if (state.shell_operation_active || state.session_fatal)
 		return {};
 
 	if (state.destination == RootDestination::Catalog
 		&& state.catalog_filter_panel_visible) {
-		return AppShellBackDecision{
-			.action = AppShellBackAction::CloseCatalogFilterPanel};
+		return BackDecision{
+			.action = BackAction::CloseCatalogFilterPanel};
 	}
 
 	if (state.destination == RootDestination::PhotoViewer
 		&& state.photo_deletion_confirmation_pending) {
-		return AppShellBackDecision{
-			.action = AppShellBackAction::CancelPhotoDeletion};
+		return BackDecision{
+			.action = BackAction::CancelPhotoDeletion};
 	}
 
 	switch (state.destination) {
 		case RootDestination::ItemDetail:
 		case RootDestination::StorageDetail:
 			return state.contextual_return_available
-					   ? AppShellBackDecision{.action = AppShellBackAction::
+					   ? BackDecision{.action = BackAction::
 												  RestoreContextualLocation}
-					   : AppShellBackDecision{};
+					   : BackDecision{};
 		case RootDestination::ItemForm:
 		case RootDestination::StorageForm:
-			return AppShellBackDecision{
-				.action = AppShellBackAction::ReturnToFormDestination};
+			return BackDecision{
+				.action = BackAction::ReturnToFormDestination};
 		case RootDestination::PhotoViewer:
 			if (state.selected_viewer_owner_is_item
 				|| state.selected_viewer_owner_is_storage) {
-				return AppShellBackDecision{
-					.action = AppShellBackAction::ReturnPhotoViewerToOwner};
+				return BackDecision{
+					.action = BackAction::ReturnPhotoViewerToOwner};
 			}
 			return {};
 		case RootDestination::BackupRecovery:
 			return state.staged_import_confirmation_pending
-					   ? AppShellBackDecision{}
-					   : AppShellBackDecision{.action = AppShellBackAction::
+					   ? BackDecision{}
+					   : BackDecision{.action = BackAction::
 												  ReturnBackupRecoveryToMore};
 		case RootDestination::Catalog:
 			return {};
 		case RootDestination::Storages:
 		case RootDestination::Add:
 		case RootDestination::More:
-			return AppShellBackDecision{.action =
-											AppShellBackAction::SelectCatalog};
+			return BackDecision{.action =
+											BackAction::SelectCatalog};
 	}
 
 	return {};
 }
 
-AppShellRouteCoordinator::AppShellRouteCoordinator(Dependencies dependencies)
+RouteCoordinator::RouteCoordinator(Dependencies dependencies)
 	: session(dependencies.session)
 	, route(dependencies.route)
 	, backup(dependencies.backup)
@@ -75,7 +75,7 @@ AppShellRouteCoordinator::AppShellRouteCoordinator(Dependencies dependencies)
 		  std::move(dependencies.cleanup_storage_pending_photos))
 	, refresh_all_handler(std::move(dependencies.refresh_all)) {}
 
-void AppShellRouteCoordinator::select_root(RootDestination destination_value) {
+void RouteCoordinator::select_root(RootDestination destination_value) {
 	const RootDestination previous_destination = route.destination;
 	leave_current_form_if_needed(destination_value);
 	route.contextual_return_locations.clear();
@@ -85,9 +85,9 @@ void AppShellRouteCoordinator::select_root(RootDestination destination_value) {
 	refresh_all();
 }
 
-void AppShellRouteCoordinator::open_item_detail(
+void RouteCoordinator::open_item_detail(
 	core::StableIdentifier item_id) {
-	if (const std::optional<AppShellRouteLocation> location =
+	if (const std::optional<RouteLocation> location =
 			current_location())
 		push_contextual_return_location(*location);
 	route.selected_item_id = std::move(item_id);
@@ -95,9 +95,9 @@ void AppShellRouteCoordinator::open_item_detail(
 	refresh_all();
 }
 
-void AppShellRouteCoordinator::open_storage_detail(
+void RouteCoordinator::open_storage_detail(
 	core::StableIdentifier storage_id) {
-	if (const std::optional<AppShellRouteLocation> location =
+	if (const std::optional<RouteLocation> location =
 			current_location())
 		push_contextual_return_location(*location);
 	route.selected_storage_id	  = std::move(storage_id);
@@ -106,7 +106,7 @@ void AppShellRouteCoordinator::open_storage_detail(
 	refresh_all();
 }
 
-void AppShellRouteCoordinator::open_photo_viewer(
+void RouteCoordinator::open_photo_viewer(
 	const domain::PhotoOwner& owner,
 	const std::optional<core::StableIdentifier>& requested_photo_id) {
 	route.selected_photo_owner = owner;
@@ -131,7 +131,7 @@ void AppShellRouteCoordinator::open_photo_viewer(
 	refresh_all();
 }
 
-void AppShellRouteCoordinator::return_from_form(
+void RouteCoordinator::return_from_form(
 	RootDestination destination_value) {
 	const RootDestination previous_destination = route.destination;
 	leave_current_form_if_needed(destination_value);
@@ -141,22 +141,22 @@ void AppShellRouteCoordinator::return_from_form(
 	refresh_all();
 }
 
-bool AppShellRouteCoordinator::handle_system_back(
-	const AppShellBackDecision& decision) {
+bool RouteCoordinator::handle_system_back(
+	const BackDecision& decision) {
 	switch (decision.action) {
-		case AppShellBackAction::RestoreContextualLocation:
+		case BackAction::RestoreContextualLocation:
 			if (route.contextual_return_locations.empty())
 				return false;
 			restore_contextual_return_location();
 			return true;
-		case AppShellBackAction::SelectCatalog:
+		case BackAction::SelectCatalog:
 			select_root(RootDestination::Catalog);
 			return true;
-		case AppShellBackAction::ReturnToFormDestination:
+		case BackAction::ReturnToFormDestination:
 			return_from_form(route.form_return_destination.value_or(
 				RootDestination::Catalog));
 			return true;
-		case AppShellBackAction::ReturnPhotoViewerToOwner:
+		case BackAction::ReturnPhotoViewerToOwner:
 			if (!route.selected_photo_owner.has_value())
 				return false;
 			if (route.selected_photo_owner->type
@@ -170,36 +170,36 @@ bool AppShellRouteCoordinator::handle_system_back(
 			clear_photo_viewer_state();
 			refresh_all();
 			return true;
-		case AppShellBackAction::ReturnBackupRecoveryToMore:
+		case BackAction::ReturnBackupRecoveryToMore:
 			select_root(RootDestination::More);
 			return true;
-		case AppShellBackAction::Unhandled:
-		case AppShellBackAction::CloseCatalogFilterPanel:
-		case AppShellBackAction::CancelPhotoDeletion:
+		case BackAction::Unhandled:
+		case BackAction::CloseCatalogFilterPanel:
+		case BackAction::CancelPhotoDeletion:
 			return false;
 	}
 
 	return false;
 }
 
-std::optional<AppShellRouteLocation>
-AppShellRouteCoordinator::current_location() const {
+std::optional<RouteLocation>
+RouteCoordinator::current_location() const {
 	switch (route.destination) {
 		case RootDestination::Catalog:
 		case RootDestination::Storages:
 		case RootDestination::Add:
 		case RootDestination::More:
-			return AppShellRouteLocation{.destination = route.destination};
+			return RouteLocation{.destination = route.destination};
 		case RootDestination::ItemDetail:
 			if (!route.selected_item_id.has_value())
 				return std::nullopt;
-			return AppShellRouteLocation{
+			return RouteLocation{
 				.destination	  = RootDestination::ItemDetail,
 				.selected_item_id = route.selected_item_id};
 		case RootDestination::StorageDetail:
 			if (!route.selected_storage_id.has_value())
 				return std::nullopt;
-			return AppShellRouteLocation{
+			return RouteLocation{
 				.destination		 = RootDestination::StorageDetail,
 				.selected_storage_id = route.selected_storage_id};
 		case RootDestination::ItemForm:
@@ -212,10 +212,10 @@ AppShellRouteCoordinator::current_location() const {
 	return std::nullopt;
 }
 
-void AppShellRouteCoordinator::push_contextual_return_location(
-	const AppShellRouteLocation& location) {
+void RouteCoordinator::push_contextual_return_location(
+	const RouteLocation& location) {
 	if (route.contextual_return_locations.size()
-		>= AppShellRouteState::maximum_contextual_return_locations) {
+		>= RouteState::maximum_contextual_return_locations) {
 		if (route.contextual_return_locations.size() > 1U) {
 			route.contextual_return_locations.erase(
 				route.contextual_return_locations.begin() + 1);
@@ -226,8 +226,8 @@ void AppShellRouteCoordinator::push_contextual_return_location(
 	route.contextual_return_locations.push_back(location);
 }
 
-void AppShellRouteCoordinator::restore_contextual_return_location() {
-	const AppShellRouteLocation location =
+void RouteCoordinator::restore_contextual_return_location() {
+	const RouteLocation location =
 		route.contextual_return_locations.back();
 	route.contextual_return_locations.pop_back();
 	apply_location(location);
@@ -235,14 +235,14 @@ void AppShellRouteCoordinator::restore_contextual_return_location() {
 	refresh_all();
 }
 
-void AppShellRouteCoordinator::apply_location(
-	const AppShellRouteLocation& location) {
+void RouteCoordinator::apply_location(
+	const RouteLocation& location) {
 	route.destination		  = location.destination;
 	route.selected_item_id	  = location.selected_item_id;
 	route.selected_storage_id = location.selected_storage_id;
 }
 
-void AppShellRouteCoordinator::clear_photo_viewer_state() {
+void RouteCoordinator::clear_photo_viewer_state() {
 	route.selected_photo_owner.reset();
 	route.selected_photo_id.reset();
 	photo_display.displayed_photo_id.reset();
@@ -254,7 +254,7 @@ void AppShellRouteCoordinator::clear_photo_viewer_state() {
 	photo_display.pending_delete_photo_id.reset();
 }
 
-void AppShellRouteCoordinator::reset_transient_state_for_destination(
+void RouteCoordinator::reset_transient_state_for_destination(
 	RootDestination destination_value, bool destination_changed) {
 	if (route.destination != RootDestination::ItemDetail
 		&& route.destination != RootDestination::ItemForm
@@ -287,7 +287,7 @@ void AppShellRouteCoordinator::reset_transient_state_for_destination(
 	}
 }
 
-void AppShellRouteCoordinator::leave_current_form_if_needed(
+void RouteCoordinator::leave_current_form_if_needed(
 	RootDestination destination_value) {
 	if (route.destination == RootDestination::ItemForm
 		&& destination_value != RootDestination::ItemForm
@@ -301,7 +301,7 @@ void AppShellRouteCoordinator::leave_current_form_if_needed(
 	}
 }
 
-void AppShellRouteCoordinator::refresh_all() {
+void RouteCoordinator::refresh_all() {
 	if (refresh_all_handler)
 		refresh_all_handler();
 }

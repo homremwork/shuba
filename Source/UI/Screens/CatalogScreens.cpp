@@ -1,6 +1,6 @@
 #include "Localization/Facade.hpp"
-#include "UI/Screens/AppShellScreenRenderer.hpp"
-#include "UI/View/AppShellContentComponent.hpp"
+#include "UI/AppShell/ScreenRenderer.hpp"
+#include "UI/AppShell/ContentComponent.hpp"
 #include "UI/View/ScreenText.hpp"
 
 #include <cstddef>
@@ -36,7 +36,7 @@ constexpr std::size_t compact_chip_label_limit = 18U;
 }
 }	 // namespace
 
-void AppShellScreenRenderer::build_catalog_content() {
+void ScreenRenderer::build_catalog_content() {
 	if (session.degraded()) {
 		content->add_label(juce_text(localization.text(
 							   localization::MessageId::CatalogBannerDegraded)),
@@ -125,7 +125,7 @@ void AppShellScreenRenderer::build_catalog_content() {
 	}
 }
 
-void AppShellScreenRenderer::build_filter_panel() {
+void ScreenRenderer::build_filter_panel() {
 	catalog::CatalogSearchOptions options{
 		.include_storage_results_for_empty_query = true};
 	const catalog::CatalogSearchResultSet draft_results =

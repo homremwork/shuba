@@ -1,6 +1,6 @@
 #pragma once
 
-#include "UI/AppShellState.hpp"
+#include "UI/AppShell/State.hpp"
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
@@ -12,7 +12,7 @@ class Localization;
 }
 
 namespace shuba::ui {
-class AppShellChromeComponent final : public juce::Component {
+class ChromeComponent final : public juce::Component {
 public:
 	struct Callbacks final {
 		std::function<void()> catalog_search_changed;
@@ -44,7 +44,7 @@ public:
 		bool catalog_filter_panel_visible{};
 	};
 
-	AppShellChromeComponent(Callbacks callbacks,
+	ChromeComponent(Callbacks callbacks,
 							localization::Localization& localization_value);
 
 	void update_model(const Model& model);

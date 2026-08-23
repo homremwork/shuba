@@ -1,8 +1,8 @@
 #include "Localization/Facade.hpp"
-#include "UI/AppShell.hpp"
-#include "UI/AppShellRouteCoordinator.hpp"
-#include "UI/Screens/AppShellScreenRenderer.hpp"
-#include "UI/View/AppShellContentComponent.hpp"
+#include "UI/AppShell/Component.hpp"
+#include "UI/AppShell/RouteCoordinator.hpp"
+#include "UI/AppShell/ScreenRenderer.hpp"
+#include "UI/AppShell/ContentComponent.hpp"
 #include "UI/View/ScreenText.hpp"
 
 #include "UI/Session/BackupRecoverySession.hpp"
@@ -21,7 +21,7 @@ namespace {
 }
 }	 // namespace
 
-void AppShellComponent::request_export_backup() {
+void Component::request_export_backup() {
 	if (shell_operation.active())
 		return;
 	feedback.backup_diagnostics.clear();
@@ -55,7 +55,7 @@ void AppShellComponent::request_export_backup() {
 			refresh_all();
 			return;
 		}
-		const AppShellOperationRunner::Submission submission =
+		const OperationRunner::Submission submission =
 			shell_operation_runner->submit_backup_export(
 				BackupExportSessionRequest{
 					.current_session		 = session,
@@ -67,7 +67,7 @@ void AppShellComponent::request_export_backup() {
 					.content_staging_service = content_staging_service,
 					.destination			 = std::move(*result.value)},
 				false,
-				[this](AppShellOperationRunner::CompletionResult completion) {
+				[this](OperationRunner::CompletionResult completion) {
 			if (shell_operation.generation != completion.generation
 				|| shell_operation.job_type != completion.job_type) {
 				return;
@@ -95,7 +95,7 @@ void AppShellComponent::request_export_backup() {
 	}
 }
 
-void AppShellComponent::request_export_diagnostic_archive() {
+void Component::request_export_diagnostic_archive() {
 	if (shell_operation.active())
 		return;
 	feedback.backup_diagnostics.clear();
@@ -129,7 +129,7 @@ void AppShellComponent::request_export_diagnostic_archive() {
 			refresh_all();
 			return;
 		}
-		const AppShellOperationRunner::Submission submission =
+		const OperationRunner::Submission submission =
 			shell_operation_runner->submit_backup_export(
 				BackupExportSessionRequest{
 					.current_session		 = session,
@@ -141,7 +141,7 @@ void AppShellComponent::request_export_diagnostic_archive() {
 					.content_staging_service = content_staging_service,
 					.destination			 = std::move(*result.value)},
 				true,
-				[this](AppShellOperationRunner::CompletionResult completion) {
+				[this](OperationRunner::CompletionResult completion) {
 			if (shell_operation.generation != completion.generation
 				|| shell_operation.job_type != completion.job_type) {
 				return;
@@ -169,7 +169,7 @@ void AppShellComponent::request_export_diagnostic_archive() {
 	}
 }
 
-void AppShellComponent::request_import_backup() {
+void Component::request_import_backup() {
 	if (shell_operation.active())
 		return;
 	feedback.backup_diagnostics.clear();
@@ -202,7 +202,7 @@ void AppShellComponent::request_import_backup() {
 			refresh_all();
 			return;
 		}
-		const AppShellOperationRunner::Submission submission =
+		const OperationRunner::Submission submission =
 			shell_operation_runner->submit_backup_import_staging(
 				BackupImportStagingSessionRequest{
 					.current_session		 = session,
@@ -213,7 +213,7 @@ void AppShellComponent::request_import_backup() {
 					.document_export_service = document_export_service,
 					.content_staging_service = content_staging_service,
 					.source					 = std::move(*result.value)},
-				[this](AppShellOperationRunner::CompletionResult completion) {
+				[this](OperationRunner::CompletionResult completion) {
 			if (shell_operation.generation != completion.generation
 				|| shell_operation.job_type != completion.job_type) {
 				return;
@@ -241,7 +241,7 @@ void AppShellComponent::request_import_backup() {
 	}
 }
 
-void AppShellComponent::retry_normal_startup() {
+void Component::retry_normal_startup() {
 	if (shell_operation.active())
 		return;
 	if (session.source != CatalogSessionStartupSource::StartupCrashSafeMode) {
@@ -268,12 +268,12 @@ void AppShellComponent::retry_normal_startup() {
 
 	session = std::move(retry_session);
 	invalidate_all_previews();
-	route				 = AppShellRouteState{};
-	catalog_filter_state = AppShellCatalogFilterState{};
-	storage_detail		 = AppShellStorageDetailState{};
-	item_form			 = AppShellItemFormState{};
-	storage_form		 = AppShellStorageFormState{};
-	photo_display		 = AppShellPhotoDisplayState{};
+	route				 = RouteState{};
+	catalog_filter_state = CatalogFilterState{};
+	storage_detail		 = StorageDetailState{};
+	item_form			 = ItemFormState{};
+	storage_form		 = StorageFormState{};
+	photo_display		 = PhotoDisplayState{};
 	feedback.photo_message.clear();
 	feedback.photo_diagnostics.clear();
 	feedback.edit_message.clear();
@@ -287,7 +287,7 @@ void AppShellComponent::retry_normal_startup() {
 	clear_controlled_startup_attempt_marker();
 }
 
-void AppShellComponent::apply_backup_export_result(
+void Component::apply_backup_export_result(
 	BackupExportSessionResult result, bool diagnostic_archive) {
 	feedback.backup_diagnostics = std::move(result.diagnostics);
 	if (result.succeeded()) {
@@ -313,7 +313,7 @@ void AppShellComponent::apply_backup_export_result(
 	refresh_all();
 }
 
-void AppShellComponent::apply_backup_import_staging_result(
+void Component::apply_backup_import_staging_result(
 	BackupImportStagingSessionResult result) {
 	feedback.backup_diagnostics = std::move(result.diagnostics);
 	if (result.succeeded()) {
@@ -339,7 +339,7 @@ void AppShellComponent::apply_backup_import_staging_result(
 		route_coordinator->select_root(RootDestination::BackupRecovery);
 }
 
-void AppShellComponent::confirm_staged_backup_import() {
+void Component::confirm_staged_backup_import() {
 	if (shell_operation.active())
 		return;
 	if (!backup.pending_import_staging
@@ -358,7 +358,7 @@ void AppShellComponent::confirm_staged_backup_import() {
 		refresh_all();
 		return;
 	}
-	const AppShellOperationRunner::Submission submission =
+	const OperationRunner::Submission submission =
 		shell_operation_runner->submit_backup_import_replacement(
 			BackupImportReplacementSessionRequest{
 				.current_session = session,
@@ -369,7 +369,7 @@ void AppShellComponent::confirm_staged_backup_import() {
 					*backup.pending_import_staging->staging_catalog_root,
 				.replacement_confirmed	   = true,
 				.degraded_import_confirmed = degraded},
-			[this](AppShellOperationRunner::CompletionResult completion) {
+			[this](OperationRunner::CompletionResult completion) {
 		if (shell_operation.generation != completion.generation
 			|| shell_operation.job_type != completion.job_type) {
 			return;
@@ -390,7 +390,7 @@ void AppShellComponent::confirm_staged_backup_import() {
 						  submission.generation);
 }
 
-void AppShellComponent::apply_backup_import_replacement_result(
+void Component::apply_backup_import_replacement_result(
 	BackupImportReplacementSessionResult result) {
 	feedback.backup_diagnostics = std::move(result.diagnostics);
 	if (result.succeeded()) {
@@ -417,7 +417,7 @@ void AppShellComponent::apply_backup_import_replacement_result(
 		route_coordinator->select_root(RootDestination::BackupRecovery);
 }
 
-void AppShellScreenRenderer::build_add_content() {
+void ScreenRenderer::build_add_content() {
 	const bool mutation_allowed = !shell_operation_state.active();
 	content->add_label(
 		juce_text(localization.text(localization::MessageId::AddDescription)),
@@ -432,7 +432,7 @@ void AppShellScreenRenderer::build_add_content() {
 	storage.setEnabled(mutation_allowed);
 }
 
-void AppShellScreenRenderer::build_backup_recovery_content() {
+void ScreenRenderer::build_backup_recovery_content() {
 	const bool mutation_allowed			   = !shell_operation_state.active();
 	const CatalogRecoveryUiSummary summary = make_recovery_ui_summary(session);
 	content->add_label(juce_text(recovery_summary(summary, localization)), 86,
@@ -548,7 +548,7 @@ void AppShellScreenRenderer::build_backup_recovery_content() {
 	}
 }
 
-void AppShellScreenRenderer::build_more_content() {
+void ScreenRenderer::build_more_content() {
 	const bool mutation_allowed = !shell_operation_state.active();
 	content->add_label(
 		juce_text(localization.text(localization::MessageId::MoreDescription)),

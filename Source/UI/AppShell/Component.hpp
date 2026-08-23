@@ -6,19 +6,19 @@
 #include "Platform/JuceAndroidServices.hpp"
 #include "Platform/JuceHashing.hpp"
 #include "Platform/JuceZipArchive.hpp"
-#include "UI/AppShellBackHandler.hpp"
-#include "UI/AppShellLifecycleHandler.hpp"
-#include "UI/AppShellOperationRunner.hpp"
-#include "UI/AppShellPhotoCoordinator.hpp"
-#include "UI/AppShellState.hpp"
+#include "UI/AppShell/BackHandler.hpp"
+#include "UI/AppShell/LifecycleHandler.hpp"
+#include "UI/AppShell/OperationRunner.hpp"
+#include "UI/AppShell/PhotoCoordinator.hpp"
+#include "UI/AppShell/State.hpp"
 #include "UI/CallbackLifetime.hpp"
-#include "UI/Screens/AppShellScreenRenderer.hpp"
+#include "UI/AppShell/ScreenRenderer.hpp"
 #include "UI/Session/BackupRecoveryTypes.hpp"
 #include "UI/Session/CatalogSessionState.hpp"
 #include "UI/Session/EntityEditTypes.hpp"
 #include "UI/Session/ImagePreviewSession.hpp"
 #include "UI/Session/PhotoSessionTypes.hpp"
-#include "UI/View/AppShellChromeComponent.hpp"
+#include "UI/AppShell/ChromeComponent.hpp"
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
@@ -28,12 +28,12 @@
 #include <string>
 
 namespace shuba::ui {
-class AppShellContentComponent;
-class AppShellPreviewScheduler;
-class AppShellRouteCoordinator;
-class AppShellEditCoordinator;
+class ContentComponent;
+class PreviewScheduler;
+class RouteCoordinator;
+class EditCoordinator;
 
-class AppShellOperationWorkerServiceFactory final
+class OperationWorkerServiceFactory final
 	: public ShellOperationWorkerServiceFactory {
 public:
 	[[nodiscard]] std::unique_ptr<platform::ContentStagingService>
@@ -67,11 +67,11 @@ public:
 	[[nodiscard]] core::EpochMilliseconds now() const override;
 };
 
-class AppShellComponent final
+class Component final
 	: public juce::Component
 	, private juce::Timer
-	, public AppShellBackHandler
-	, public AppShellLifecycleHandler {
+	, public BackHandler
+	, public LifecycleHandler {
 public:
 	struct PlatformServices final {
 		platform::InternalPhotoCodec& internal_photo_codec;
@@ -83,9 +83,9 @@ public:
 		bool debug_demo_seed_enabled{};
 	};
 
-	AppShellComponent(CatalogSessionState session_state,
+	Component(CatalogSessionState session_state,
 					  PlatformServices platform_services);
-	~AppShellComponent() override;
+	~Component() override;
 
 	void paint(juce::Graphics& graphics) override;
 	void resized() override;
@@ -178,18 +178,18 @@ private:
 	void timerCallback() override;
 
 	CatalogSessionState session;
-	AppShellRouteState route;
-	AppShellCatalogFilterState catalog_filter_state;
-	AppShellItemFormState item_form;
-	AppShellStorageFormState storage_form;
-	AppShellFeedbackState feedback;
-	AppShellBackupState backup;
-	AppShellPhotoDisplayState photo_display;
-	AppShellStorageDetailState storage_detail;
+	RouteState route;
+	CatalogFilterState catalog_filter_state;
+	ItemFormState item_form;
+	StorageFormState storage_form;
+	FeedbackState feedback;
+	BackupState backup;
+	PhotoDisplayState photo_display;
+	StorageDetailState storage_detail;
 	ImagePreviewCache preview_cache;
-	std::unique_ptr<AppShellPreviewScheduler> preview_scheduler;
-	std::unique_ptr<AppShellRouteCoordinator> route_coordinator;
-	std::unique_ptr<AppShellEditCoordinator> edit_coordinator;
+	std::unique_ptr<PreviewScheduler> preview_scheduler;
+	std::unique_ptr<RouteCoordinator> route_coordinator;
+	std::unique_ptr<EditCoordinator> edit_coordinator;
 	ShellIdentifierSource edit_identifiers;
 	ShellClock edit_clock;
 	platform::AppPrivatePathProvider& path_provider;
@@ -199,9 +199,9 @@ private:
 	std::string platform_name;
 	bool debug_demo_seed_enabled{};
 	core::OperationGate ui_operation_gate;
-	AppShellOperationWorkerServiceFactory shell_operation_worker_services;
-	AppShellOperationState shell_operation;
-	std::unique_ptr<AppShellOperationRunner> shell_operation_runner;
+	OperationWorkerServiceFactory shell_operation_worker_services;
+	OperationState shell_operation;
+	std::unique_ptr<OperationRunner> shell_operation_runner;
 	platform::JuceAndroidPhotoSelectionService photo_selection_service;
 	platform::JuceAndroidDocumentExportService document_export_service;
 	platform::JuceAndroidContentStagingService content_staging_service;
@@ -215,9 +215,9 @@ private:
 	platform::InternalPhotoCodec& internal_photo_codec;
 	platform::ProgressCollector progress_events;
 	platform::NeverCancelledToken never_cancelled;
-	std::unique_ptr<AppShellPhotoCoordinator> photo_coordinator;
-	std::unique_ptr<AppShellScreenRenderer> screen_renderer;
-	std::unique_ptr<AppShellChromeComponent> chrome;
+	std::unique_ptr<PhotoCoordinator> photo_coordinator;
+	std::unique_ptr<ScreenRenderer> screen_renderer;
+	std::unique_ptr<ChromeComponent> chrome;
 	std::unique_ptr<ShellOperationProgressComponent> shell_operation_progress;
 	juce::Viewport viewport;
 	juce::TextEditor item_name_editor;
@@ -231,6 +231,6 @@ private:
 	juce::TextEditor storage_type_editor;
 	juce::TextEditor storage_location_editor;
 	juce::TextEditor storage_notes_editor;
-	std::unique_ptr<AppShellContentComponent> content;
+	std::unique_ptr<ContentComponent> content;
 };
 }	 // namespace shuba::ui

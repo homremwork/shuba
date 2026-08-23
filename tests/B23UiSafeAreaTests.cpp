@@ -1,4 +1,4 @@
-#include "UI/View/AppShellChromeComponent.hpp"
+#include "UI/AppShell/ChromeComponent.hpp"
 #include "UI/View/SafeArea.hpp"
 
 #include "Localization/Facade.hpp"
@@ -6,7 +6,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 namespace {
-void require_visible_chrome_inside(shuba::ui::AppShellChromeComponent& chrome,
+void require_visible_chrome_inside(shuba::ui::ChromeComponent& chrome,
 								   const juce::Rectangle<int>& safe_bounds) {
 	for (int index = 0; index < chrome.getNumChildComponents(); ++index) {
 		const juce::Component* child = chrome.getChildComponent(index);
@@ -104,13 +104,13 @@ TEST_CASE("B23 shell chrome keeps bottom controls inside safe content") {
 	shuba::localization::Localization localization =
 		shuba::localization::make_localization(
 			shuba::localization::Language::English, {});
-	shuba::ui::AppShellChromeComponent chrome{{}, localization};
+	shuba::ui::ChromeComponent chrome{{}, localization};
 
 	for (const juce::Rectangle<int> safe_bounds :
 		 {juce::Rectangle<int>{8, 24, 344, 660},
 		  juce::Rectangle<int>{24, 8, 684, 328}}) {
 		CAPTURE(safe_bounds.toString());
-		chrome.update_model(shuba::ui::AppShellChromeComponent::Model{
+		chrome.update_model(shuba::ui::ChromeComponent::Model{
 			.destination = shuba::ui::RootDestination::ItemDetail});
 		const juce::Rectangle<int> detail_content_bounds =
 			chrome.layout_shell(safe_bounds);
@@ -119,7 +119,7 @@ TEST_CASE("B23 shell chrome keeps bottom controls inside safe content") {
 		REQUIRE(detail_content_bounds.getBottom()
 				== safe_bounds.getBottom() - 54);
 
-		chrome.update_model(shuba::ui::AppShellChromeComponent::Model{
+		chrome.update_model(shuba::ui::ChromeComponent::Model{
 			.destination = shuba::ui::RootDestination::PhotoViewer});
 		const juce::Rectangle<int> viewer_content_bounds =
 			chrome.layout_shell(safe_bounds);
@@ -127,7 +127,7 @@ TEST_CASE("B23 shell chrome keeps bottom controls inside safe content") {
 		REQUIRE(viewer_content_bounds.getY() == safe_bounds.getY() + 62);
 		REQUIRE(viewer_content_bounds.getBottom() == safe_bounds.getBottom());
 
-		chrome.update_model(shuba::ui::AppShellChromeComponent::Model{
+		chrome.update_model(shuba::ui::ChromeComponent::Model{
 			.destination = shuba::ui::RootDestination::BackupRecovery});
 		const juce::Rectangle<int> recovery_content_bounds =
 			chrome.layout_shell(safe_bounds);
@@ -136,7 +136,7 @@ TEST_CASE("B23 shell chrome keeps bottom controls inside safe content") {
 		REQUIRE(recovery_content_bounds.getBottom()
 				== safe_bounds.getBottom() - 54);
 
-		chrome.update_model(shuba::ui::AppShellChromeComponent::Model{
+		chrome.update_model(shuba::ui::ChromeComponent::Model{
 			.destination = shuba::ui::RootDestination::ItemForm});
 		const juce::Rectangle<int> form_content_bounds =
 			chrome.layout_shell(safe_bounds);
@@ -145,7 +145,7 @@ TEST_CASE("B23 shell chrome keeps bottom controls inside safe content") {
 		REQUIRE(form_content_bounds.getBottom()
 				== safe_bounds.getBottom() - 58);
 
-		chrome.update_model(shuba::ui::AppShellChromeComponent::Model{
+		chrome.update_model(shuba::ui::ChromeComponent::Model{
 			.destination = shuba::ui::RootDestination::Storages});
 		const juce::Rectangle<int> storage_content_bounds =
 			chrome.layout_shell(safe_bounds);

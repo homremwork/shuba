@@ -1,6 +1,6 @@
 #include "Localization/Facade.hpp"
-#include "UI/Screens/AppShellScreenRenderer.hpp"
-#include "UI/View/AppShellContentComponent.hpp"
+#include "UI/AppShell/ScreenRenderer.hpp"
+#include "UI/AppShell/ContentComponent.hpp"
 #include "UI/View/ScreenText.hpp"
 
 #include "UI/Session/EntityEditSession.hpp"
@@ -117,7 +117,7 @@ void add_tag_rows(Content& content, std::vector<domain::TagRow>& tags,
 }
 }	 // namespace
 
-void AppShellScreenRenderer::build_item_form_content() {
+void ScreenRenderer::build_item_form_content() {
 	const bool mutation_allowed = !shell_operation_state.active();
 	std::optional<domain::PhotoOwner> owner;
 	if (item_form.mode == FormMode::Edit && item_form.draft.existing_id) {
@@ -437,7 +437,7 @@ void AppShellScreenRenderer::build_item_form_content() {
 		hard_delete.setEnabled(false);
 	}
 }
-void AppShellScreenRenderer::build_storage_form_content() {
+void ScreenRenderer::build_storage_form_content() {
 	const bool mutation_allowed = !shell_operation_state.active();
 	std::optional<domain::PhotoOwner> owner;
 	if (storage_form.mode == FormMode::Edit && storage_form.draft.existing_id) {
@@ -703,7 +703,7 @@ void AppShellScreenRenderer::build_storage_form_content() {
 	}
 }
 
-void AppShellScreenRenderer::build_photo_viewer_content() {
+void ScreenRenderer::build_photo_viewer_content() {
 	const bool mutation_allowed = !shell_operation_state.active();
 	if (!route.selected_photo_owner) {
 		content->add_label("No photo owner selected.", 54, panel_colour(),

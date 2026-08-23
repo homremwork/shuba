@@ -4,8 +4,8 @@
 #include "Core/Clock.hpp"
 #include "Core/Identifier.hpp"
 #include "Platform/PlatformServices.hpp"
-#include "UI/AppShellOperationRunner.hpp"
-#include "UI/AppShellState.hpp"
+#include "UI/AppShell/OperationRunner.hpp"
+#include "UI/AppShell/State.hpp"
 #include "UI/Session/CatalogSessionState.hpp"
 #include "UI/Session/EntityEditTypes.hpp"
 #include "UI/Session/ImagePreviewSession.hpp"
@@ -28,7 +28,7 @@ class Localization;
 }
 
 namespace shuba::ui {
-class AppShellContentComponent;
+class ContentComponent;
 
 enum class ItemDetailActionKind : std::uint8_t {
 	EditItem,
@@ -48,7 +48,7 @@ struct ItemDetailAction final {
 	const catalog::ItemProjection& projection,
 	const catalog::CatalogRepositoryState& repository);
 
-class AppShellScreenRenderer final {
+class ScreenRenderer final {
 public:
 	struct Editors final {
 		juce::TextEditor& item_name_editor;
@@ -121,26 +121,26 @@ public:
 
 	struct Dependencies final {
 		CatalogSessionState& session;
-		AppShellRouteState& route;
-		AppShellCatalogFilterState& catalog_filter_state;
-		AppShellItemFormState& item_form;
-		AppShellStorageFormState& storage_form;
-		AppShellFeedbackState& feedback;
-		AppShellBackupState& backup;
-		AppShellPhotoDisplayState& photo_display;
-		AppShellStorageDetailState& storage_detail;
+		RouteState& route;
+		CatalogFilterState& catalog_filter_state;
+		ItemFormState& item_form;
+		StorageFormState& storage_form;
+		FeedbackState& feedback;
+		BackupState& backup;
+		PhotoDisplayState& photo_display;
+		StorageDetailState& storage_detail;
 		ImagePreviewCache& preview_cache;
 		core::IdentifierSource& edit_identifiers;
 		core::Clock& edit_clock;
-		AppShellOperationState& shell_operation_state;
+		OperationState& shell_operation_state;
 		localization::Localization& localization;
-		AppShellContentComponent& content;
+		ContentComponent& content;
 		Editors editors;
 		Queries queries;
 		Actions actions;
 	};
 
-	explicit AppShellScreenRenderer(Dependencies dependencies);
+	explicit ScreenRenderer(Dependencies dependencies);
 
 	void build_catalog_content();
 	void build_filter_panel();
@@ -229,7 +229,7 @@ private:
 	void add_photo_management_deck(
 		std::optional<domain::PhotoOwner> owner,
 		std::span<const PendingPhotoSource> pending_sources,
-		AppShellManagedPhotoDeckState& deck_state,
+		ManagedPhotoDeckState& deck_state,
 		std::function<void()> add_staged_handler,
 		std::function<void()> clear_staged_handler,
 		std::function<void(std::size_t)> remove_staged_handler,
@@ -282,20 +282,20 @@ private:
 	void refresh_content();
 
 	CatalogSessionState& session;
-	AppShellRouteState& route;
-	AppShellCatalogFilterState& catalog_filter_state;
-	AppShellItemFormState& item_form;
-	AppShellStorageFormState& storage_form;
-	AppShellFeedbackState& feedback;
-	AppShellBackupState& backup;
-	AppShellPhotoDisplayState& photo_display;
-	AppShellStorageDetailState& storage_detail;
+	RouteState& route;
+	CatalogFilterState& catalog_filter_state;
+	ItemFormState& item_form;
+	StorageFormState& storage_form;
+	FeedbackState& feedback;
+	BackupState& backup;
+	PhotoDisplayState& photo_display;
+	StorageDetailState& storage_detail;
 	ImagePreviewCache& preview_cache;
 	core::IdentifierSource& edit_identifiers;
 	core::Clock& edit_clock;
-	AppShellOperationState& shell_operation_state;
+	OperationState& shell_operation_state;
 	localization::Localization& localization;
-	AppShellContentComponent* content{};
+	ContentComponent* content{};
 	juce::TextEditor& item_name_editor;
 	juce::TextEditor& item_category_editor;
 	juce::TextEditor& item_notes_editor;

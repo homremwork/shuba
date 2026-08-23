@@ -15,7 +15,7 @@ This document records durable constraints that are difficult to reconstruct from
 | File schema and persistence | [`Source/Persistence`](../Source/Persistence) |
 | Platform interfaces and Android implementations | [`Source/Platform/PlatformServices.hpp`](../Source/Platform/PlatformServices.hpp:16) and [`Source/Platform/JuceAndroidServices.hpp`](../Source/Platform/JuceAndroidServices.hpp:7) |
 | Startup and workflow state | [`Source/UI/Session`](../Source/UI/Session) |
-| JUCE application shell and rendering | [`Source/UI/AppShell.hpp`](../Source/UI/AppShell.hpp:61) and [`Source/UI/Screens`](../Source/UI/Screens) |
+| JUCE application shell and rendering | [`Source/UI/AppShell`](../Source/UI/AppShell) |
 | English/Russian presentation | [`Source/Localization`](../Source/Localization) |
 
 ```mermaid
@@ -40,8 +40,8 @@ flowchart LR
 - [`Source/Catalog`](../Source/Catalog) composes repository projections and application use cases for search, media import/export, backup, and catalog replacement. It depends on abstract platform services rather than Android/JUCE classes.
 - [`Source/Platform`](../Source/Platform) defines abstract boundaries. Linux fakes support host tests; JUCE/Android classes implement the platform-facing services.
 - [`Source/UI/Session`](../Source/UI/Session) converts user workflows into use-case requests and session state. Session code is intentionally JUCE-widget-free.
-- [`Source/UI/View`](../Source/UI/View) and [`Source/UI/Screens`](../Source/UI/Screens) render read-only projections and route user intent. Widgets must not own persistence or business rules.
-- [`Source/UI/AppShell.hpp`](../Source/UI/AppShell.hpp:61) is the persistent JUCE composition root. It owns shell state, platform service instances, route coordination, progress presentation, and teardown.
+- [`Source/UI/View`](../Source/UI/View), [`Source/UI/Screens`](../Source/UI/Screens), and [`Source/UI/AppShell`](../Source/UI/AppShell) render read-only projections and route user intent. Widgets must not own persistence or business rules.
+- [`Source/UI/AppShell/Component.hpp`](../Source/UI/AppShell/Component.hpp:61) is the persistent JUCE composition root. It owns shell state, platform service instances, route coordination, progress presentation, and teardown.
 
 A feature should remain within its narrowest owning layer. Do not solve a persistence rule in a screen renderer, copy platform behavior into a use case, or make a worker read mutable editor/component state.
 
@@ -110,13 +110,13 @@ The system picker supplies source handles. Their content is staged into app-priv
 
 JPEG XL is the internal format declared by [`PhotoMediaFormat`](../Source/Domain/Domain.hpp:53). JPEG is the user-facing export format. Do not expose JPEG XL as the normal export choice. Duplicate source fingerprints create warnings but do not block import. Photo deletion commits metadata first and then cleans media with diagnostics; it does not rewrite owner records.
 
-No persisted thumbnail files exist. Preview work uses bounded in-memory cached, scaled images and lazy scheduling. The current cache/scheduler boundary is [`ImagePreviewCache`](../Source/UI/Session/ImagePreviewSession.hpp:144) and [`AppShellPreviewScheduler`](../Source/UI/AppShellPreviewScheduler.hpp:17). Introduce thumbnail files only after measured Android evidence shows that the in-memory policy is inadequate and a reviewed migration/backup impact is defined.
+No persisted thumbnail files exist. Preview work uses bounded in-memory cached, scaled images and lazy scheduling. The current cache/scheduler boundary is [`ImagePreviewCache`](../Source/UI/Session/ImagePreviewSession.hpp:144) and [`PreviewScheduler`](../Source/UI/AppShell/PreviewScheduler.hpp:17). Introduce thumbnail files only after measured Android evidence shows that the in-memory policy is inadequate and a reviewed migration/backup impact is defined.
 
 ### Message-thread safety
 
-Pickers may return on the JUCE message thread, but their completion must only capture shallow source descriptors. Provider metadata lookup, stream opening, staging, hashing, decoding, encoding, archive work, and document copy belong on the owned shell worker. [`AppShellOperationRunner`](../Source/UI/AppShellOperationRunner.hpp:83) serializes direct/pending photo, JPEG-export, backup-export, backup-import, and confirmed-replacement jobs; constructs required platform services per job; joins on teardown; guards operation generations; and delivers a coalesced latest-progress event.
+Pickers may return on the JUCE message thread, but their completion must only capture shallow source descriptors. Provider metadata lookup, stream opening, staging, hashing, decoding, encoding, archive work, and document copy belong on the owned shell worker. [`OperationRunner`](../Source/UI/AppShell/OperationRunner.hpp:83) serializes direct/pending photo, JPEG-export, backup-export, backup-import, and confirmed-replacement jobs; constructs required platform services per job; joins on teardown; guards operation generations; and delivers a coalesced latest-progress event.
 
-The persistent progress component owned by [`AppShellComponent`](../Source/UI/AppShell.hpp:202) must update in place. Progress events must not trigger a full screen/content reconstruction for each copy chunk. These rules prevent the Android input starvation previously exposed by large photo work.
+The persistent progress component owned by [`Component`](../Source/UI/AppShell/Component.hpp:202) must update in place. Progress events must not trigger a full screen/content reconstruction for each copy chunk. These rules prevent the Android input starvation previously exposed by large photo work.
 
 [`OperationGate`](../Source/Core/OperationGate.hpp:1) and [`try_start_platform_operation()`](../Source/Platform/PlatformServices.hpp:329) enforce exclusive long-running operations. Preserve cancellation, progress, and safe cleanup semantics when adding another operation type.
 
@@ -128,7 +128,7 @@ Search is built from repository state through [`build_search_index()`](../Source
 
 ## UI and platform boundary
 
-The application starts in [`Source/Main.cpp`](../Source/Main.cpp:21), resolves user language, creates the app-private platform path provider, runs guarded catalog startup, and constructs [`AppShellComponent`](../Source/UI/AppShell.hpp:61). Root navigation includes catalog/search, storages, add, more/maintenance, and special detail/viewer routes. Detail and form workflows reuse session APIs; routing must not become a source of persistence truth.
+The application starts in [`Source/Main.cpp`](../Source/Main.cpp:21), resolves user language, creates the app-private platform path provider, runs guarded catalog startup, and constructs [`Component`](../Source/UI/AppShell/Component.hpp:61). Root navigation includes catalog/search, storages, add, more/maintenance, and special detail/viewer routes. Detail and form workflows reuse session APIs; routing must not become a source of persistence truth.
 
 [`Source/UI`](../Source/UI) and [`Assets`](../Assets) are the current visual authority. Improve UI through observed workflow feedback while preserving established information architecture and accessibility/safe-area invariants. Historical mockups, exploratory icon concepts, and exact prior geometry are not pixel-level design locks and are not required to continue UI work.
 

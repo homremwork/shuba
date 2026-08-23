@@ -1,6 +1,6 @@
 #include "Localization/Facade.hpp"
-#include "UI/Screens/AppShellScreenRenderer.hpp"
-#include "UI/View/AppShellContentComponent.hpp"
+#include "UI/AppShell/ScreenRenderer.hpp"
+#include "UI/AppShell/ContentComponent.hpp"
 #include "UI/View/ScreenText.hpp"
 
 #include <cstddef>
@@ -41,7 +41,7 @@ std::vector<ItemDetailAction> item_detail_actions(
 	return actions;
 }
 
-void AppShellScreenRenderer::build_storages_content() {
+void ScreenRenderer::build_storages_content() {
 	if (session.demo_catalog_active)
 		content->add_label(juce_text(localization.text(
 							   localization::MessageId::CatalogBannerDemo)),
@@ -84,7 +84,7 @@ void AppShellScreenRenderer::build_storages_content() {
 	}
 }
 
-void AppShellScreenRenderer::build_item_detail_content() {
+void ScreenRenderer::build_item_detail_content() {
 	const bool mutation_allowed = !shell_operation_state.active();
 	if (!route.selected_item_id) {
 		content->add_label(
@@ -200,7 +200,7 @@ void AppShellScreenRenderer::build_item_detail_content() {
 	}
 }
 
-void AppShellScreenRenderer::build_storage_detail_content() {
+void ScreenRenderer::build_storage_detail_content() {
 	const bool mutation_allowed = !shell_operation_state.active();
 	if (!route.selected_storage_id) {
 		content->add_label(

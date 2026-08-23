@@ -1,4 +1,4 @@
-#include "UI/AppShellEditCoordinator.hpp"
+#include "UI/AppShell/EditCoordinator.hpp"
 
 #include "Localization/Facade.hpp"
 
@@ -25,7 +25,7 @@ void append_entity_diagnostics_to_core_feedback(
 }
 }	 // namespace
 
-AppShellEditCoordinator::AppShellEditCoordinator(Dependencies dependencies)
+EditCoordinator::EditCoordinator(Dependencies dependencies)
 	: session(dependencies.session)
 	, route(dependencies.route)
 	, item_form(dependencies.item_form)
@@ -67,7 +67,7 @@ AppShellEditCoordinator::AppShellEditCoordinator(Dependencies dependencies)
 	, complete_shell_operation_handler(
 		  std::move(dependencies.complete_shell_operation)) {}
 
-void AppShellEditCoordinator::open_new_item_form(
+void EditCoordinator::open_new_item_form(
 	std::optional<core::StableIdentifier> storage_id) {
 	reset_item_form();
 	item_form.mode				  = FormMode::Create;
@@ -80,7 +80,7 @@ void AppShellEditCoordinator::open_new_item_form(
 		refresh_all_handler();
 }
 
-void AppShellEditCoordinator::open_existing_item_form(
+void EditCoordinator::open_existing_item_form(
 	core::StableIdentifier item_id) {
 	const persistence::ItemEnvelope* item =
 		catalog::find_item_envelope(session.repository, item_id);
@@ -95,7 +95,7 @@ void AppShellEditCoordinator::open_existing_item_form(
 		refresh_all_handler();
 }
 
-void AppShellEditCoordinator::open_new_storage_form(
+void EditCoordinator::open_new_storage_form(
 	std::optional<core::StableIdentifier> parent_id) {
 	reset_storage_form();
 	storage_form.mode					 = FormMode::Create;
@@ -108,7 +108,7 @@ void AppShellEditCoordinator::open_new_storage_form(
 		refresh_all_handler();
 }
 
-void AppShellEditCoordinator::open_existing_storage_form(
+void EditCoordinator::open_existing_storage_form(
 	core::StableIdentifier storage_id) {
 	const persistence::StorageEnvelope* storage =
 		catalog::find_storage_envelope(session.repository, storage_id);
@@ -123,19 +123,19 @@ void AppShellEditCoordinator::open_existing_storage_form(
 		refresh_all_handler();
 }
 
-void AppShellEditCoordinator::set_item_pending_photo_as_main(
+void EditCoordinator::set_item_pending_photo_as_main(
 	std::size_t pending_photo_index) {
 	set_pending_photo_as_main(item_form.photo_deck, item_form.pending_photos,
 							  pending_photo_index);
 }
 
-void AppShellEditCoordinator::set_storage_pending_photo_as_main(
+void EditCoordinator::set_storage_pending_photo_as_main(
 	std::size_t pending_photo_index) {
 	set_pending_photo_as_main(storage_form.photo_deck,
 							  storage_form.pending_photos, pending_photo_index);
 }
 
-void AppShellEditCoordinator::save_item_form() {
+void EditCoordinator::save_item_form() {
 	if (shell_operation_state.active()) {
 		feedback.photo_message =
 			localization.text(localization::MessageId::ShellOperationBusy);
@@ -173,7 +173,7 @@ void AppShellEditCoordinator::save_item_form() {
 		return;
 	}
 
-	const AppShellOperationRunner::Submission submission =
+	const OperationRunner::Submission submission =
 		shell_operation_runner.submit_item_save(
 			ItemSaveWithPendingPhotosRequest{
 				.current_session	 = session,
@@ -188,7 +188,7 @@ void AppShellEditCoordinator::save_item_form() {
 				.pending_sources	 = item_form.pending_photos,
 				.main_pending_source_index =
 					item_form.photo_deck.staged_main_index},
-			[this](AppShellOperationRunner::CompletionResult completion) {
+			[this](OperationRunner::CompletionResult completion) {
 		if (shell_operation_state.generation != completion.generation
 			|| shell_operation_state.job_type != completion.job_type) {
 			return;
@@ -225,7 +225,7 @@ void AppShellEditCoordinator::save_item_form() {
 	}
 }
 
-void AppShellEditCoordinator::save_storage_form() {
+void EditCoordinator::save_storage_form() {
 	if (shell_operation_state.active()) {
 		feedback.photo_message =
 			localization.text(localization::MessageId::ShellOperationBusy);
@@ -258,7 +258,7 @@ void AppShellEditCoordinator::save_storage_form() {
 		return;
 	}
 
-	const AppShellOperationRunner::Submission submission =
+	const OperationRunner::Submission submission =
 		shell_operation_runner.submit_storage_save(
 			StorageSaveWithPendingPhotosRequest{
 				.current_session	 = session,
@@ -273,7 +273,7 @@ void AppShellEditCoordinator::save_storage_form() {
 				.pending_sources	 = storage_form.pending_photos,
 				.main_pending_source_index =
 					storage_form.photo_deck.staged_main_index},
-			[this](AppShellOperationRunner::CompletionResult completion) {
+			[this](OperationRunner::CompletionResult completion) {
 		if (shell_operation_state.generation != completion.generation
 			|| shell_operation_state.job_type != completion.job_type) {
 			return;
@@ -309,7 +309,7 @@ void AppShellEditCoordinator::save_storage_form() {
 	}
 }
 
-void AppShellEditCoordinator::apply_entity_edit_result(
+void EditCoordinator::apply_entity_edit_result(
 	EntityEditResult result) {
 	feedback.edit_diagnostics = std::move(result.diagnostics);
 	if (result.warning_acknowledgement_required) {
@@ -349,8 +349,8 @@ void AppShellEditCoordinator::apply_entity_edit_result(
 		refresh_all_handler();
 }
 
-void AppShellEditCoordinator::set_pending_photo_as_main(
-	AppShellManagedPhotoDeckState& photo_deck,
+void EditCoordinator::set_pending_photo_as_main(
+	ManagedPhotoDeckState& photo_deck,
 	std::vector<PendingPhotoSource>& pending_photos,
 	std::size_t pending_photo_index) {
 	if (pending_photo_index >= pending_photos.size()
@@ -372,12 +372,12 @@ void AppShellEditCoordinator::set_pending_photo_as_main(
 		refresh_content_handler();
 }
 
-void AppShellEditCoordinator::clear_edit_feedback() {
+void EditCoordinator::clear_edit_feedback() {
 	feedback.edit_message.clear();
 	feedback.edit_diagnostics.clear();
 }
 
-void AppShellEditCoordinator::prepare_item_save_feedback_for_submission() {
+void EditCoordinator::prepare_item_save_feedback_for_submission() {
 	std::erase_if(feedback.edit_diagnostics,
 				  [this](const EntityEditDiagnostic& diagnostic) {
 		if (diagnostic.code == "item_saved_without_storage")
@@ -390,7 +390,7 @@ void AppShellEditCoordinator::prepare_item_save_feedback_for_submission() {
 		feedback.edit_message.clear();
 }
 
-void AppShellEditCoordinator::reset_item_form() {
+void EditCoordinator::reset_item_form() {
 	if (cleanup_item_pending_photos_handler)
 		cleanup_item_pending_photos_handler();
 	clear_edit_feedback();
@@ -400,7 +400,7 @@ void AppShellEditCoordinator::reset_item_form() {
 	item_form.tag_candidates_expanded	  = false;
 	item_form.listing_expanded			  = false;
 	item_form.finance_expanded			  = false;
-	item_form.photo_deck				  = AppShellManagedPhotoDeckState{};
+	item_form.photo_deck				  = ManagedPhotoDeckState{};
 	for (juce::TextEditor* editor :
 		 {&item_name_editor, &item_category_editor, &item_notes_editor,
 		  &item_listing_marketplace_editor, &item_listing_url_editor,
@@ -409,7 +409,7 @@ void AppShellEditCoordinator::reset_item_form() {
 	}
 }
 
-void AppShellEditCoordinator::reset_storage_form() {
+void EditCoordinator::reset_storage_form() {
 	if (cleanup_storage_pending_photos_handler)
 		cleanup_storage_pending_photos_handler();
 	clear_edit_feedback();
@@ -418,7 +418,7 @@ void AppShellEditCoordinator::reset_storage_form() {
 	storage_form.parent_candidates_expanded	  = false;
 	storage_form.tag_candidates_expanded	  = false;
 	storage_form.archive_warning_acknowledged = false;
-	storage_form.photo_deck					  = AppShellManagedPhotoDeckState{};
+	storage_form.photo_deck					  = ManagedPhotoDeckState{};
 	for (juce::TextEditor* editor :
 		 {&storage_name_editor, &storage_type_editor, &storage_location_editor,
 		  &storage_notes_editor}) {
@@ -426,7 +426,7 @@ void AppShellEditCoordinator::reset_storage_form() {
 	}
 }
 
-void AppShellEditCoordinator::load_item_form_from_record(
+void EditCoordinator::load_item_form_from_record(
 	const persistence::ItemEnvelope& item) {
 	clear_edit_feedback();
 	item_form.draft = ItemDraft{.existing_id  = item.record.id,
@@ -459,10 +459,10 @@ void AppShellEditCoordinator::load_item_form_from_record(
 		!item.record.acquisition.empty() || !item.record.finance.empty();
 	item_form.storage_candidates_expanded = false;
 	item_form.tag_candidates_expanded	  = false;
-	item_form.photo_deck				  = AppShellManagedPhotoDeckState{};
+	item_form.photo_deck				  = ManagedPhotoDeckState{};
 }
 
-void AppShellEditCoordinator::load_storage_form_from_record(
+void EditCoordinator::load_storage_form_from_record(
 	const persistence::StorageEnvelope& storage) {
 	clear_edit_feedback();
 	storage_form.draft =
@@ -486,10 +486,10 @@ void AppShellEditCoordinator::load_storage_form_from_record(
 	storage_form.parent_candidates_expanded	  = false;
 	storage_form.tag_candidates_expanded	  = false;
 	storage_form.archive_warning_acknowledged = false;
-	storage_form.photo_deck					  = AppShellManagedPhotoDeckState{};
+	storage_form.photo_deck					  = ManagedPhotoDeckState{};
 }
 
-void AppShellEditCoordinator::apply_item_save_with_pending_photos_result(
+void EditCoordinator::apply_item_save_with_pending_photos_result(
 	ItemSaveWithPendingPhotosResult result) {
 	feedback.edit_diagnostics = result.save_result.diagnostics;
 	item_form.pending_photos  = std::move(result.pending_sources);
@@ -577,7 +577,7 @@ void AppShellEditCoordinator::apply_item_save_with_pending_photos_result(
 		refresh_all_handler();
 }
 
-void AppShellEditCoordinator::apply_storage_save_with_pending_photos_result(
+void EditCoordinator::apply_storage_save_with_pending_photos_result(
 	StorageSaveWithPendingPhotosResult result) {
 	feedback.edit_diagnostics	= result.save_result.diagnostics;
 	storage_form.pending_photos = std::move(result.pending_sources);

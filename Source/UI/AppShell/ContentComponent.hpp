@@ -15,10 +15,10 @@
 #include <vector>
 
 namespace shuba::ui {
-class AppShellContentComponent final : public juce::Component {
+class ContentComponent final : public juce::Component {
 public:
-	AppShellContentComponent();
-	~AppShellContentComponent() override;
+	ContentComponent();
+	~ContentComponent() override;
 
 	void clear_rows();
 	void begin_rebuild() noexcept;

@@ -140,53 +140,57 @@
               file="Source/Platform/PlatformServices.hpp"/>
       </GROUP>
       <GROUP id="ui01" name="UI">
-        <FILE id="appshellcpp" name="AppShell.cpp" compile="1" resource="0"
-              file="Source/UI/AppShell.cpp"/>
-        <FILE id="appshellhpp" name="AppShell.hpp" compile="0" resource="0"
-              file="Source/UI/AppShell.hpp"/>
-        <FILE id="appshellbackhandlerhpp" name="AppShellBackHandler.hpp" compile="0"
-              resource="0" file="Source/UI/AppShellBackHandler.hpp"/>
-        <FILE id="appshelllifecyclehandlerhpp" name="AppShellLifecycleHandler.hpp"
-              compile="0" resource="0" file="Source/UI/AppShellLifecycleHandler.hpp"/>
-        <FILE id="appshellbacknavigationhpp" name="AppShellBackNavigation.hpp"
-              compile="0" resource="0" file="Source/UI/AppShellBackNavigation.hpp"/>
-        <FILE id="appshelloperationrunnercpp" name="AppShellOperationRunner.cpp"
-              compile="1" resource="0" file="Source/UI/AppShellOperationRunner.cpp"/>
-        <FILE id="appshelloperationrunnerhpp" name="AppShellOperationRunner.hpp"
-              compile="0" resource="0" file="Source/UI/AppShellOperationRunner.hpp"/>
+        <FILE id="componentcpp" name="Component.cpp" compile="1" resource="0"
+              file="Source/UI/AppShell/Component.cpp"/>
+        <FILE id="componenthpp" name="Component.hpp" compile="0" resource="0"
+              file="Source/UI/AppShell/Component.hpp"/>
+        <FILE id="backhandlerhpp" name="BackHandler.hpp" compile="0"
+              resource="0" file="Source/UI/AppShell/BackHandler.hpp"/>
+        <FILE id="lifecyclehandlerhpp" name="LifecycleHandler.hpp"
+              compile="0" resource="0" file="Source/UI/AppShell/LifecycleHandler.hpp"/>
+        <FILE id="backnavigationhpp" name="BackNavigation.hpp"
+              compile="0" resource="0" file="Source/UI/AppShell/BackNavigation.hpp"/>
+        <FILE id="operationrunnercpp" name="OperationRunner.cpp"
+              compile="1" resource="0" file="Source/UI/AppShell/OperationRunner.cpp"/>
+        <FILE id="operationrunnerhpp" name="OperationRunner.hpp"
+              compile="0" resource="0" file="Source/UI/AppShell/OperationRunner.hpp"/>
         <FILE id="callbacklifetimehpp" name="CallbackLifetime.hpp" compile="0"
               resource="0" file="Source/UI/CallbackLifetime.hpp"/>
-        <FILE id="appshellpreviewschedulercpp" name="AppShellPreviewScheduler.cpp"
-              compile="1" resource="0" file="Source/UI/AppShellPreviewScheduler.cpp"/>
-        <FILE id="appshellpreviewschedulerhpp" name="AppShellPreviewScheduler.hpp"
-              compile="0" resource="0" file="Source/UI/AppShellPreviewScheduler.hpp"/>
-        <FILE id="appshellroutecoordinatorcpp" name="AppShellRouteCoordinator.cpp"
-              compile="1" resource="0" file="Source/UI/AppShellRouteCoordinator.cpp"/>
-        <FILE id="appshellroutecoordinatorhpp" name="AppShellRouteCoordinator.hpp"
-              compile="0" resource="0" file="Source/UI/AppShellRouteCoordinator.hpp"/>
-        <FILE id="appshelleditcoordinatorcpp" name="AppShellEditCoordinator.cpp"
-              compile="1" resource="0" file="Source/UI/AppShellEditCoordinator.cpp"/>
-        <FILE id="appshelleditcoordinatorhpp" name="AppShellEditCoordinator.hpp"
-              compile="0" resource="0" file="Source/UI/AppShellEditCoordinator.hpp"/>
-        <FILE id="appshellphotocoordinatorcpp" name="AppShellPhotoCoordinator.cpp"
-              compile="1" resource="0" file="Source/UI/AppShellPhotoCoordinator.cpp"/>
-        <FILE id="appshellphotocoordinatorhpp" name="AppShellPhotoCoordinator.hpp"
-              compile="0" resource="0" file="Source/UI/AppShellPhotoCoordinator.hpp"/>
-        <FILE id="appshellstatehpp" name="AppShellState.hpp" compile="0" resource="0"
-              file="Source/UI/AppShellState.hpp"/>
+        <FILE id="previewschedulercpp" name="PreviewScheduler.cpp"
+              compile="1" resource="0" file="Source/UI/AppShell/PreviewScheduler.cpp"/>
+        <FILE id="previewschedulerhpp" name="PreviewScheduler.hpp"
+              compile="0" resource="0" file="Source/UI/AppShell/PreviewScheduler.hpp"/>
+        <FILE id="routecoordinatorcpp" name="RouteCoordinator.cpp"
+              compile="1" resource="0" file="Source/UI/AppShell/RouteCoordinator.cpp"/>
+        <FILE id="routecoordinatorhpp" name="RouteCoordinator.hpp"
+              compile="0" resource="0" file="Source/UI/AppShell/RouteCoordinator.hpp"/>
+        <FILE id="editcoordinatorcpp" name="EditCoordinator.cpp"
+              compile="1" resource="0" file="Source/UI/AppShell/EditCoordinator.cpp"/>
+        <FILE id="editcoordinatorhpp" name="EditCoordinator.hpp"
+              compile="0" resource="0" file="Source/UI/AppShell/EditCoordinator.hpp"/>
+        <FILE id="photocoordinatorcpp" name="PhotoCoordinator.cpp"
+              compile="1" resource="0" file="Source/UI/AppShell/PhotoCoordinator.cpp"/>
+        <FILE id="photocoordinatorhpp" name="PhotoCoordinator.hpp"
+              compile="0" resource="0" file="Source/UI/AppShell/PhotoCoordinator.hpp"/>
+        <FILE id="statehpp" name="State.hpp" compile="0" resource="0"
+              file="Source/UI/AppShell/State.hpp"/>
+        <FILE id="chromecomponentcpp" name="ChromeComponent.cpp" compile="1"
+              resource="0" file="Source/UI/AppShell/ChromeComponent.cpp"/>
+        <FILE id="chromecomponenthpp" name="ChromeComponent.hpp" compile="0"
+              resource="0" file="Source/UI/AppShell/ChromeComponent.hpp"/>
+        <FILE id="contentcomponentcpp" name="ContentComponent.cpp" compile="1"
+              resource="0" file="Source/UI/AppShell/ContentComponent.cpp"/>
+        <FILE id="contentcomponenthpp" name="ContentComponent.hpp" compile="0"
+              resource="0" file="Source/UI/AppShell/ContentComponent.hpp"/>
+        <FILE id="screenrenderercpp" name="ScreenRenderer.cpp" compile="1"
+              resource="0" file="Source/UI/AppShell/ScreenRenderer.cpp"/>
+        <FILE id="screenrendererhpp" name="ScreenRenderer.hpp" compile="0"
+              resource="0" file="Source/UI/AppShell/ScreenRenderer.hpp"/>
         <FILE id="catalogsessioncpp" name="CatalogSession.cpp" compile="1"
               resource="0" file="Source/UI/CatalogSession.cpp"/>
         <FILE id="catalogsessionhpp" name="CatalogSession.hpp" compile="0"
               resource="0" file="Source/UI/CatalogSession.hpp"/>
         <GROUP id="uiview01" name="View">
-          <FILE id="appshellchromecomponentcpp" name="AppShellChromeComponent.cpp"
-                compile="1" resource="0" file="Source/UI/View/AppShellChromeComponent.cpp"/>
-          <FILE id="appshellchromecomponenthpp" name="AppShellChromeComponent.hpp"
-                compile="0" resource="0" file="Source/UI/View/AppShellChromeComponent.hpp"/>
-          <FILE id="appshellcontentcomponentcpp" name="AppShellContentComponent.cpp"
-                compile="1" resource="0" file="Source/UI/View/AppShellContentComponent.cpp"/>
-          <FILE id="appshellcontentcomponenthpp" name="AppShellContentComponent.hpp"
-                compile="0" resource="0" file="Source/UI/View/AppShellContentComponent.hpp"/>
           <FILE id="uisafeareahpp" name="SafeArea.hpp" compile="0" resource="0"
                 file="Source/UI/View/SafeArea.hpp"/>
           <GROUP id="uiviewprimitives01" name="Primitives">
@@ -219,10 +223,6 @@
                 file="Source/UI/View/ScreenText.hpp"/>
         </GROUP>
         <GROUP id="uiscreens01" name="Screens">
-          <FILE id="appshellscreenrenderercpp" name="AppShellScreenRenderer.cpp"
-                compile="1" resource="0" file="Source/UI/Screens/AppShellScreenRenderer.cpp"/>
-          <FILE id="appshellscreenrendererhpp" name="AppShellScreenRenderer.hpp"
-                compile="0" resource="0" file="Source/UI/Screens/AppShellScreenRenderer.hpp"/>
           <FILE id="catalogscreenscpp" name="CatalogScreens.cpp" compile="1"
                 resource="0" file="Source/UI/Screens/CatalogScreens.cpp"/>
           <FILE id="formandphotoscreenscpp" name="FormAndPhotoScreens.cpp" compile="1"
