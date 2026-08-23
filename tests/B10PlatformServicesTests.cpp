@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
+#include <span>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -140,6 +141,42 @@ TEST_CASE("B10 capability checks encode first-version permission policy",
 	REQUIRE(decode.category() == OperationResultCategory::PermissionDenied);
 	REQUIRE(default_permission_scope(PlatformCapability::DirectCameraCapture)
 			== PlatformPermissionScope::Camera);
+}
+
+TEST_CASE(
+	"B10 canonical source-image picker mapping is complete and deterministic",
+	"[b10][platform][photo-picker]") {
+	using shuba::platform::file_patterns_for_mime_types;
+	using shuba::platform::SourceImageMimeMapping;
+	using shuba::platform::supported_source_image_mime_mappings;
+	using shuba::platform::supported_source_image_picker_file_patterns;
+	using shuba::platform::supported_source_image_picker_mime_types;
+
+	const std::span<const SourceImageMimeMapping> mappings =
+		supported_source_image_mime_mappings();
+	const std::vector<std::string> expected_mime_types{
+		"image/jpeg", "image/png", "image/webp", "image/heic",
+		"image/heif", "image/gif", "image/bmp"};
+	const std::string expected_patterns{
+		"*.jpg;*.jpeg;*.png;*.webp;*.heic;*.heif;*.gif;*.bmp"};
+
+	REQUIRE(mappings.size() == 8U);
+	REQUIRE(mappings[0].mime_type == "image/jpeg");
+	REQUIRE(mappings[0].file_extension == "jpg");
+	REQUIRE(mappings[1].mime_type == "image/jpeg");
+	REQUIRE(mappings[1].file_extension == "jpeg");
+	REQUIRE(supported_source_image_picker_mime_types() == expected_mime_types);
+	REQUIRE(supported_source_image_picker_file_patterns() == expected_patterns);
+	REQUIRE(file_patterns_for_mime_types(expected_mime_types)
+			== expected_patterns);
+	REQUIRE(file_patterns_for_mime_types({"image/jpeg"}) == "*.jpg;*.jpeg");
+	REQUIRE(file_patterns_for_mime_types({"image/png"}) == "*.png");
+	REQUIRE(file_patterns_for_mime_types({"image/webp"}) == "*.webp");
+	REQUIRE(file_patterns_for_mime_types({"image/heic"}) == "*.heic");
+	REQUIRE(file_patterns_for_mime_types({"image/heif"}) == "*.heif");
+	REQUIRE(file_patterns_for_mime_types({"image/gif"}) == "*.gif");
+	REQUIRE(file_patterns_for_mime_types({"image/bmp"}) == "*.bmp");
+	REQUIRE(file_patterns_for_mime_types({"application/octet-stream"}) == "*");
 }
 
 TEST_CASE("B10 ZIP archive path safety rejects traversal and absolute forms",

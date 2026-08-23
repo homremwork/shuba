@@ -6,6 +6,8 @@
 
 namespace shuba::ui {
 [[nodiscard]] juce::String juce_text(std::string_view text);
+[[nodiscard]] float shaped_text_width(const juce::String& text,
+									  const juce::FontOptions& font_options);
 
 [[nodiscard]] juce::Colour background_colour();
 [[nodiscard]] juce::Colour panel_colour();

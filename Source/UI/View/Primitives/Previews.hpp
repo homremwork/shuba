@@ -1,6 +1,7 @@
 #pragma once
 
 #include "JuceHeader.h"
+#include "UI/View/Primitives/PhotoViewerPinchGesture.hpp"
 #include "UI/View/Primitives/TouchGuards.hpp"
 
 #include <cstddef>
@@ -21,6 +22,9 @@ enum class PreviewImageVisualState : std::uint8_t {
 	Broken,
 	Staged,
 };
+
+[[nodiscard]] int preview_badge_width(const juce::String& text,
+									  int container_width);
 
 void draw_preview_image_slot(juce::Graphics& graphics,
 							 juce::Rectangle<int> bounds,
@@ -129,7 +133,9 @@ private:
 	void mouseDoubleClick(const juce::MouseEvent& event) override;
 
 	[[nodiscard]] Layout calculate_layout() const;
+	[[nodiscard]] juce::Rectangle<float> image_gesture_bounds() const;
 	[[nodiscard]] bool zoomed() const noexcept;
+	void apply_pinch_update(const PhotoViewerPinchUpdate& update);
 	void clamp_pan();
 	void reset_zoom();
 	void refresh_viewport_drag_policy();
@@ -145,6 +151,9 @@ private:
 	float zoom_scale{minimum_zoom_scale};
 	juce::Point<float> pan_offset;
 	juce::Point<float> drag_start_pan;
+	juce::Point<float> single_pointer_start_position;
+	PhotoViewerPinchGesture pinch_gesture;
+	int single_pointer_index{-1};
 	bool tracking_pointer{};
 	bool horizontal_gesture{};
 	bool vertical_gesture{};

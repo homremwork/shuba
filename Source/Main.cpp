@@ -170,6 +170,11 @@ public:
 								   localization_service)),
 				true);
 		}
+		back_delegate.set_handler(dynamic_cast<shuba::ui::AppShellBackHandler*>(
+			getContentComponent()));
+		lifecycle_delegate.set_handler(
+			dynamic_cast<shuba::ui::AppShellLifecycleHandler*>(
+				getContentComponent()));
 #if JUCE_ANDROID
 		setFullScreen(true);
 #else
@@ -178,7 +183,23 @@ public:
 		setVisible(true);
 	}
 
-	~MainWindow() override { clearContentComponent(); }
+	~MainWindow() override {
+		lifecycle_delegate.set_handler(nullptr);
+		back_delegate.set_handler(nullptr);
+		clearContentComponent();
+	}
+
+	[[nodiscard]] bool handle_system_back() {
+		return back_delegate.handle_system_back();
+	}
+
+	void handle_application_suspended() {
+		lifecycle_delegate.handle_application_suspended();
+	}
+
+	void handle_application_resumed() {
+		lifecycle_delegate.handle_application_resumed();
+	}
 
 	void closeButtonPressed() override {
 		juce::JUCEApplication::getInstance()->systemRequestedQuit();
@@ -199,6 +220,8 @@ private:
 	shuba::platform::JuceAndroidPreviousExitService
 		android_previous_exit_service;
 	shuba::localization::Localization localization_service;
+	shuba::ui::AppShellBackDelegate back_delegate;
+	shuba::ui::AppShellLifecycleDelegate lifecycle_delegate;
 };
 
 class ShubaApplication final : public juce::JUCEApplication {
@@ -228,6 +251,20 @@ public:
 	void shutdown() override { main_window = nullptr; }
 
 	void systemRequestedQuit() override { quit(); }
+
+	bool backButtonPressed() override {
+		return main_window != nullptr && main_window->handle_system_back();
+	}
+
+	void suspended() override {
+		if (main_window != nullptr)
+			main_window->handle_application_suspended();
+	}
+
+	void resumed() override {
+		if (main_window != nullptr)
+			main_window->handle_application_resumed();
+	}
 
 	void unhandledException(const std::exception* exception,
 							const juce::String& source_filename,

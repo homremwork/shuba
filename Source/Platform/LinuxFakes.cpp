@@ -546,6 +546,11 @@ void SyntheticSourceImageDecodeService::clear_decoded_pixels() {
 	decoded_pixels.reset();
 }
 
+const std::optional<SourceImageDecodeSizing>&
+SyntheticSourceImageDecodeService::last_requested_sizing() const noexcept {
+	return requested_sizing;
+}
+
 PlatformValueResult<ImagePixels>
 SyntheticSourceImageDecodeService::decode_source_image(
 	const SourceImageDecodeRequest& request,
@@ -553,6 +558,7 @@ SyntheticSourceImageDecodeService::decode_source_image(
 	CancellationToken& cancellation_token) {
 	if (cancellation_token.cancellation_requested())
 		return platform_value_user_cancelled<ImagePixels>();
+	requested_sizing = request.sizing;
 
 	progress_sink.publish_progress(ProgressEvent{
 		.operation_id	= context.operation_id,

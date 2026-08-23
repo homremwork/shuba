@@ -103,7 +103,10 @@ function shuba_validate_release_provenance --argument-names shuba_provenance_pat
         tool.xmlstarlet.path tool.xmlstarlet.resolved_path tool.xmlstarlet.sha256 \
         tool.xmlstarlet.version_output_sha256 tool.xmlstarlet.linked_library_versions_sha256 \
         tool.xmlstarlet.xpath_capability tool.bsdtar.path tool.bsdtar.version tool.bsdtar.sha256 \
+        tool.android_command_line_tools.allowed_versions tool.android_command_line_tools.selected_root \
+        tool.android_command_line_tools.selected_version \
         tool.apkanalyzer.path tool.apkanalyzer.version tool.apkanalyzer.sha256 \
+        tool.sdkmanager.path tool.sdkmanager.version tool.sdkmanager.sha256 \
         tool.aapt2.path tool.aapt2.sha256 tool.apksigner.path tool.apksigner.sha256 \
         tool.zipalign.path tool.zipalign.sha256 tool.llvm_readelf.path tool.llvm_readelf.sha256 \
         libjxl.fingerprint_sha256 projucer.fingerprint_sha256 verification.pre_publish_sha256
@@ -170,7 +173,7 @@ function shuba_write_release_provenance --argument-names shuba_output shuba_proj
         printf 'signing.certificate_sha256=%s\n' (shuba_contract_get signing.certificate_sha256)
         for shuba_key in app.application_id app.version_name app.version_code android.min_sdk android.target_sdk \
             android.abi android.ndk_version android.build_tools_version android.cmake_version \
-            android.gradle_version android.gradle_plugin_version android.command_line_tools_version
+            android.gradle_version android.gradle_plugin_version android.command_line_tools_versions
             printf '%s=%s\n' $shuba_key (shuba_contract_get $shuba_key)
         end
         printf 'android.gradle_wrapper_distribution=%s\n' $shuba_distribution

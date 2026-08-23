@@ -30,7 +30,10 @@ function shuba_provenance_test_write_valid --argument-names shuba_path
             tool.xmlstarlet.path tool.xmlstarlet.resolved_path tool.xmlstarlet.sha256 \
             tool.xmlstarlet.version_output_sha256 tool.xmlstarlet.linked_library_versions_sha256 \
             tool.xmlstarlet.xpath_capability tool.bsdtar.path tool.bsdtar.version tool.bsdtar.sha256 \
+            tool.android_command_line_tools.allowed_versions tool.android_command_line_tools.selected_root \
+            tool.android_command_line_tools.selected_version \
             tool.apkanalyzer.path tool.apkanalyzer.version tool.apkanalyzer.sha256 \
+            tool.sdkmanager.path tool.sdkmanager.version tool.sdkmanager.sha256 \
             tool.aapt2.path tool.aapt2.sha256 tool.apksigner.path tool.apksigner.sha256 \
             tool.zipalign.path tool.zipalign.sha256 tool.llvm_readelf.path tool.llvm_readelf.sha256 \
             libjxl.fingerprint_sha256 projucer.fingerprint_sha256 verification.pre_publish_sha256
@@ -72,6 +75,11 @@ function shuba_provenance_test_main
     printf 'tool.aapt2.sha256=duplicate\n' >>$shuba_fixture
     shuba_provenance_test_expect_rejection duplicate-tool $shuba_fixture \
         'requires exactly one non-empty record: tool.aapt2.sha256'; or return 1
+
+    set shuba_fixture $shuba_provenance_test_root/missing-sdkmanager.provenance
+    grep --invert-match '^tool.sdkmanager.sha256=' $shuba_valid >$shuba_fixture
+    shuba_provenance_test_expect_rejection missing-sdkmanager $shuba_fixture \
+        'requires exactly one non-empty record: tool.sdkmanager.sha256'; or return 1
 
     set shuba_fixture $shuba_provenance_test_root/secret-name.provenance
     cp -- $shuba_valid $shuba_fixture

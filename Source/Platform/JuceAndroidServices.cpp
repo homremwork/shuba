@@ -21,6 +21,7 @@
 #include <filesystem>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <utility>
@@ -441,6 +442,23 @@ JuceAndroidPhotoSelectionService& JuceAndroidPhotoSelectionService::operator=(
 	JuceAndroidPhotoSelectionService&&) noexcept					  = default;
 JuceAndroidPhotoSelectionService::~JuceAndroidPhotoSelectionService() = default;
 
+void JuceAndroidPhotoSelectionService::
+	register_supported_source_image_mime_mappings() {
+#if JUCE_ANDROID
+	static std::once_flag registration_once;
+	std::call_once(registration_once, [] {
+		for (const SourceImageMimeMapping& mapping :
+			 supported_source_image_mime_mappings()) {
+			juce::FileChooser::registerCustomMimeTypeForFileExtension(
+				juce::String{mapping.mime_type.data(),
+							 mapping.mime_type.size()},
+				juce::String{mapping.file_extension.data(),
+							 mapping.file_extension.size()});
+		}
+	});
+#endif
+}
+
 core::OperationResult JuceAndroidPhotoSelectionService::request_photo_selection(
 	const PhotoSelectionRequest& request, PhotoSelectionCompletion completion) {
 	core::OperationResult callback_result =
@@ -453,6 +471,7 @@ core::OperationResult JuceAndroidPhotoSelectionService::request_photo_selection(
 	if (busy_result.failed())
 		return busy_result;
 
+	register_supported_source_image_mime_mappings();
 	active_chooser			= std::make_unique<ActiveChooser>();
 	active_chooser->chooser = std::make_unique<juce::FileChooser>(
 		"Select photos", juce::File{},
@@ -786,8 +805,44 @@ JuceAndroidSourceImageDecodeService::decode_source_image(
 
 	const std::uint32_t decoded_width  = static_cast<std::uint32_t>(width);
 	const std::uint32_t decoded_height = static_cast<std::uint32_t>(height);
-	std::optional<std::uint64_t> compact_byte_count = image_pixel_byte_count(
-		decoded_width, decoded_height, PixelFormat::Rgba8);
+	std::uint32_t output_width		   = decoded_width;
+	std::uint32_t output_height		   = decoded_height;
+	if (request.sizing.has_value()) {
+		const std::optional<SourceImageDecodeTargetSize> target_size =
+			source_image_decode_target_size(decoded_width, decoded_height,
+											*request.sizing);
+		if (!target_size.has_value()) {
+			return platform_value_failure<ImagePixels>(
+				core::OperationResultCategory::ValidationFailure,
+				make_diagnostic(core::DiagnosticSeverity::ActionValidationError,
+								"source-decode-sizing-invalid",
+								"Source image decode sizing is invalid or "
+								"exceeds the supported "
+								"pixel-buffer range."));
+		}
+
+		if (target_size->width != decoded_width
+			|| target_size->height != decoded_height) {
+			result = AImageDecoder_setTargetSize(
+				decoder.get(), static_cast<int32_t>(target_size->width),
+				static_cast<int32_t>(target_size->height));
+			if (result != ANDROID_IMAGE_DECODER_SUCCESS) {
+				return platform_value_failure<ImagePixels>(
+					core::OperationResultCategory::CodecFailure,
+					make_diagnostic(
+						core::DiagnosticSeverity::WriteBlockingError,
+						"source-decoder-target-size-failed",
+						"Android source image decoder could not select the "
+						"requested bounded output size.",
+						image_decoder_result_text(result)));
+			}
+		}
+		output_width  = target_size->width;
+		output_height = target_size->height;
+	}
+
+	std::optional<std::uint64_t> compact_byte_count =
+		image_pixel_byte_count(output_width, output_height, PixelFormat::Rgba8);
 	if (!compact_byte_count.has_value()
 		|| *compact_byte_count > static_cast<std::uint64_t>(
 			   std::numeric_limits<std::size_t>::max())) {
@@ -801,7 +856,7 @@ JuceAndroidSourceImageDecodeService::decode_source_image(
 	const std::size_t minimum_stride =
 		AImageDecoder_getMinimumStride(decoder.get());
 	const std::size_t compact_row_bytes =
-		static_cast<std::size_t>(decoded_width) * 4U;
+		static_cast<std::size_t>(output_width) * 4U;
 	if (minimum_stride < compact_row_bytes) {
 		return platform_value_failure<ImagePixels>(
 			core::OperationResultCategory::CodecFailure,
@@ -812,7 +867,7 @@ JuceAndroidSourceImageDecodeService::decode_source_image(
 	}
 
 	if (minimum_stride > std::numeric_limits<std::size_t>::max()
-							 / static_cast<std::size_t>(decoded_height)) {
+							 / static_cast<std::size_t>(output_height)) {
 		return platform_value_failure<ImagePixels>(
 			core::OperationResultCategory::CodecFailure,
 			make_diagnostic(
@@ -822,7 +877,7 @@ JuceAndroidSourceImageDecodeService::decode_source_image(
 	}
 
 	std::vector<std::uint8_t> strided_pixels(
-		minimum_stride * static_cast<std::size_t>(decoded_height));
+		minimum_stride * static_cast<std::size_t>(output_height));
 	result = AImageDecoder_decodeImage(decoder.get(), strided_pixels.data(),
 									   minimum_stride, strided_pixels.size());
 	if (result != ANDROID_IMAGE_DECODER_SUCCESS) {
@@ -837,7 +892,7 @@ JuceAndroidSourceImageDecodeService::decode_source_image(
 
 	std::vector<std::uint8_t> compact_pixels(
 		static_cast<std::size_t>(*compact_byte_count));
-	for (std::uint32_t row = 0; row < decoded_height; ++row) {
+	for (std::uint32_t row = 0; row < output_height; ++row) {
 		const std::size_t source_offset =
 			static_cast<std::size_t>(row) * minimum_stride;
 		const std::size_t target_offset =
@@ -854,8 +909,8 @@ JuceAndroidSourceImageDecodeService::decode_source_image(
 	}
 
 	ImagePixels decoded{
-		.width				= decoded_width,
-		.height				= decoded_height,
+		.width				= output_width,
+		.height				= output_height,
 		.format				= PixelFormat::Rgba8,
 		.bytes				= std::move(compact_pixels),
 		.source_description = std::move(source_description),

@@ -247,7 +247,7 @@ add_library(shuba_juce_platform STATIC
 	Source/Platform/JuceAndroidPreviousExit.cpp
 	Source/Platform/JuceJpegExport.cpp
 	Source/Platform/JuceZipArchive.cpp
-	Source/UI/AppShellPhotoOperationRunner.cpp
+	Source/UI/AppShellOperationRunner.cpp
 	Source/UI/AppShellPreviewScheduler.cpp
 	Source/UI/AppShellEditCoordinator.cpp
 	Source/UI/AppShellPhotoCoordinator.cpp
@@ -262,6 +262,7 @@ add_library(shuba_juce_platform STATIC
 	Source/UI/View/AppShellContentComponent.cpp
 	Source/UI/View/Primitives/Palette.cpp
 	Source/UI/View/Primitives/TouchGuards.cpp
+	Source/UI/View/Primitives/PhotoViewerPinchGesture.cpp
 	Source/UI/View/Primitives/Rows.cpp
 	Source/UI/View/Primitives/Previews.cpp
 	Source/UI/View/Primitives/Forms.cpp

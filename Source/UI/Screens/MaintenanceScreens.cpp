@@ -1,5 +1,6 @@
 #include "Localization/Facade.hpp"
 #include "UI/AppShell.hpp"
+#include "UI/AppShellRouteCoordinator.hpp"
 #include "UI/Screens/AppShellScreenRenderer.hpp"
 #include "UI/View/AppShellContentComponent.hpp"
 #include "UI/View/ScreenText.hpp"
@@ -21,21 +22,26 @@ namespace {
 }	 // namespace
 
 void AppShellComponent::request_export_backup() {
-	if (photo_operation.active())
+	if (shell_operation.active())
 		return;
-	last_progress_events.clear();
 	feedback.backup_diagnostics.clear();
 	const std::string suggested_name =
 		catalog::suggested_backup_file_name(edit_clock.now());
+	const std::weak_ptr<CallbackLifetimeToken> callback_lifetime =
+		document_picker_callback_lifetime;
 	core::OperationResult destination_started =
 		document_export_service.request_export_destination_selection(
 			platform::DocumentExportRequest{
 				.suggested_file_name = suggested_name,
 				.mime_type = std::string{catalog::backup_zip_mime_type},
 				.purpose   = "catalog backup ZIP export"},
-			[this](platform::PlatformValueResult<
-				   platform::DocumentDestinationDescriptor>
-					   result) mutable {
+			[this, callback_lifetime](platform::PlatformValueResult<
+									  platform::DocumentDestinationDescriptor>
+										  result) mutable {
+		const std::optional<CallbackLifetimeLease> callback_lease =
+			CallbackLifetimeLease::try_acquire(callback_lifetime);
+		if (!callback_lease.has_value())
+			return;
 		if (result.was_user_cancelled()) {
 			feedback.backup_message = localization.text(
 				localization::MessageId::BackupExportDestinationCancelled);
@@ -49,18 +55,37 @@ void AppShellComponent::request_export_backup() {
 			refresh_all();
 			return;
 		}
-		BackupExportSessionResult exported = export_backup_from_session(
-			BackupExportSessionRequest{
-				.current_session		 = session,
-				.identifiers			 = edit_identifiers,
-				.clock					 = edit_clock,
-				.operation_gate			 = ui_operation_gate,
-				.zip_archive_service	 = zip_archive_service,
-				.document_export_service = document_export_service,
-				.content_staging_service = content_staging_service,
-				.destination			 = std::move(*result.value)},
-			last_progress_events, never_cancelled);
-		apply_backup_export_result(std::move(exported), false);
+		const AppShellOperationRunner::Submission submission =
+			shell_operation_runner->submit_backup_export(
+				BackupExportSessionRequest{
+					.current_session		 = session,
+					.identifiers			 = edit_identifiers,
+					.clock					 = edit_clock,
+					.operation_gate			 = ui_operation_gate,
+					.zip_archive_service	 = zip_archive_service,
+					.document_export_service = document_export_service,
+					.content_staging_service = content_staging_service,
+					.destination			 = std::move(*result.value)},
+				false,
+				[this](AppShellOperationRunner::CompletionResult completion) {
+			if (shell_operation.generation != completion.generation
+				|| shell_operation.job_type != completion.job_type) {
+				return;
+			}
+			shell_operation.state = ShellOperationState::Applying;
+			apply_backup_export_result(std::get<BackupExportSessionResult>(
+										   std::move(completion.value)),
+									   false);
+			complete_shell_operation();
+		});
+		if (!submission.accepted) {
+			feedback.backup_message =
+				localization.text(localization::MessageId::ShellOperationBusy);
+			refresh_all();
+			return;
+		}
+		begin_shell_operation(ShellOperationJobType::BackupExport,
+							  submission.generation);
 	});
 	if (destination_started.failed()) {
 		feedback.backup_message = localization.text(
@@ -71,21 +96,26 @@ void AppShellComponent::request_export_backup() {
 }
 
 void AppShellComponent::request_export_diagnostic_archive() {
-	if (photo_operation.active())
+	if (shell_operation.active())
 		return;
-	last_progress_events.clear();
 	feedback.backup_diagnostics.clear();
 	const std::string suggested_name =
 		catalog::suggested_diagnostic_archive_file_name(edit_clock.now());
+	const std::weak_ptr<CallbackLifetimeToken> callback_lifetime =
+		document_picker_callback_lifetime;
 	core::OperationResult destination_started =
 		document_export_service.request_export_destination_selection(
 			platform::DocumentExportRequest{
 				.suggested_file_name = suggested_name,
 				.mime_type = std::string{catalog::backup_zip_mime_type},
 				.purpose   = "diagnostic archive ZIP export"},
-			[this](platform::PlatformValueResult<
-				   platform::DocumentDestinationDescriptor>
-					   result) mutable {
+			[this, callback_lifetime](platform::PlatformValueResult<
+									  platform::DocumentDestinationDescriptor>
+										  result) mutable {
+		const std::optional<CallbackLifetimeLease> callback_lease =
+			CallbackLifetimeLease::try_acquire(callback_lifetime);
+		if (!callback_lease.has_value())
+			return;
 		if (result.was_user_cancelled()) {
 			feedback.backup_message = localization.text(
 				localization::MessageId::DiagnosticExportDestinationCancelled);
@@ -99,8 +129,8 @@ void AppShellComponent::request_export_diagnostic_archive() {
 			refresh_all();
 			return;
 		}
-		BackupExportSessionResult exported =
-			export_diagnostic_archive_from_session(
+		const AppShellOperationRunner::Submission submission =
+			shell_operation_runner->submit_backup_export(
 				BackupExportSessionRequest{
 					.current_session		 = session,
 					.identifiers			 = edit_identifiers,
@@ -110,8 +140,26 @@ void AppShellComponent::request_export_diagnostic_archive() {
 					.document_export_service = document_export_service,
 					.content_staging_service = content_staging_service,
 					.destination			 = std::move(*result.value)},
-				last_progress_events, never_cancelled);
-		apply_backup_export_result(std::move(exported), true);
+				true,
+				[this](AppShellOperationRunner::CompletionResult completion) {
+			if (shell_operation.generation != completion.generation
+				|| shell_operation.job_type != completion.job_type) {
+				return;
+			}
+			shell_operation.state = ShellOperationState::Applying;
+			apply_backup_export_result(std::get<BackupExportSessionResult>(
+										   std::move(completion.value)),
+									   true);
+			complete_shell_operation();
+		});
+		if (!submission.accepted) {
+			feedback.backup_message =
+				localization.text(localization::MessageId::ShellOperationBusy);
+			refresh_all();
+			return;
+		}
+		begin_shell_operation(ShellOperationJobType::DiagnosticArchiveExport,
+							  submission.generation);
 	});
 	if (destination_started.failed()) {
 		feedback.backup_message = localization.text(
@@ -122,20 +170,25 @@ void AppShellComponent::request_export_diagnostic_archive() {
 }
 
 void AppShellComponent::request_import_backup() {
-	if (photo_operation.active())
+	if (shell_operation.active())
 		return;
-	last_progress_events.clear();
 	feedback.backup_diagnostics.clear();
 	backup.pending_import_staging.reset();
 	backup.pending_import_degraded_acknowledged = false;
+	const std::weak_ptr<CallbackLifetimeToken> callback_lifetime =
+		document_picker_callback_lifetime;
 	core::OperationResult import_started =
 		document_import_service.request_import_document_selection(
 			platform::DocumentImportRequest{.accepted_mime_types = {std::string{
 												catalog::backup_zip_mime_type}},
 											.purpose = "backup ZIP import"},
-			[this](
+			[this, callback_lifetime](
 				platform::PlatformValueResult<platform::ContentSourceDescriptor>
 					result) mutable {
+		const std::optional<CallbackLifetimeLease> callback_lease =
+			CallbackLifetimeLease::try_acquire(callback_lifetime);
+		if (!callback_lease.has_value())
+			return;
 		if (result.was_user_cancelled()) {
 			feedback.backup_message = localization.text(
 				localization::MessageId::BackupImportSourceCancelled);
@@ -149,8 +202,8 @@ void AppShellComponent::request_import_backup() {
 			refresh_all();
 			return;
 		}
-		BackupImportStagingSessionResult staged =
-			stage_backup_import_for_session(
+		const AppShellOperationRunner::Submission submission =
+			shell_operation_runner->submit_backup_import_staging(
 				BackupImportStagingSessionRequest{
 					.current_session		 = session,
 					.identifiers			 = edit_identifiers,
@@ -160,8 +213,25 @@ void AppShellComponent::request_import_backup() {
 					.document_export_service = document_export_service,
 					.content_staging_service = content_staging_service,
 					.source					 = std::move(*result.value)},
-				last_progress_events, never_cancelled);
-		apply_backup_import_staging_result(std::move(staged));
+				[this](AppShellOperationRunner::CompletionResult completion) {
+			if (shell_operation.generation != completion.generation
+				|| shell_operation.job_type != completion.job_type) {
+				return;
+			}
+			shell_operation.state = ShellOperationState::Applying;
+			apply_backup_import_staging_result(
+				std::get<BackupImportStagingSessionResult>(
+					std::move(completion.value)));
+			complete_shell_operation();
+		});
+		if (!submission.accepted) {
+			feedback.backup_message =
+				localization.text(localization::MessageId::ShellOperationBusy);
+			refresh_all();
+			return;
+		}
+		begin_shell_operation(ShellOperationJobType::BackupImportStaging,
+							  submission.generation);
 	});
 	if (import_started.failed()) {
 		feedback.backup_message = localization.text(
@@ -172,7 +242,7 @@ void AppShellComponent::request_import_backup() {
 }
 
 void AppShellComponent::retry_normal_startup() {
-	if (photo_operation.active())
+	if (shell_operation.active())
 		return;
 	if (session.source != CatalogSessionStartupSource::StartupCrashSafeMode) {
 		feedback.backup_message = localization.text(
@@ -181,7 +251,6 @@ void AppShellComponent::retry_normal_startup() {
 		return;
 	}
 
-	last_progress_events.clear();
 	feedback.backup_diagnostics.clear();
 	backup.pending_import_staging.reset();
 	backup.pending_import_degraded_acknowledged = false;
@@ -266,11 +335,12 @@ void AppShellComponent::apply_backup_import_staging_result(
 		feedback.backup_message =
 			localization.text(localization::MessageId::BackupImportRejected);
 	}
-	select_root(RootDestination::BackupRecovery);
+	if (route_coordinator != nullptr)
+		route_coordinator->select_root(RootDestination::BackupRecovery);
 }
 
 void AppShellComponent::confirm_staged_backup_import() {
-	if (photo_operation.active())
+	if (shell_operation.active())
 		return;
 	if (!backup.pending_import_staging
 		|| !backup.pending_import_staging->staging_catalog_root.has_value()) {
@@ -288,9 +358,8 @@ void AppShellComponent::confirm_staged_backup_import() {
 		refresh_all();
 		return;
 	}
-	last_progress_events.clear();
-	BackupImportReplacementSessionResult replaced =
-		replace_session_with_staged_import(
+	const AppShellOperationRunner::Submission submission =
+		shell_operation_runner->submit_backup_import_replacement(
 			BackupImportReplacementSessionRequest{
 				.current_session = session,
 				.identifiers	 = edit_identifiers,
@@ -300,8 +369,25 @@ void AppShellComponent::confirm_staged_backup_import() {
 					*backup.pending_import_staging->staging_catalog_root,
 				.replacement_confirmed	   = true,
 				.degraded_import_confirmed = degraded},
-			last_progress_events, never_cancelled);
-	apply_backup_import_replacement_result(std::move(replaced));
+			[this](AppShellOperationRunner::CompletionResult completion) {
+		if (shell_operation.generation != completion.generation
+			|| shell_operation.job_type != completion.job_type) {
+			return;
+		}
+		shell_operation.state = ShellOperationState::Applying;
+		apply_backup_import_replacement_result(
+			std::get<BackupImportReplacementSessionResult>(
+				std::move(completion.value)));
+		complete_shell_operation();
+	});
+	if (!submission.accepted) {
+		feedback.backup_message =
+			localization.text(localization::MessageId::ShellOperationBusy);
+		refresh_all();
+		return;
+	}
+	begin_shell_operation(ShellOperationJobType::BackupImportReplacement,
+						  submission.generation);
 }
 
 void AppShellComponent::apply_backup_import_replacement_result(
@@ -327,11 +413,12 @@ void AppShellComponent::apply_backup_import_replacement_result(
 		feedback.backup_message =
 			localization.text(localization::MessageId::BackupReplacementFailed);
 	}
-	select_root(RootDestination::BackupRecovery);
+	if (route_coordinator != nullptr)
+		route_coordinator->select_root(RootDestination::BackupRecovery);
 }
 
 void AppShellScreenRenderer::build_add_content() {
-	const bool mutation_allowed = !photo_operation_state.active();
+	const bool mutation_allowed = !shell_operation_state.active();
 	content->add_label(
 		juce_text(localization.text(localization::MessageId::AddDescription)),
 		70, panel_colour(), true);
@@ -346,7 +433,7 @@ void AppShellScreenRenderer::build_add_content() {
 }
 
 void AppShellScreenRenderer::build_backup_recovery_content() {
-	const bool mutation_allowed			   = !photo_operation_state.active();
+	const bool mutation_allowed			   = !shell_operation_state.active();
 	const CatalogRecoveryUiSummary summary = make_recovery_ui_summary(session);
 	content->add_label(juce_text(recovery_summary(summary, localization)), 86,
 					   summary.fatal() || summary.degraded()
@@ -383,10 +470,6 @@ void AppShellScreenRenderer::build_backup_recovery_content() {
 			juce_text(core_diagnostic_summary(feedback.backup_diagnostics)), 86,
 			warning_panel_colour(), true);
 	}
-	content->add_label(juce_text(progress_summary(last_progress_events.events(),
-												  localization)),
-					   54, panel_colour());
-
 	juce::Button& backup_button = content->add_button(
 		localization.text(localization::MessageId::BackupExportButton), 46);
 	backup_button.setEnabled(!session.fatal() && mutation_allowed);
@@ -466,7 +549,7 @@ void AppShellScreenRenderer::build_backup_recovery_content() {
 }
 
 void AppShellScreenRenderer::build_more_content() {
-	const bool mutation_allowed = !photo_operation_state.active();
+	const bool mutation_allowed = !shell_operation_state.active();
 	content->add_label(
 		juce_text(localization.text(localization::MessageId::MoreDescription)),
 		82, panel_colour(), true);

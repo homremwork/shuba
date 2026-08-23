@@ -98,6 +98,13 @@ void append_fingerprint_part(std::string& fingerprint,
 											platform::PixelFormat::Rgba8);
 }
 
+[[nodiscard]] platform::SourceImageDecodeSizing staged_preview_decode_sizing(
+	ImagePreviewSize target_size) noexcept {
+	return platform::SourceImageDecodeSizing{
+		.maximum_longest_edge =
+			std::max(target_size.max_width, target_size.max_height)};
+}
+
 [[nodiscard]] core::Diagnostic make_preview_diagnostic(
 	core::DiagnosticSeverity severity, std::string code, std::string message,
 	std::string technical_details = {}) {
@@ -597,7 +604,8 @@ StagedPhotoPreviewLoadResult load_staged_photo_preview(
 	platform::PlatformValueResult<platform::ImagePixels> decoded =
 		decode_service.decode_source_image(
 			platform::SourceImageDecodeRequest{
-				.content = staged_content_for_preview(request.source)},
+				.content = staged_content_for_preview(request.source),
+				.sizing	 = staged_preview_decode_sizing(request.target_size)},
 			platform::PlatformOperationContext{
 				.operation_id = request.identifiers.next_operation_identifier(),
 				.operation_type =

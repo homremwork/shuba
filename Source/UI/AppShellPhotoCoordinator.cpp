@@ -58,44 +58,6 @@ next_photo_selection_after_delete(
 
 }	 // namespace
 
-class AppShellPhotoCoordinator::CallbackLifetimeLease final {
-public:
-	[[nodiscard]] static std::optional<CallbackLifetimeLease> try_acquire(
-		const std::weak_ptr<LifetimeToken>& lifetime) {
-		const std::shared_ptr<LifetimeToken> token = lifetime.lock();
-		if (token == nullptr || !token->alive.load(std::memory_order_acquire))
-			return std::nullopt;
-
-		token->callback_count.fetch_add(1U, std::memory_order_acq_rel);
-		if (!token->alive.load(std::memory_order_acquire)) {
-			token->callback_count.fetch_sub(1U, std::memory_order_acq_rel);
-			token->callbacks_finished.notify_all();
-			return std::nullopt;
-		}
-		return CallbackLifetimeLease{token};
-	}
-
-	CallbackLifetimeLease(const CallbackLifetimeLease&)			   = delete;
-	CallbackLifetimeLease& operator=(const CallbackLifetimeLease&) = delete;
-	CallbackLifetimeLease(CallbackLifetimeLease&&) noexcept		   = default;
-	CallbackLifetimeLease& operator=(CallbackLifetimeLease&&) noexcept = delete;
-
-	~CallbackLifetimeLease() {
-		if (token == nullptr)
-			return;
-		if (token->callback_count.fetch_sub(1U, std::memory_order_acq_rel)
-			== 1U) {
-			token->callbacks_finished.notify_all();
-		}
-	}
-
-private:
-	explicit CallbackLifetimeLease(std::shared_ptr<LifetimeToken> token_value)
-		: token(std::move(token_value)) {}
-
-	std::shared_ptr<LifetimeToken> token;
-};
-
 AppShellPhotoCoordinator::AppShellPhotoCoordinator(Dependencies dependencies)
 	: session(dependencies.session)
 	, route(dependencies.route)
@@ -116,8 +78,8 @@ AppShellPhotoCoordinator::AppShellPhotoCoordinator(Dependencies dependencies)
 	, internal_photo_codec(dependencies.internal_photo_codec)
 	, progress_events(dependencies.progress_events)
 	, cancellation_token(dependencies.cancellation_token)
-	, photo_operation_runner(dependencies.photo_operation_runner)
-	, photo_operation_state(dependencies.photo_operation_state)
+	, shell_operation_runner(dependencies.shell_operation_runner)
+	, shell_operation_state(dependencies.shell_operation_state)
 	, localization(dependencies.localization)
 	, invalidate_all_previews_handler(
 		  std::move(dependencies.invalidate_all_previews))
@@ -126,39 +88,34 @@ AppShellPhotoCoordinator::AppShellPhotoCoordinator(Dependencies dependencies)
 	, invalidate_staged_photo_preview_handler(
 		  std::move(dependencies.invalidate_staged_photo_preview))
 	, refresh_all_handler(std::move(dependencies.refresh_all))
-	, begin_photo_operation_handler(
-		  std::move(dependencies.begin_photo_operation))
-	, complete_photo_operation_handler(
-		  std::move(dependencies.complete_photo_operation)) {}
+	, begin_shell_operation_handler(
+		  std::move(dependencies.begin_shell_operation))
+	, complete_shell_operation_handler(
+		  std::move(dependencies.complete_shell_operation)) {}
 
 AppShellPhotoCoordinator::~AppShellPhotoCoordinator() {
-	const std::shared_ptr<LifetimeToken> token = std::move(lifetime_token);
-	if (token == nullptr)
-		return;
-
-	token->alive.store(false, std::memory_order_release);
-	std::unique_lock<std::mutex> lock{token->mutex};
-	token->callbacks_finished.wait(lock, [&token] {
-		return token->callback_count.load(std::memory_order_acquire) == 0U;
-	});
+	const std::shared_ptr<CallbackLifetimeToken> token =
+		std::move(lifetime_token);
+	if (token != nullptr)
+		token->invalidate_and_wait();
 }
 
 void AppShellPhotoCoordinator::request_add_photos(
 	const domain::PhotoOwner& owner) {
-	if (photo_operation_state.active()) {
+	if (shell_operation_state.active()) {
 		apply_busy_result();
 		return;
 	}
 	feedback.photo_diagnostics.clear();
 	feedback.photo_message = localization.photo_workflow_text(
 		localization::PhotoWorkflowMessageId::SelectImport);
-	const std::weak_ptr<LifetimeToken> lifetime = lifetime_token;
+	const std::weak_ptr<CallbackLifetimeToken> lifetime = lifetime_token;
 	core::OperationResult picker_started =
 		photo_selection_service.request_photo_selection(
 			platform::PhotoSelectionRequest{
-				.allow_multiple		 = true,
-				.accepted_mime_types = {"image/jpeg", "image/png", "image/webp",
-										"image/heic", "image/heif"}},
+				.allow_multiple = true,
+				.accepted_mime_types =
+					platform::supported_source_image_picker_mime_types()},
 			[this, lifetime,
 			 owner](platform::PlatformValueResult<
 					std::vector<platform::ContentSourceDescriptor>>
@@ -180,8 +137,8 @@ void AppShellPhotoCoordinator::request_add_photos(
 			refresh_all();
 			return;
 		}
-		const AppShellPhotoOperationRunner::Submission submission =
-			photo_operation_runner.submit_direct_import(
+		const AppShellOperationRunner::Submission submission =
+			shell_operation_runner.submit_direct_import(
 				PhotoImportSessionRequest{
 					.current_session	 = session,
 					.identifiers		 = identifiers,
@@ -193,17 +150,21 @@ void AppShellPhotoCoordinator::request_add_photos(
 					.photo_codec		 = internal_photo_codec,
 					.owner				 = owner,
 					.sources			 = std::move(*result.value)},
-				[this](AppShellPhotoOperationRunner::Result operation_result) {
-			photo_operation_state.state = PhotoOperationState::Applying;
+				[this](AppShellOperationRunner::CompletionResult completion) {
+			if (shell_operation_state.generation != completion.generation
+				|| shell_operation_state.job_type != completion.job_type) {
+				return;
+			}
+			shell_operation_state.state = ShellOperationState::Applying;
 			apply_photo_import_result(std::get<PhotoImportSessionResult>(
-				std::move(operation_result)));
-			complete_photo_operation();
+				std::move(completion.value)));
+			complete_shell_operation();
 		});
 		if (!submission.accepted) {
 			apply_busy_result();
 			return;
 		}
-		begin_photo_operation(PhotoOperationJobType::DirectImport,
+		begin_shell_operation(ShellOperationJobType::DirectImport,
 							  submission.generation);
 	});
 	if (picker_started.failed()) {
@@ -224,7 +185,7 @@ void AppShellPhotoCoordinator::request_add_pending_storage_photos() {
 
 void AppShellPhotoCoordinator::request_add_pending_photos(
 	PendingPhotoDraftTarget target) {
-	if (photo_operation_state.active()) {
+	if (shell_operation_state.active()) {
 		apply_busy_result();
 		return;
 	}
@@ -235,13 +196,13 @@ void AppShellPhotoCoordinator::request_add_pending_photos(
 				  localization::PhotoWorkflowMessageId::SelectPendingItem)
 			: localization.photo_workflow_text(
 				  localization::PhotoWorkflowMessageId::SelectPendingStorage);
-	const std::weak_ptr<LifetimeToken> lifetime = lifetime_token;
+	const std::weak_ptr<CallbackLifetimeToken> lifetime = lifetime_token;
 	core::OperationResult picker_started =
 		photo_selection_service.request_photo_selection(
 			platform::PhotoSelectionRequest{
-				.allow_multiple		 = true,
-				.accepted_mime_types = {"image/jpeg", "image/png", "image/webp",
-										"image/heic", "image/heif"}},
+				.allow_multiple = true,
+				.accepted_mime_types =
+					platform::supported_source_image_picker_mime_types()},
 			[this, lifetime,
 			 target](platform::PlatformValueResult<
 					 std::vector<platform::ContentSourceDescriptor>>
@@ -271,12 +232,12 @@ void AppShellPhotoCoordinator::request_add_pending_photos(
 			return;
 		}
 
-		const PhotoOperationJobType job_type =
+		const ShellOperationJobType job_type =
 			target == PendingPhotoDraftTarget::Item
-				? PhotoOperationJobType::PendingItemStaging
-				: PhotoOperationJobType::PendingStorageStaging;
-		const AppShellPhotoOperationRunner::Submission submission =
-			photo_operation_runner.submit_pending_staging(
+				? ShellOperationJobType::PendingItemStaging
+				: ShellOperationJobType::PendingStorageStaging;
+		const AppShellOperationRunner::Submission submission =
+			shell_operation_runner.submit_pending_staging(
 				job_type,
 				PendingPhotoStagingRequest{
 					.current_session		  = session,
@@ -287,20 +248,24 @@ void AppShellPhotoCoordinator::request_add_pending_photos(
 					.sources				  = std::move(*result.value),
 					.existing_pending_sources = pending_sources_for(target),
 					.existing_owner = owner_for_pending_target(target)},
-				[this, target](
-					AppShellPhotoOperationRunner::Result operation_result) {
-			photo_operation_state.state = PhotoOperationState::Applying;
+				[this,
+				 target](AppShellOperationRunner::CompletionResult completion) {
+			if (shell_operation_state.generation != completion.generation
+				|| shell_operation_state.job_type != completion.job_type) {
+				return;
+			}
+			shell_operation_state.state = ShellOperationState::Applying;
 			apply_pending_photo_staging_result(
 				std::get<PendingPhotoStagingResult>(
-					std::move(operation_result)),
+					std::move(completion.value)),
 				target);
-			complete_photo_operation();
+			complete_shell_operation();
 		});
 		if (!submission.accepted) {
 			apply_busy_result();
 			return;
 		}
-		begin_photo_operation(job_type, submission.generation);
+		begin_shell_operation(job_type, submission.generation);
 	});
 	if (picker_started.failed()) {
 		feedback.photo_message = localization.photo_workflow_text(
@@ -339,11 +304,10 @@ AppShellPhotoCoordinator::owner_for_pending_target(
 
 void AppShellPhotoCoordinator::request_export_photo(
 	const core::StableIdentifier& photo_id) {
-	progress_events.clear();
 	feedback.photo_diagnostics.clear();
 	const std::string suggested_name =
 		catalog::suggested_jpeg_export_file_name(session.repository, photo_id);
-	const std::weak_ptr<LifetimeToken> lifetime = lifetime_token;
+	const std::weak_ptr<CallbackLifetimeToken> lifetime = lifetime_token;
 	core::OperationResult destination_started =
 		document_export_service.request_export_destination_selection(
 			platform::DocumentExportRequest{
@@ -370,29 +334,49 @@ void AppShellPhotoCoordinator::request_export_photo(
 			refresh_all();
 			return;
 		}
-		catalog::PhotoExportUseCase export_use_case{
-			identifiers, operation_gate, internal_photo_codec,
-			jpeg_export_service, document_export_service};
-		catalog::PhotoExportResult exported =
-			export_use_case.export_photo_as_jpeg(
+		if (!session.paths.has_value()) {
+			feedback.photo_message = localization.photo_workflow_text(
+				localization::PhotoWorkflowMessageId::JpegFailed);
+			refresh_all();
+			return;
+		}
+
+		const AppShellOperationRunner::Submission submission =
+			shell_operation_runner.submit_jpeg_export(
 				catalog::PhotoExportRequest{
 					.current_state = session.repository,
 					.paths		   = *session.paths,
 					.photo_id	   = photo_id,
 					.destination   = std::move(*result.value),
 					.jpeg_quality  = 90},
-				progress_events, cancellation_token);
-		feedback.photo_diagnostics = std::move(exported.diagnostics);
-		if (exported.succeeded())
-			feedback.photo_message =
-				localization.jpeg_export_completed(exported.bytes_written);
-		else if (exported.was_user_cancelled())
-			feedback.photo_message = localization.photo_workflow_text(
-				localization::PhotoWorkflowMessageId::JpegCancelled);
-		else
-			feedback.photo_message = localization.photo_workflow_text(
-				localization::PhotoWorkflowMessageId::JpegFailed);
-		refresh_all();
+				[this](AppShellOperationRunner::CompletionResult completion) {
+			if (!shell_operation_state.active()
+				|| shell_operation_state.generation != completion.generation
+				|| shell_operation_state.job_type != completion.job_type) {
+				return;
+			}
+			shell_operation_state.state = ShellOperationState::Applying;
+			catalog::PhotoExportResult exported =
+				std::get<catalog::PhotoExportResult>(
+					std::move(completion.value));
+			feedback.photo_diagnostics = std::move(exported.diagnostics);
+			if (exported.succeeded())
+				feedback.photo_message =
+					localization.jpeg_export_completed(exported.bytes_written);
+			else if (exported.was_user_cancelled())
+				feedback.photo_message = localization.photo_workflow_text(
+					localization::PhotoWorkflowMessageId::JpegCancelled);
+			else
+				feedback.photo_message = localization.photo_workflow_text(
+					localization::PhotoWorkflowMessageId::JpegFailed);
+			complete_shell_operation();
+		});
+		if (!submission.accepted) {
+			apply_busy_result();
+			return;
+		}
+		begin_shell_operation(ShellOperationJobType::JpegExport,
+							  submission.generation);
 	});
 	if (destination_started.failed()) {
 		feedback.photo_message = localization.photo_workflow_text(
@@ -476,19 +460,19 @@ void AppShellPhotoCoordinator::apply_pending_photo_staging_result(
 
 void AppShellPhotoCoordinator::apply_busy_result() {
 	feedback.photo_message =
-		localization.text(localization::MessageId::PhotoOperationBusy);
+		localization.text(localization::MessageId::ShellOperationBusy);
 	refresh_all();
 }
 
-void AppShellPhotoCoordinator::begin_photo_operation(
-	PhotoOperationJobType job_type, std::uint64_t generation) {
-	if (begin_photo_operation_handler)
-		begin_photo_operation_handler(job_type, generation);
+void AppShellPhotoCoordinator::begin_shell_operation(
+	ShellOperationJobType job_type, std::uint64_t generation) {
+	if (begin_shell_operation_handler)
+		begin_shell_operation_handler(job_type, generation);
 }
 
-void AppShellPhotoCoordinator::complete_photo_operation() {
-	if (complete_photo_operation_handler)
-		complete_photo_operation_handler();
+void AppShellPhotoCoordinator::complete_shell_operation() {
+	if (complete_shell_operation_handler)
+		complete_shell_operation_handler();
 }
 
 void AppShellPhotoCoordinator::apply_photo_import_result(

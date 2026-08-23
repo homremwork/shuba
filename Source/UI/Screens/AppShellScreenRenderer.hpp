@@ -4,7 +4,7 @@
 #include "Core/Clock.hpp"
 #include "Core/Identifier.hpp"
 #include "Platform/PlatformServices.hpp"
-#include "UI/AppShellPhotoOperationRunner.hpp"
+#include "UI/AppShellOperationRunner.hpp"
 #include "UI/AppShellState.hpp"
 #include "UI/Session/CatalogSessionState.hpp"
 #include "UI/Session/EntityEditTypes.hpp"
@@ -132,13 +132,7 @@ public:
 		ImagePreviewCache& preview_cache;
 		core::IdentifierSource& edit_identifiers;
 		core::Clock& edit_clock;
-		AppShellPhotoOperationState& photo_operation_state;
-		platform::InternalPhotoCodec& internal_photo_codec;
-		platform::SourceImageDecodeService& source_decode_service;
-		platform::JpegExportService& jpeg_export_service;
-		platform::DocumentExportService& document_export_service;
-		platform::ProgressCollector& last_progress_events;
-		platform::NeverCancelledToken& never_cancelled;
+		AppShellOperationState& shell_operation_state;
 		localization::Localization& localization;
 		AppShellContentComponent& content;
 		Editors editors;
@@ -299,13 +293,7 @@ private:
 	ImagePreviewCache& preview_cache;
 	core::IdentifierSource& edit_identifiers;
 	core::Clock& edit_clock;
-	AppShellPhotoOperationState& photo_operation_state;
-	platform::InternalPhotoCodec& internal_photo_codec;
-	platform::SourceImageDecodeService& source_decode_service;
-	platform::JpegExportService& jpeg_export_service;
-	platform::DocumentExportService& document_export_service;
-	platform::ProgressCollector& last_progress_events;
-	platform::NeverCancelledToken& never_cancelled;
+	AppShellOperationState& shell_operation_state;
 	localization::Localization& localization;
 	AppShellContentComponent* content{};
 	juce::TextEditor& item_name_editor;

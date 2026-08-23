@@ -15,7 +15,7 @@ function shuba_contract_required_keys
         android.gradle_version \
         android.gradle_plugin_version \
         android.java_runtime_version \
-        android.command_line_tools_version \
+        android.command_line_tools_versions \
         tool.fish_min_version \
         tool.jq_min_version \
         tool.bsdtar_min_version \
@@ -45,7 +45,7 @@ end
 function shuba_contract_validate
     set --local shuba_required_keys (shuba_contract_required_keys); or return 1
     if test (count $shuba_release_contract_keys) -ne (count $shuba_required_keys)
-        shuba_fail 'release contract key count differs from schema version 2'
+        shuba_fail 'release contract key count differs from schema version 3'
         return 1
     end
     for shuba_key in $shuba_required_keys
@@ -61,7 +61,7 @@ function shuba_contract_validate
         end
     end
 
-    if test (shuba_contract_get contract.schema_version) != 2
+    if test (shuba_contract_get contract.schema_version) != 3
         shuba_fail 'unsupported release contract schema version'
         return 1
     end
@@ -92,11 +92,28 @@ function shuba_contract_validate
         android.cmake_version \
         android.gradle_version \
         android.gradle_plugin_version \
-        android.command_line_tools_version \
         tool.fish_min_version \
         tool.jq_min_version \
         tool.bsdtar_min_version
         shuba_contract_require_pattern $shuba_key '^(0|[1-9][0-9]*)([.](0|[1-9][0-9]*)){1,2}$'; or return 1
+    end
+    set --local shuba_command_line_tools_versions \
+        (string split , -- (shuba_contract_get android.command_line_tools_versions)); or return 1
+    if test (count $shuba_command_line_tools_versions) -eq 0
+        shuba_fail 'android.command_line_tools_versions must not be empty'
+        return 1
+    end
+    set --local shuba_seen_command_line_tools_versions
+    for shuba_version in $shuba_command_line_tools_versions
+        if not string match --regex --quiet '^(0|[1-9][0-9]*)([.](0|[1-9][0-9]*)){1,2}$' -- $shuba_version
+            shuba_fail "invalid Android command-line tools version: $shuba_version"
+            return 1
+        end
+        if contains -- $shuba_version $shuba_seen_command_line_tools_versions
+            shuba_fail "duplicate Android command-line tools version: $shuba_version"
+            return 1
+        end
+        set --append shuba_seen_command_line_tools_versions $shuba_version
     end
 
     set --local shuba_app_name (string replace --all ' ' - -- (shuba_contract_get app.name))

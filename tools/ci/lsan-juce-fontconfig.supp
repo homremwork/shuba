@@ -1,0 +1,10 @@
+# JUCE 9.0.1 on Linux retains FreeType/fontconfig fallback state beyond
+# shutdownJuce_GUI(). The affected path begins in the JUCE implementation below,
+# not Shuba source: juce::FreeTypeTypeface::fromPattern().
+#
+# Scope: Linux ASAN CTest runs only. The rule keeps detect_leaks=1 active and
+# excludes only reports whose stack includes this exact JUCE fallback function.
+# The ASAN-only negative-control executable proves unrelated project leaks still
+# fail. Reassess and remove this rule on a JUCE upgrade, font-backend change,
+# upstream cleanup, or any new reported allocation path.
+leak:juce::FreeTypeTypeface::fromPattern

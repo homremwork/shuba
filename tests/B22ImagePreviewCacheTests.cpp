@@ -1,16 +1,26 @@
 #include "Catalog/CatalogRepository.hpp"
 #include "Localization/Facade.hpp"
 #include "Platform/LinuxFakes.hpp"
+#include "UI/AppShellPreviewScheduler.hpp"
 #include "UI/Session/ImagePreviewSession.hpp"
 #include "UI/View/Primitives/PhotoManagement.hpp"
+#include "UI/View/Primitives/PhotoViewerPinchGesture.hpp"
 #include "UI/View/ScreenText.hpp"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <juce_events/juce_events.h>
+
+#include <array>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <functional>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -71,6 +81,116 @@ private:
 	for (std::uint64_t index = 0U; index < byte_count; ++index)
 		pixels.bytes.push_back(static_cast<std::uint8_t>(first_value + index));
 	return pixels;
+}
+
+class ContentRefreshCoalescer final : private juce::Timer {
+public:
+	explicit ContentRefreshCoalescer(
+		int debounce_milliseconds, std::function<void()> refresh_content_value)
+		: debounce_interval_milliseconds(debounce_milliseconds)
+		, refresh_content(std::move(refresh_content_value)) {}
+
+	~ContentRefreshCoalescer() override { stopTimer(); }
+
+	void request_refresh() {
+		++request_count_value;
+		startTimer(debounce_interval_milliseconds);
+	}
+
+	[[nodiscard]] std::uint32_t request_count() const noexcept {
+		return request_count_value;
+	}
+
+	[[nodiscard]] std::uint32_t delivery_count() const noexcept {
+		return delivery_count_value;
+	}
+
+private:
+	void timerCallback() override {
+		stopTimer();
+		++delivery_count_value;
+		if (refresh_content)
+			refresh_content();
+	}
+
+	int debounce_interval_milliseconds;
+	std::function<void()> refresh_content;
+	std::uint32_t request_count_value{};
+	std::uint32_t delivery_count_value{};
+};
+
+class BlockingSourceImageDecodeService final
+	: public shuba::platform::SourceImageDecodeService {
+public:
+	explicit BlockingSourceImageDecodeService(
+		shuba::platform::ImagePixels decoded_pixels_value)
+		: decoded_pixels(std::move(decoded_pixels_value)) {}
+
+	void wait_until_started() {
+		std::unique_lock<std::mutex> lock{mutex};
+		REQUIRE(condition.wait_for(lock, std::chrono::seconds{5},
+								   [this] { return started; }));
+	}
+
+	void release() {
+		const std::lock_guard<std::mutex> lock{mutex};
+		released = true;
+		condition.notify_all();
+	}
+
+	void wait_until_completed(std::size_t expected_count) {
+		std::unique_lock<std::mutex> lock{mutex};
+		REQUIRE(condition.wait_for(lock, std::chrono::seconds{5},
+								   [this, expected_count] {
+			return completed_count >= expected_count;
+		}));
+	}
+
+	[[nodiscard]] shuba::platform::PlatformValueResult<
+		shuba::platform::ImagePixels>
+	decode_source_image(
+		const shuba::platform::SourceImageDecodeRequest& request,
+		const shuba::platform::PlatformOperationContext& context,
+		shuba::platform::ProgressSink& progress_sink,
+		shuba::platform::CancellationToken& cancellation_token) override {
+		(void)request;
+		(void)context;
+		(void)progress_sink;
+		{
+			std::unique_lock<std::mutex> lock{mutex};
+			started = true;
+			condition.notify_all();
+			condition.wait(lock, [this] { return released; });
+		}
+		if (cancellation_token.cancellation_requested()) {
+			const std::lock_guard<std::mutex> lock{mutex};
+			++completed_count;
+			condition.notify_all();
+			return shuba::platform::platform_value_user_cancelled<
+				shuba::platform::ImagePixels>();
+		}
+		{
+			const std::lock_guard<std::mutex> lock{mutex};
+			++completed_count;
+			condition.notify_all();
+		}
+		return shuba::platform::platform_value_success(decoded_pixels);
+	}
+
+private:
+	shuba::platform::ImagePixels decoded_pixels;
+	std::mutex mutex;
+	std::condition_variable condition;
+	bool started{};
+	bool released{};
+	std::size_t completed_count{};
+};
+
+void pump_messages_until(const std::function<bool()>& predicate) {
+	juce::MessageManager* const manager = juce::MessageManager::getInstance();
+	for (std::size_t attempt = 0U; attempt < 1000U && !predicate(); ++attempt)
+		REQUIRE(manager->runDispatchLoopUntil(1));
+	REQUIRE(predicate());
 }
 
 [[nodiscard]] shuba::ui::ImagePreviewRequestIdentity identity(
@@ -243,6 +363,132 @@ TEST_CASE("B22 pixel-to-JUCE conversion preserves straight RGB at full opacity",
 }
 
 TEST_CASE(
+	"JI.5 pinch gesture tracks two touch sources and safely rejects invalid "
+	"streams",
+	"[ji5][b22][image-preview][pinch]") {
+	shuba::ui::PhotoViewerPinchGesture gesture;
+	const juce::Point<float> first_start{20.0f, 40.0f};
+	const juce::Point<float> second_start{80.0f, 40.0f};
+
+	gesture.begin_touch(-1, first_start);
+	REQUIRE_FALSE(gesture.active());
+	REQUIRE_FALSE(gesture.tracks_touch(-1));
+	REQUIRE_FALSE(gesture.update_touch(-1, first_start).has_value());
+	gesture.end_touch(-1);
+	REQUIRE_FALSE(gesture.single_touch().has_value());
+
+	gesture.begin_touch(4, first_start);
+	gesture.begin_touch(4, juce::Point<float>{30.0f, 40.0f});
+	REQUIRE_FALSE(gesture.active());
+	gesture.begin_touch(9, second_start);
+	REQUIRE(gesture.active());
+	REQUIRE(gesture.tracks_touch(4));
+	REQUIRE(gesture.tracks_touch(9));
+
+	const std::optional<shuba::ui::PhotoViewerPinchUpdate> first_update =
+		gesture.update_touch(9, juce::Point<float>{90.0f, 40.0f});
+	REQUIRE(first_update.has_value());
+	REQUIRE(first_update->scale_factor == Catch::Approx{1.2f});
+	REQUIRE(first_update->midpoint.x == Catch::Approx{60.0f});
+	REQUIRE(first_update->midpoint.y == Catch::Approx{40.0f});
+
+	gesture.begin_touch(12, juce::Point<float>{130.0f, 40.0f});
+	REQUIRE_FALSE(gesture.tracks_touch(12));
+	REQUIRE_FALSE(gesture.update_touch(12, juce::Point<float>{140.0f, 40.0f})
+					  .has_value());
+
+	gesture.end_touch(4);
+	const std::optional<shuba::ui::PhotoViewerPinchTouch> remaining_touch =
+		gesture.single_touch();
+	REQUIRE(remaining_touch.has_value());
+	REQUIRE(remaining_touch->index == 9);
+	REQUIRE_FALSE(gesture.active());
+	REQUIRE(gesture.tracks_touch(9));
+	REQUIRE_FALSE(
+		gesture.update_touch(9, juce::Point<float>{95.0f, 40.0f}).has_value());
+	gesture.end_touch(9);
+	REQUIRE_FALSE(gesture.tracks_touch(9));
+	REQUIRE_FALSE(gesture.single_touch().has_value());
+	gesture.end_touch(9);
+	REQUIRE_FALSE(gesture.single_touch().has_value());
+}
+
+TEST_CASE(
+	"JI.5 pinch transform preserves midpoint when unclamped and bounds image "
+	"edges",
+	"[ji5][b22][image-preview][pinch]") {
+	const shuba::ui::PhotoViewerPinchGeometry spacious_geometry{
+		.slot_centre	= {100.0f, 100.0f},
+		.slot			= {0.0f, 0.0f, 200.0f, 200.0f},
+		.unzoomed_image = {0.0f, 0.0f, 400.0f, 400.0f}};
+	const shuba::ui::PhotoViewerPinchTransform midpoint_preserved =
+		shuba::ui::apply_photo_viewer_pinch_update(
+			shuba::ui::PhotoViewerPinchTransform{.zoom_scale = 1.0f,
+												 .pan_offset = {0.0f, 0.0f}},
+			shuba::ui::PhotoViewerPinchUpdate{.scale_factor = 2.0f,
+											  .midpoint		= {125.0f, 75.0f}},
+			spacious_geometry, 1.0f, 4.0f);
+	REQUIRE(midpoint_preserved.zoom_scale == Catch::Approx{2.0f});
+	REQUIRE(midpoint_preserved.pan_offset.x == Catch::Approx{-25.0f});
+	REQUIRE(midpoint_preserved.pan_offset.y == Catch::Approx{25.0f});
+
+	const shuba::ui::PhotoViewerPinchGeometry constrained_geometry{
+		.slot_centre	= {100.0f, 100.0f},
+		.slot			= {0.0f, 0.0f, 200.0f, 200.0f},
+		.unzoomed_image = {0.0f, 0.0f, 100.0f, 100.0f}};
+	const shuba::ui::PhotoViewerPinchTransform edge_clamped =
+		shuba::ui::apply_photo_viewer_pinch_update(
+			shuba::ui::PhotoViewerPinchTransform{.zoom_scale = 1.0f,
+												 .pan_offset = {0.0f, 0.0f}},
+			shuba::ui::PhotoViewerPinchUpdate{.scale_factor = 4.0f,
+											  .midpoint = {300.0f, -100.0f}},
+			constrained_geometry, 1.0f, 4.0f);
+	REQUIRE(edge_clamped.zoom_scale == Catch::Approx{4.0f});
+	REQUIRE(edge_clamped.pan_offset.x == Catch::Approx{-100.0f});
+	REQUIRE(edge_clamped.pan_offset.y == Catch::Approx{100.0f});
+
+	const shuba::ui::PhotoViewerPinchTransform zoom_bounded =
+		shuba::ui::apply_photo_viewer_pinch_update(
+			shuba::ui::PhotoViewerPinchTransform{.zoom_scale = 3.5f,
+												 .pan_offset = {0.0f, 0.0f}},
+			shuba::ui::PhotoViewerPinchUpdate{.scale_factor = 2.0f,
+											  .midpoint		= {100.0f, 100.0f}},
+			spacious_geometry, 1.0f, 4.0f);
+	REQUIRE(zoom_bounded.zoom_scale == Catch::Approx{4.0f});
+
+	const shuba::ui::PhotoViewerPinchTransform minimum_bounded =
+		shuba::ui::apply_photo_viewer_pinch_update(
+			shuba::ui::PhotoViewerPinchTransform{.zoom_scale = 1.2f,
+												 .pan_offset = {0.0f, 0.0f}},
+			shuba::ui::PhotoViewerPinchUpdate{.scale_factor = 0.1f,
+											  .midpoint		= {100.0f, 100.0f}},
+			spacious_geometry, 1.0f, 4.0f);
+	REQUIRE(minimum_bounded.zoom_scale == Catch::Approx{1.0f});
+}
+
+TEST_CASE(
+	"JI.5 image-slot gesture boundary leaves viewer metadata drags to the "
+	"viewport",
+	"[ji5][b22][image-preview][pinch]") {
+	const juce::Rectangle<float> image_slot{12.0f, 16.0f, 300.0f, 220.0f};
+	REQUIRE(shuba::ui::photo_viewer_gesture_starts_in_image_slot(
+		image_slot, juce::Point<float>{12.0f, 16.0f}));
+	REQUIRE(shuba::ui::photo_viewer_gesture_starts_in_image_slot(
+		image_slot, juce::Point<float>{311.0f, 235.0f}));
+	REQUIRE_FALSE(shuba::ui::photo_viewer_gesture_starts_in_image_slot(
+		image_slot, juce::Point<float>{160.0f, 246.0f}));
+	REQUIRE_FALSE(shuba::ui::photo_viewer_gesture_starts_in_image_slot(
+		juce::Rectangle<float>{}, juce::Point<float>{12.0f, 16.0f}));
+
+	REQUIRE_FALSE(
+		shuba::ui::photo_viewer_blocks_viewport_drag(true, false, false));
+	REQUIRE(shuba::ui::photo_viewer_blocks_viewport_drag(true, true, false));
+	REQUIRE(shuba::ui::photo_viewer_blocks_viewport_drag(false, false, true));
+	REQUIRE_FALSE(
+		shuba::ui::photo_viewer_blocks_viewport_drag(false, false, false));
+}
+
+TEST_CASE(
 	"B22 managed photo deck constructs and resizes with stored and staged "
 	"photos",
 	"[b22][image-preview][ui]") {
@@ -364,6 +610,279 @@ TEST_CASE("B22 preview cache hits exact identities and can clear entries",
 	cache.clear();
 	REQUIRE(cache.empty());
 	REQUIRE(cache.stats().pixel_bytes == 0U);
+}
+
+TEST_CASE("JI.4 preview completion burst coalesces one delayed content rebuild",
+		  "[ji4][b22][image-preview][scheduler]") {
+	juce::ScopedJuceInitialiser_GUI juce_initialiser;
+	PreviewHarness harness;
+	const std::filesystem::path first_staged_path =
+		harness.paths.staged_content_root / "ji4-first.jpg";
+	const std::filesystem::path second_staged_path =
+		harness.paths.staged_content_root / "ji4-second.jpg";
+	write_text(first_staged_path, "ji4-first-source");
+	write_text(second_staged_path, "ji4-second-source");
+	harness.source_decoder.set_decoded_pixels(make_pixels(4U, 2U));
+	shuba::ui::CatalogSessionState session;
+	shuba::ui::AppShellPhotoDisplayState photo_display;
+	shuba::ui::ImagePreviewCache cache{shuba::ui::ImagePreviewCacheSettings{
+		.maximum_entries = 4U, .maximum_pixel_bytes = 1024U}};
+	shuba::localization::Localization localization =
+		shuba::localization::make_localization(
+			shuba::localization::Language::English, {});
+	std::uint32_t rendered_cache_entries{};
+	ContentRefreshCoalescer coalescer{85, [&] {
+		rendered_cache_entries =
+			static_cast<std::uint32_t>(cache.stats().entry_count);
+	}};
+	shuba::ui::AppShellPreviewScheduler scheduler{
+		shuba::ui::AppShellPreviewScheduler::Dependencies{
+			.session				 = session,
+			.photo_display			 = photo_display,
+			.preview_cache			 = cache,
+			.internal_photo_codec	 = harness.codec,
+			.source_decode_service	 = harness.source_decoder,
+			.jpeg_export_service	 = harness.jpeg,
+			.document_export_service = harness.document_export,
+			.localization			 = localization,
+			.refresh_content		 = [&] { coalescer.request_refresh(); }}};
+
+	scheduler.enqueue_staged_preview(
+		make_pending_source(first_staged_path, "ji4-first.jpg", 16U),
+		shuba::ui::ImagePreviewSize{.max_width = 2U, .max_height = 2U},
+		shuba::ui::ImagePreviewRequestPriority::Normal);
+	scheduler.enqueue_staged_preview(
+		make_pending_source(second_staged_path, "ji4-second.jpg", 17U),
+		shuba::ui::ImagePreviewSize{.max_width = 2U, .max_height = 2U},
+		shuba::ui::ImagePreviewRequestPriority::Normal);
+
+	pump_messages_until([&] { return coalescer.request_count() == 2U; });
+	REQUIRE(cache.stats().entry_count == 2U);
+	REQUIRE(coalescer.delivery_count() == 0U);
+	pump_messages_until([&] { return coalescer.delivery_count() == 1U; });
+	REQUIRE(rendered_cache_entries == 2U);
+	REQUIRE(coalescer.delivery_count() == 1U);
+}
+
+TEST_CASE(
+	"JI.4 scheduler preserves stale completion suppression and teardown safety",
+	"[ji4][b22][image-preview][scheduler][lifetime]") {
+	juce::ScopedJuceInitialiser_GUI juce_initialiser;
+	PreviewHarness harness;
+	const std::filesystem::path staged_path =
+		harness.paths.staged_content_root / "ji4-stale.jpg";
+	write_text(staged_path, "ji4-stale-source");
+	BlockingSourceImageDecodeService source_decoder{make_pixels(4U, 2U)};
+	shuba::ui::CatalogSessionState session;
+	shuba::ui::AppShellPhotoDisplayState photo_display;
+	shuba::ui::ImagePreviewCache cache;
+	shuba::localization::Localization localization =
+		shuba::localization::make_localization(
+			shuba::localization::Language::English, {});
+	std::uint32_t refresh_requests{};
+	{
+		shuba::ui::AppShellPreviewScheduler scheduler{
+			shuba::ui::AppShellPreviewScheduler::Dependencies{
+				.session				 = session,
+				.photo_display			 = photo_display,
+				.preview_cache			 = cache,
+				.internal_photo_codec	 = harness.codec,
+				.source_decode_service	 = source_decoder,
+				.jpeg_export_service	 = harness.jpeg,
+				.document_export_service = harness.document_export,
+				.localization			 = localization,
+				.refresh_content		 = [&] { ++refresh_requests; }}};
+		scheduler.enqueue_staged_preview(
+			make_pending_source(staged_path, "ji4-stale.jpg", 16U),
+			shuba::ui::ImagePreviewSize{.max_width = 2U, .max_height = 2U},
+			shuba::ui::ImagePreviewRequestPriority::Normal);
+		source_decoder.wait_until_started();
+		scheduler.invalidate_all();
+		source_decoder.release();
+		source_decoder.wait_until_completed(1U);
+		for (std::size_t attempt = 0U; attempt < 10U; ++attempt)
+			REQUIRE(
+				juce::MessageManager::getInstance()->runDispatchLoopUntil(1));
+		REQUIRE(cache.empty());
+		REQUIRE(refresh_requests == 0U);
+	}
+
+	std::uint32_t teardown_refreshes{};
+	std::unique_ptr<ContentRefreshCoalescer> coalescer =
+		std::make_unique<ContentRefreshCoalescer>(
+			85, [&] { ++teardown_refreshes; });
+	coalescer->request_refresh();
+	REQUIRE(coalescer->request_count() == 1U);
+	coalescer.reset();
+	REQUIRE(juce::MessageManager::getInstance()->runDispatchLoopUntil(100));
+	REQUIRE(teardown_refreshes == 0U);
+}
+
+TEST_CASE(
+	"JI.9 scheduler suspension releases only disposable preview state and "
+	"suppresses stale completion",
+	"[ji9][b22][image-preview][scheduler][lifecycle]") {
+	juce::ScopedJuceInitialiser_GUI juce_initialiser;
+	PreviewHarness harness;
+	const std::filesystem::path staged_path =
+		harness.paths.staged_content_root / "ji9-lifecycle-preview.jpg";
+	write_text(staged_path, "ji9-lifecycle-source");
+	BlockingSourceImageDecodeService source_decoder{make_pixels(4U, 2U)};
+	shuba::ui::CatalogSessionState session;
+	shuba::ui::AppShellPhotoDisplayState photo_display{
+		.result =
+			shuba::catalog::PhotoDisplayResult{
+				.status = shuba::catalog::PhotoDisplayStatus::Decoded},
+		.displayed_photo_id			   = make_id("ji9-display-preserved"),
+		.requested_display_photo_id	   = make_id("ji9-request-preserved"),
+		.pending_delete_photo_id	   = make_id("ji9-delete-preserved"),
+		.viewer_transform_photo_id	   = make_id("ji9-transform-preserved"),
+		.display_request_generation	   = 17U,
+		.viewer_rotation_quarter_turns = 2};
+	const shuba::catalog::PhotoDisplayStatus display_status_before_suspension =
+		photo_display.result.status;
+	const shuba::core::OperationResultCategory
+		display_category_before_suspension = photo_display.result.category;
+	const std::optional<shuba::core::StableIdentifier>
+		displayed_photo_before_suspension = photo_display.displayed_photo_id;
+	const std::optional<shuba::core::StableIdentifier>
+		requested_photo_before_suspension =
+			photo_display.requested_display_photo_id;
+	const std::optional<shuba::core::StableIdentifier>
+		pending_delete_before_suspension =
+			photo_display.pending_delete_photo_id;
+	const std::optional<shuba::core::StableIdentifier>
+		viewer_transform_before_suspension =
+			photo_display.viewer_transform_photo_id;
+	const std::uint64_t display_generation_before_suspension =
+		photo_display.display_request_generation;
+	const int rotation_before_suspension =
+		photo_display.viewer_rotation_quarter_turns;
+	shuba::ui::ImagePreviewCache cache;
+	const shuba::ui::ImagePreviewRequestIdentity cached_identity = identity(
+		"ji9-cached-preview",
+		shuba::ui::ImagePreviewSize{.max_width = 2U, .max_height = 2U});
+	REQUIRE(cache.put(cached_identity, make_pixels(1U, 1U)));
+	shuba::localization::Localization localization =
+		shuba::localization::make_localization(
+			shuba::localization::Language::English, {});
+	std::uint32_t refresh_requests{};
+	{
+		shuba::ui::AppShellPreviewScheduler scheduler{
+			shuba::ui::AppShellPreviewScheduler::Dependencies{
+				.session				 = session,
+				.photo_display			 = photo_display,
+				.preview_cache			 = cache,
+				.internal_photo_codec	 = harness.codec,
+				.source_decode_service	 = source_decoder,
+				.jpeg_export_service	 = harness.jpeg,
+				.document_export_service = harness.document_export,
+				.localization			 = localization,
+				.refresh_content		 = [&] { ++refresh_requests; }}};
+		scheduler.enqueue_staged_preview(
+			make_pending_source(staged_path, "ji9-lifecycle-preview.jpg", 16U),
+			shuba::ui::ImagePreviewSize{.max_width = 2U, .max_height = 2U},
+			shuba::ui::ImagePreviewRequestPriority::Normal);
+		source_decoder.wait_until_started();
+
+		scheduler.release_disposable_preview_memory();
+		scheduler.release_disposable_preview_memory();
+		REQUIRE(cache.empty());
+		REQUIRE(photo_display.result.status
+				== display_status_before_suspension);
+		REQUIRE(photo_display.result.category
+				== display_category_before_suspension);
+		REQUIRE(photo_display.displayed_photo_id
+				== displayed_photo_before_suspension);
+		REQUIRE(photo_display.requested_display_photo_id
+				== requested_photo_before_suspension);
+		REQUIRE(photo_display.pending_delete_photo_id
+				== pending_delete_before_suspension);
+		REQUIRE(photo_display.viewer_transform_photo_id
+				== viewer_transform_before_suspension);
+		REQUIRE(photo_display.display_request_generation
+				== display_generation_before_suspension);
+		REQUIRE(photo_display.viewer_rotation_quarter_turns
+				== rotation_before_suspension);
+
+		source_decoder.release();
+		source_decoder.wait_until_completed(1U);
+		for (std::size_t attempt = 0U; attempt < 10U; ++attempt)
+			REQUIRE(
+				juce::MessageManager::getInstance()->runDispatchLoopUntil(1));
+		REQUIRE(cache.empty());
+		REQUIRE(refresh_requests == 0U);
+		REQUIRE(photo_display.result.status
+				== display_status_before_suspension);
+		REQUIRE(photo_display.result.category
+				== display_category_before_suspension);
+		REQUIRE(photo_display.displayed_photo_id
+				== displayed_photo_before_suspension);
+		REQUIRE(photo_display.requested_display_photo_id
+				== requested_photo_before_suspension);
+		REQUIRE(photo_display.pending_delete_photo_id
+				== pending_delete_before_suspension);
+		REQUIRE(photo_display.viewer_transform_photo_id
+				== viewer_transform_before_suspension);
+		REQUIRE(photo_display.display_request_generation
+				== display_generation_before_suspension);
+		REQUIRE(photo_display.viewer_rotation_quarter_turns
+				== rotation_before_suspension);
+	}
+}
+
+TEST_CASE(
+	"JI.9 scheduler accepts a fresh preview request after suspension removes "
+	"an in-flight request",
+	"[ji9][b22][image-preview][scheduler][lifecycle]") {
+	juce::ScopedJuceInitialiser_GUI juce_initialiser;
+	PreviewHarness harness;
+	const std::filesystem::path staged_path =
+		harness.paths.staged_content_root / "ji9-fresh-preview.jpg";
+	write_text(staged_path, "ji9-fresh-source");
+	BlockingSourceImageDecodeService source_decoder{make_pixels(4U, 2U)};
+	shuba::ui::CatalogSessionState session;
+	shuba::ui::AppShellPhotoDisplayState photo_display;
+	shuba::ui::ImagePreviewCache cache;
+	shuba::localization::Localization localization =
+		shuba::localization::make_localization(
+			shuba::localization::Language::English, {});
+	std::uint32_t refresh_requests{};
+	{
+		shuba::ui::AppShellPreviewScheduler scheduler{
+			shuba::ui::AppShellPreviewScheduler::Dependencies{
+				.session				 = session,
+				.photo_display			 = photo_display,
+				.preview_cache			 = cache,
+				.internal_photo_codec	 = harness.codec,
+				.source_decode_service	 = source_decoder,
+				.jpeg_export_service	 = harness.jpeg,
+				.document_export_service = harness.document_export,
+				.localization			 = localization,
+				.refresh_content		 = [&] { ++refresh_requests; }}};
+		const shuba::ui::PendingPhotoSource source =
+			make_pending_source(staged_path, "ji9-fresh-preview.jpg", 16U);
+		const shuba::ui::ImagePreviewSize target_size{.max_width  = 2U,
+													  .max_height = 2U};
+		const shuba::ui::ImagePreviewRequestIdentity requested_identity =
+			shuba::ui::make_staged_photo_preview_identity(source, target_size);
+		scheduler.enqueue_staged_preview(
+			source, target_size,
+			shuba::ui::ImagePreviewRequestPriority::Normal);
+		source_decoder.wait_until_started();
+		scheduler.release_disposable_preview_memory();
+		source_decoder.release();
+		source_decoder.wait_until_completed(1U);
+		for (std::size_t attempt = 0U; attempt < 10U; ++attempt)
+			REQUIRE(
+				juce::MessageManager::getInstance()->runDispatchLoopUntil(1));
+		REQUIRE(cache.empty());
+
+		scheduler.enqueue_staged_preview(
+			source, target_size, shuba::ui::ImagePreviewRequestPriority::High);
+		pump_messages_until([&] { return cache.contains(requested_identity); });
+		REQUIRE(refresh_requests == 1U);
+	}
 }
 
 TEST_CASE("B22 preview cache evicts least recently used entries by count",
@@ -617,6 +1136,9 @@ TEST_CASE("B22 staged photo preview load scales and caches source pixels",
 	REQUIRE(cache.stats().entry_count == 1U);
 	REQUIRE(cache.stats().pixel_bytes == 24U);
 	REQUIRE(pending.ready_for_import());
+	REQUIRE(harness.source_decoder.last_requested_sizing().has_value());
+	REQUIRE(harness.source_decoder.last_requested_sizing()->maximum_longest_edge
+			== 3U);
 
 	harness.source_decoder.clear_decoded_pixels();
 	shuba::ui::StagedPhotoPreviewLoadResult cached =
@@ -633,6 +1155,70 @@ TEST_CASE("B22 staged photo preview load scales and caches source pixels",
 	REQUIRE_FALSE(cached.cache_stored);
 	REQUIRE(cached.pixels.has_value());
 	REQUIRE(cached.pixels->bytes == loaded.pixels->bytes);
+}
+
+TEST_CASE(
+	"JI.10 staged previews bound source decode by the existing preview long "
+	"edge",
+	"[ji10][b22][image-preview][load][decode-sizing]") {
+	struct PreviewCase final {
+		shuba::ui::ImagePreviewSize target_size;
+		std::uint32_t expected_longest_edge;
+		std::uint32_t expected_preview_width;
+		std::uint32_t expected_preview_height;
+	};
+
+	const std::array<PreviewCase, 3U> cases{{
+		{.target_size			  = {.max_width = 96U, .max_height = 96U},
+		 .expected_longest_edge	  = 96U,
+		 .expected_preview_width  = 96U,
+		 .expected_preview_height = 72U},
+		{.target_size			  = {.max_width = 128U, .max_height = 128U},
+		 .expected_longest_edge	  = 128U,
+		 .expected_preview_width  = 128U,
+		 .expected_preview_height = 96U},
+		{.target_size			  = {.max_width = 640U, .max_height = 420U},
+		 .expected_longest_edge	  = 640U,
+		 .expected_preview_width  = 320U,
+		 .expected_preview_height = 240U},
+	}};
+
+	PreviewHarness harness;
+	harness.source_decoder.set_decoded_pixels(make_pixels(320U, 240U));
+	for (std::size_t index = 0U; index < cases.size(); ++index) {
+		const PreviewCase& preview_case = cases[index];
+		const std::filesystem::path staged_path =
+			harness.paths.staged_content_root
+			/ ("ji10-preview-" + std::to_string(index) + ".jpg");
+		write_text(staged_path, "ji10-staged-source");
+		shuba::ui::ImagePreviewCache cache;
+
+		const shuba::ui::StagedPhotoPreviewLoadResult loaded =
+			shuba::ui::load_staged_photo_preview(
+				shuba::ui::StagedPhotoPreviewLoadRequest{
+					.source = make_pending_source(
+						staged_path, "ji10-preview.jpg", std::uint64_t{18}),
+					.identifiers = harness.identifiers,
+					.target_size = preview_case.target_size},
+				cache, harness.source_decoder, harness.progress,
+				harness.cancellation);
+
+		REQUIRE(loaded.succeeded());
+		REQUIRE(harness.source_decoder.last_requested_sizing().has_value());
+		REQUIRE(
+			harness.source_decoder.last_requested_sizing()->maximum_longest_edge
+			== preview_case.expected_longest_edge);
+		REQUIRE(loaded.metrics.has_value());
+		REQUIRE(loaded.metrics->decoded_width == 320U);
+		REQUIRE(loaded.metrics->decoded_height == 240U);
+		REQUIRE(loaded.metrics->preview_width
+				== preview_case.expected_preview_width);
+		REQUIRE(loaded.metrics->preview_height
+				== preview_case.expected_preview_height);
+		REQUIRE(loaded.pixels.has_value());
+		REQUIRE(loaded.pixels->width == preview_case.expected_preview_width);
+		REQUIRE(loaded.pixels->height == preview_case.expected_preview_height);
+	}
 }
 
 TEST_CASE(

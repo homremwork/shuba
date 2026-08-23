@@ -6,9 +6,12 @@
 #include "Platform/JuceAndroidServices.hpp"
 #include "Platform/JuceHashing.hpp"
 #include "Platform/JuceZipArchive.hpp"
+#include "UI/AppShellBackHandler.hpp"
+#include "UI/AppShellLifecycleHandler.hpp"
+#include "UI/AppShellOperationRunner.hpp"
 #include "UI/AppShellPhotoCoordinator.hpp"
-#include "UI/AppShellPhotoOperationRunner.hpp"
 #include "UI/AppShellState.hpp"
+#include "UI/CallbackLifetime.hpp"
 #include "UI/Screens/AppShellScreenRenderer.hpp"
 #include "UI/Session/BackupRecoveryTypes.hpp"
 #include "UI/Session/CatalogSessionState.hpp"
@@ -30,8 +33,8 @@ class AppShellPreviewScheduler;
 class AppShellRouteCoordinator;
 class AppShellEditCoordinator;
 
-class AppShellPhotoOperationWorkerServiceFactory final
-	: public PhotoOperationWorkerServiceFactory {
+class AppShellOperationWorkerServiceFactory final
+	: public ShellOperationWorkerServiceFactory {
 public:
 	[[nodiscard]] std::unique_ptr<platform::ContentStagingService>
 	make_content_staging_service() const override;
@@ -41,6 +44,12 @@ public:
 	make_source_decode_service() const override;
 	[[nodiscard]] std::unique_ptr<platform::InternalPhotoCodec>
 	make_internal_photo_codec() const override;
+	[[nodiscard]] std::unique_ptr<platform::JpegExportService>
+	make_jpeg_export_service() const override;
+	[[nodiscard]] std::unique_ptr<platform::ZipArchiveService>
+	make_zip_archive_service() const override;
+	[[nodiscard]] std::unique_ptr<platform::DocumentExportService>
+	make_document_export_service() const override;
 };
 
 class ShellIdentifierSource final : public core::IdentifierSource {
@@ -60,7 +69,9 @@ public:
 
 class AppShellComponent final
 	: public juce::Component
-	, private juce::Timer {
+	, private juce::Timer
+	, public AppShellBackHandler
+	, public AppShellLifecycleHandler {
 public:
 	struct PlatformServices final {
 		platform::InternalPhotoCodec& internal_photo_codec;
@@ -78,6 +89,9 @@ public:
 
 	void paint(juce::Graphics& graphics) override;
 	void resized() override;
+	[[nodiscard]] bool handle_system_back() override;
+	void handle_application_suspended() override;
+	void handle_application_resumed() override;
 
 private:
 	void refresh_all();
@@ -140,13 +154,16 @@ private:
 	void request_staged_preview_async(PendingPhotoSource source,
 									  ImagePreviewSize target_size,
 									  ImagePreviewRequestPriority priority);
-	void begin_photo_operation(PhotoOperationJobType job_type,
+	void begin_shell_operation(ShellOperationJobType job_type,
 							   std::uint64_t generation);
-	void complete_photo_operation();
-	void request_photo_operation_cancellation();
-	void apply_photo_operation_progress(std::uint64_t generation,
+	void complete_shell_operation();
+	void apply_shell_operation_failure(ShellOperationJobType job_type,
+									   std::uint64_t generation,
+									   std::string details);
+	void request_shell_operation_cancellation();
+	void apply_shell_operation_progress(std::uint64_t generation,
 										platform::ProgressEvent event);
-	void update_photo_operation_progress_surface();
+	void update_shell_operation_progress_surface();
 	[[nodiscard]] std::optional<juce::String> preview_failure_message(
 		const ImagePreviewRequestIdentity& identity) const;
 	void request_photo_display_async(core::StableIdentifier photo_id);
@@ -182,9 +199,9 @@ private:
 	std::string platform_name;
 	bool debug_demo_seed_enabled{};
 	core::OperationGate ui_operation_gate;
-	AppShellPhotoOperationWorkerServiceFactory photo_operation_worker_services;
-	AppShellPhotoOperationState photo_operation;
-	std::unique_ptr<AppShellPhotoOperationRunner> photo_operation_runner;
+	AppShellOperationWorkerServiceFactory shell_operation_worker_services;
+	AppShellOperationState shell_operation;
+	std::unique_ptr<AppShellOperationRunner> shell_operation_runner;
 	platform::JuceAndroidPhotoSelectionService photo_selection_service;
 	platform::JuceAndroidDocumentExportService document_export_service;
 	platform::JuceAndroidContentStagingService content_staging_service;
@@ -193,13 +210,15 @@ private:
 	platform::JuceJpegExportService jpeg_export_service;
 	platform::JuceZipArchiveService zip_archive_service;
 	platform::JuceAndroidDocumentImportService document_import_service;
+	std::shared_ptr<CallbackLifetimeToken> document_picker_callback_lifetime{
+		std::make_shared<CallbackLifetimeToken>()};
 	platform::InternalPhotoCodec& internal_photo_codec;
-	platform::ProgressCollector last_progress_events;
+	platform::ProgressCollector progress_events;
 	platform::NeverCancelledToken never_cancelled;
 	std::unique_ptr<AppShellPhotoCoordinator> photo_coordinator;
 	std::unique_ptr<AppShellScreenRenderer> screen_renderer;
 	std::unique_ptr<AppShellChromeComponent> chrome;
-	std::unique_ptr<PhotoOperationProgressComponent> photo_operation_progress;
+	std::unique_ptr<ShellOperationProgressComponent> shell_operation_progress;
 	juce::Viewport viewport;
 	juce::TextEditor item_name_editor;
 	juce::TextEditor item_category_editor;

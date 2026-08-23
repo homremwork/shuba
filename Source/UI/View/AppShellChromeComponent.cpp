@@ -76,10 +76,6 @@ AppShellChromeComponent::AppShellChromeComponent(
 		if (callbacks.storage_clear)
 			callbacks.storage_clear();
 	};
-	back_button.onClick = [this] {
-		if (callbacks.back)
-			callbacks.back();
-	};
 	form_cancel_button.onClick = [this] {
 		if (callbacks.form_cancel)
 			callbacks.form_cancel();
@@ -92,7 +88,7 @@ AppShellChromeComponent::AppShellChromeComponent(
 	for (juce::TextButton* button :
 		 {&catalog_clear_button, &catalog_filter_button,
 		  &catalog_apply_filters_button, &catalog_clear_filters_button,
-		  &catalog_close_filters_button, &storage_clear_button, &back_button,
+		  &catalog_close_filters_button, &storage_clear_button,
 		  &form_cancel_button, &form_save_button}) {
 		style_text_button(*button);
 		addAndMakeVisible(*button);
@@ -109,8 +105,6 @@ AppShellChromeComponent::AppShellChromeComponent(
 		juce_text(localization.text(localization::MessageId::Close)));
 	storage_clear_button.setButtonText(
 		juce_text(localization.text(localization::MessageId::StorageClear)));
-	back_button.setButtonText(
-		juce_text(localization.text(localization::MessageId::Back)));
 	form_cancel_button.setButtonText(
 		juce_text(localization.text(localization::MessageId::Cancel)));
 
@@ -159,14 +153,13 @@ void AppShellChromeComponent::update_model(const Model& model) {
 			: juce_text(localization.text(localization::MessageId::Save)));
 
 	const bool navigation_enabled =
-		!current_model.session_fatal && !current_model.photo_operation_active;
+		!current_model.session_fatal && !current_model.shell_operation_active;
 	catalog_nav_button.setEnabled(navigation_enabled);
 	storages_nav_button.setEnabled(navigation_enabled);
 	add_nav_button.setEnabled(navigation_enabled);
-	more_nav_button.setEnabled(!current_model.photo_operation_active);
-	back_button.setEnabled(!current_model.photo_operation_active);
-	form_cancel_button.setEnabled(!current_model.photo_operation_active);
-	form_save_button.setEnabled(!current_model.photo_operation_active);
+	more_nav_button.setEnabled(!current_model.shell_operation_active);
+	form_cancel_button.setEnabled(!current_model.shell_operation_active);
+	form_save_button.setEnabled(!current_model.shell_operation_active);
 
 	const juce::Colour selected_colour = accent_colour().withAlpha(0.65f);
 	const juce::Colour normal_colour   = panel_colour();
@@ -275,15 +268,6 @@ juce::Rectangle<int> AppShellChromeComponent::layout_shell(
 
 	const bool storages_visible =
 		current_model.destination == RootDestination::Storages;
-	const bool detail_visible =
-		current_model.destination == RootDestination::ItemDetail
-		|| current_model.destination == RootDestination::StorageDetail
-		|| current_model.destination == RootDestination::ItemForm
-		|| current_model.destination == RootDestination::StorageForm
-		|| current_model.destination == RootDestination::PhotoViewer
-		|| current_model.destination == RootDestination::BackupRecovery;
-	juce::Rectangle<int> controls =
-		catalog_visible ? juce::Rectangle<int>{} : bounds.removeFromTop(44);
 	catalog_search_editor.setVisible(
 		catalog_visible && !current_model.catalog_filter_panel_visible);
 	catalog_clear_button.setVisible(
@@ -300,17 +284,16 @@ juce::Rectangle<int> AppShellChromeComponent::layout_shell(
 		catalog_visible && current_model.catalog_filter_panel_visible);
 	storage_search_editor.setVisible(storages_visible);
 	storage_clear_button.setVisible(storages_visible);
-	back_button.setVisible(detail_visible);
 
-	if (catalog_visible) {
-		controls.removeFromTop(controls.getHeight());
-	} else if (storages_visible) {
+	if (storages_visible) {
+		juce::Rectangle<int> controls = bounds.removeFromTop(44);
 		storage_search_editor.setBounds(
 			controls.removeFromLeft(std::max(140, controls.getWidth() - 72))
 				.reduced(2));
 		storage_clear_button.setBounds(controls.reduced(2));
-	} else if (detail_visible) {
-		back_button.setBounds(controls.removeFromLeft(92).reduced(2));
+	} else {
+		storage_search_editor.setBounds(0, 0, 0, 0);
+		storage_clear_button.setBounds(0, 0, 0, 0);
 	}
 
 	bounds.removeFromTop(4);

@@ -114,7 +114,7 @@ No persisted thumbnail files exist. Preview work uses bounded in-memory cached, 
 
 ### Message-thread safety
 
-Pickers may return on the JUCE message thread, but their completion must only capture shallow source descriptors. Provider metadata lookup, stream opening, staging, hashing, decoding, encoding, and archive work belong on owned workers. [`AppShellPhotoOperationRunner`](../Source/UI/AppShellPhotoOperationRunner.hpp:1) serializes photo jobs, joins on teardown, guards operation generations, and delivers a coalesced latest-progress event.
+Pickers may return on the JUCE message thread, but their completion must only capture shallow source descriptors. Provider metadata lookup, stream opening, staging, hashing, decoding, encoding, archive work, and document copy belong on the owned shell worker. [`AppShellOperationRunner`](../Source/UI/AppShellOperationRunner.hpp:83) serializes direct/pending photo, JPEG-export, backup-export, backup-import, and confirmed-replacement jobs; constructs required platform services per job; joins on teardown; guards operation generations; and delivers a coalesced latest-progress event.
 
 The persistent progress component owned by [`AppShellComponent`](../Source/UI/AppShell.hpp:202) must update in place. Progress events must not trigger a full screen/content reconstruction for each copy chunk. These rules prevent the Android input starvation previously exposed by large photo work.
 

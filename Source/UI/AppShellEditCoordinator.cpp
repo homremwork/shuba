@@ -38,8 +38,8 @@ AppShellEditCoordinator::AppShellEditCoordinator(Dependencies dependencies)
 	, source_fingerprint_service(dependencies.source_fingerprint_service)
 	, source_decode_service(dependencies.source_decode_service)
 	, internal_photo_codec(dependencies.internal_photo_codec)
-	, photo_operation_runner(dependencies.photo_operation_runner)
-	, photo_operation_state(dependencies.photo_operation_state)
+	, shell_operation_runner(dependencies.shell_operation_runner)
+	, shell_operation_state(dependencies.shell_operation_state)
 	, localization(dependencies.localization)
 	, item_name_editor(dependencies.editors.item_name_editor)
 	, item_category_editor(dependencies.editors.item_category_editor)
@@ -62,10 +62,10 @@ AppShellEditCoordinator::AppShellEditCoordinator(Dependencies dependencies)
 		  std::move(dependencies.invalidate_all_previews))
 	, refresh_all_handler(std::move(dependencies.refresh_all))
 	, refresh_content_handler(std::move(dependencies.refresh_content))
-	, begin_photo_operation_handler(
-		  std::move(dependencies.begin_photo_operation))
-	, complete_photo_operation_handler(
-		  std::move(dependencies.complete_photo_operation)) {}
+	, begin_shell_operation_handler(
+		  std::move(dependencies.begin_shell_operation))
+	, complete_shell_operation_handler(
+		  std::move(dependencies.complete_shell_operation)) {}
 
 void AppShellEditCoordinator::open_new_item_form(
 	std::optional<core::StableIdentifier> storage_id) {
@@ -136,9 +136,9 @@ void AppShellEditCoordinator::set_storage_pending_photo_as_main(
 }
 
 void AppShellEditCoordinator::save_item_form() {
-	if (photo_operation_state.active()) {
+	if (shell_operation_state.active()) {
 		feedback.photo_message =
-			localization.text(localization::MessageId::PhotoOperationBusy);
+			localization.text(localization::MessageId::ShellOperationBusy);
 		if (refresh_all_handler)
 			refresh_all_handler();
 		return;
@@ -173,8 +173,8 @@ void AppShellEditCoordinator::save_item_form() {
 		return;
 	}
 
-	const AppShellPhotoOperationRunner::Submission submission =
-		photo_operation_runner.submit_item_save(
+	const AppShellOperationRunner::Submission submission =
+		shell_operation_runner.submit_item_save(
 			ItemSaveWithPendingPhotosRequest{
 				.current_session	 = session,
 				.identifiers		 = identifiers,
@@ -188,11 +188,15 @@ void AppShellEditCoordinator::save_item_form() {
 				.pending_sources	 = item_form.pending_photos,
 				.main_pending_source_index =
 					item_form.photo_deck.staged_main_index},
-			[this](AppShellPhotoOperationRunner::Result operation_result) {
-		photo_operation_state.state = PhotoOperationState::Applying;
+			[this](AppShellOperationRunner::CompletionResult completion) {
+		if (shell_operation_state.generation != completion.generation
+			|| shell_operation_state.job_type != completion.job_type) {
+			return;
+		}
+		shell_operation_state.state = ShellOperationState::Applying;
 		ItemSaveWithPendingPhotosResult result =
 			std::get<ItemSaveWithPendingPhotosResult>(
-				std::move(operation_result));
+				std::move(completion.value));
 		if (result.warning_acknowledgement_required())
 			item_form.draft.warning_acknowledged = true;
 		if (result.warning_acknowledgement_required()
@@ -203,28 +207,28 @@ void AppShellEditCoordinator::save_item_form() {
 		if (result.item_saved())
 			item_form.draft.existing_id = result.save_result.saved_record_id;
 		apply_item_save_with_pending_photos_result(std::move(result));
-		if (complete_photo_operation_handler)
-			complete_photo_operation_handler();
+		if (complete_shell_operation_handler)
+			complete_shell_operation_handler();
 	});
 	if (!submission.accepted) {
 		feedback.photo_message =
-			localization.text(localization::MessageId::PhotoOperationBusy);
+			localization.text(localization::MessageId::ShellOperationBusy);
 		if (refresh_all_handler)
 			refresh_all_handler();
 		return;
 	}
 	prepare_item_save_feedback_for_submission();
-	if (begin_photo_operation_handler) {
-		begin_photo_operation_handler(
-			PhotoOperationJobType::ItemSaveWithPendingPhotos,
+	if (begin_shell_operation_handler) {
+		begin_shell_operation_handler(
+			ShellOperationJobType::ItemSaveWithPendingPhotos,
 			submission.generation);
 	}
 }
 
 void AppShellEditCoordinator::save_storage_form() {
-	if (photo_operation_state.active()) {
+	if (shell_operation_state.active()) {
 		feedback.photo_message =
-			localization.text(localization::MessageId::PhotoOperationBusy);
+			localization.text(localization::MessageId::ShellOperationBusy);
 		if (refresh_all_handler)
 			refresh_all_handler();
 		return;
@@ -254,8 +258,8 @@ void AppShellEditCoordinator::save_storage_form() {
 		return;
 	}
 
-	const AppShellPhotoOperationRunner::Submission submission =
-		photo_operation_runner.submit_storage_save(
+	const AppShellOperationRunner::Submission submission =
+		shell_operation_runner.submit_storage_save(
 			StorageSaveWithPendingPhotosRequest{
 				.current_session	 = session,
 				.identifiers		 = identifiers,
@@ -269,11 +273,15 @@ void AppShellEditCoordinator::save_storage_form() {
 				.pending_sources	 = storage_form.pending_photos,
 				.main_pending_source_index =
 					storage_form.photo_deck.staged_main_index},
-			[this](AppShellPhotoOperationRunner::Result operation_result) {
-		photo_operation_state.state = PhotoOperationState::Applying;
+			[this](AppShellOperationRunner::CompletionResult completion) {
+		if (shell_operation_state.generation != completion.generation
+			|| shell_operation_state.job_type != completion.job_type) {
+			return;
+		}
+		shell_operation_state.state = ShellOperationState::Applying;
 		StorageSaveWithPendingPhotosResult result =
 			std::get<StorageSaveWithPendingPhotosResult>(
-				std::move(operation_result));
+				std::move(completion.value));
 		if (result.warning_acknowledgement_required())
 			storage_form.archive_warning_acknowledged = true;
 		if (result.warning_acknowledgement_required()
@@ -284,19 +292,19 @@ void AppShellEditCoordinator::save_storage_form() {
 		if (result.storage_saved())
 			storage_form.draft.existing_id = result.save_result.saved_record_id;
 		apply_storage_save_with_pending_photos_result(std::move(result));
-		if (complete_photo_operation_handler)
-			complete_photo_operation_handler();
+		if (complete_shell_operation_handler)
+			complete_shell_operation_handler();
 	});
 	if (!submission.accepted) {
 		feedback.photo_message =
-			localization.text(localization::MessageId::PhotoOperationBusy);
+			localization.text(localization::MessageId::ShellOperationBusy);
 		if (refresh_all_handler)
 			refresh_all_handler();
 		return;
 	}
-	if (begin_photo_operation_handler) {
-		begin_photo_operation_handler(
-			PhotoOperationJobType::StorageSaveWithPendingPhotos,
+	if (begin_shell_operation_handler) {
+		begin_shell_operation_handler(
+			ShellOperationJobType::StorageSaveWithPendingPhotos,
 			submission.generation);
 	}
 }

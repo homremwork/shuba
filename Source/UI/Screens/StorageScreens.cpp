@@ -64,7 +64,7 @@ void AppShellScreenRenderer::build_storages_content() {
 				localization.text(localization::MessageId::TitleAddStorage)),
 			42);
 		add_storage.onClick = [this] { open_new_storage_form(std::nullopt); };
-		add_storage.setEnabled(!photo_operation_state.active());
+		add_storage.setEnabled(!shell_operation_state.active());
 		return;
 	}
 	std::size_t preview_candidate_count{};
@@ -85,7 +85,7 @@ void AppShellScreenRenderer::build_storages_content() {
 }
 
 void AppShellScreenRenderer::build_item_detail_content() {
-	const bool mutation_allowed = !photo_operation_state.active();
+	const bool mutation_allowed = !shell_operation_state.active();
 	if (!route.selected_item_id) {
 		content->add_label(
 			juce_text(localization.text(
@@ -201,7 +201,7 @@ void AppShellScreenRenderer::build_item_detail_content() {
 }
 
 void AppShellScreenRenderer::build_storage_detail_content() {
-	const bool mutation_allowed = !photo_operation_state.active();
+	const bool mutation_allowed = !shell_operation_state.active();
 	if (!route.selected_storage_id) {
 		content->add_label(
 			juce_text(localization.text(

@@ -26,7 +26,7 @@ function shuba_probe_write_provenance --argument-names shuba_path shuba_generate
             (shuba_contract_get app.version_code) $shuba_probe_version_code
         for shuba_key in android.min_sdk android.target_sdk android.abi android.ndk_version \
             android.build_tools_version android.cmake_version android.gradle_version \
-            android.gradle_plugin_version android.command_line_tools_version
+            android.gradle_plugin_version android.command_line_tools_versions
             printf '%s=%s\n' $shuba_key (shuba_contract_get $shuba_key)
         end
         printf 'tool.java.home=%s\ntool.java.version=%s\ntool.java.sha256=%s\n' \

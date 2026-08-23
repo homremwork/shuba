@@ -7,6 +7,11 @@ juce::String juce_text(std::string_view text) {
 	return juce::String::fromUTF8(text.data(), static_cast<int>(text.size()));
 }
 
+float shaped_text_width(const juce::String& text,
+						const juce::FontOptions& font_options) {
+	return juce::TextLayout::getStringWidth(juce::Font{font_options}, text);
+}
+
 juce::Colour background_colour() {
 	return juce::Colour::fromRGB(17, 23, 32);
 }

@@ -243,10 +243,12 @@ function shuba_generated_check_file_inventories --argument-names shuba_root shub
 
     shuba_generated_require_exact_inventory $shuba_root/JuceLibraryCode $shuba_state_root/juce-files \
         BinaryData.cpp BinaryData.h JuceHeader.h ReadMe.txt include_juce_core.cpp \
-        include_juce_core.mm include_juce_core_CompilationTime.cpp include_juce_cryptography.cpp \
+        include_juce_core.mm include_juce_core_CompilationTime.cpp include_juce_core_zlib.c include_juce_cryptography.cpp \
         include_juce_cryptography.mm include_juce_data_structures.cpp include_juce_data_structures.mm \
         include_juce_events.cpp include_juce_events.mm include_juce_graphics.cpp \
-        include_juce_graphics.mm include_juce_graphics_Harfbuzz.cpp \
+        include_juce_graphics.mm include_juce_graphics_Harfbuzz.cpp include_juce_graphics_libjpg_1.c \
+        include_juce_graphics_libjpg_2.c include_juce_graphics_libjpg_3.c include_juce_graphics_libpng.c \
+        include_juce_graphics_lunasvg.c \
         include_juce_graphics_Sheenbidi.c include_juce_gui_basics.cpp include_juce_gui_basics.mm \
         include_juce_gui_basics_2.cpp include_juce_gui_basics_3.cpp include_juce_gui_basics_4.cpp \
         include_juce_gui_basics_5.cpp; or return 1
@@ -352,7 +354,7 @@ function shuba_generated_check_native_cmake --argument-names shuba_root shuba_st
         'cmake_minimum_required(VERSION 3.22)|1' \
         'JUCE_ANDROID_API_VERSION='(shuba_contract_get android.target_sdk)'|1' \
         'JUCE_APP_VERSION='(shuba_contract_get app.version_name)'|3' \
-        'JUCE_PROJUCER_VERSION=0x8000d|2' \
+        'JUCE_PROJUCER_VERSION=0x90001|2' \
         '[[-DNDEBUG=1]]|1' \
         '[[-DDEBUG=1]]|1' \
         'if(JUCE_BUILD_CONFIGURATION MATCHES "RELEASE")|1'
@@ -378,6 +380,12 @@ function shuba_generated_check_native_cmake --argument-names shuba_root shuba_st
         ../../../build/libjxl-android-arm64/third_party/brotli \
         ../../../build/libjxl-android-arm64/third_party/highway
         shuba_generated_require_fixed_count $shuba_cmake "\"$shuba_path\"" 22 "generated library path inventory is wrong for $shuba_path"; or return 1
+    end
+    for shuba_wrapper in \
+        include_juce_core_zlib.c include_juce_graphics_libjpg_1.c include_juce_graphics_libjpg_2.c \
+        include_juce_graphics_libjpg_3.c include_juce_graphics_libpng.c include_juce_graphics_lunasvg.c \
+        include_juce_graphics_Sheenbidi.c
+        shuba_generated_require_fixed_count $shuba_cmake "\"../../../JuceLibraryCode/$shuba_wrapper\"" 1 "generated native C source inventory is wrong for $shuba_wrapper"; or return 1
     end
     sed -n 's/^[[:space:]]*\[\[\([A-Za-z0-9_]*\)\]\][[:space:]]*$/\1/p' $shuba_cmake >$shuba_state_root/link-libraries
     if test (cat $shuba_state_root/link-libraries | string join ,) != 'jxl_dec,jxl,jxl_threads,jxl_cms,brotlienc,brotlidec,brotlicommon,hwy,jnigraphics,m'
@@ -494,7 +502,7 @@ function shuba_validate_generated_android --argument-names shuba_root
     if test $shuba_validation_status -ne 0
         return $shuba_validation_status
     end
-    printf 'generated Android check: %s %s, API %s, %s, JUCE 7c9d3783b127, %s source files, zero requested permissions, and generated resources are consistent.\n' \
+    printf 'generated Android check: %s %s, API %s, %s, JUCE e18f7f506c0b, %s source files, zero requested permissions, and generated resources are consistent.\n' \
         (shuba_contract_get app.name) \
         (shuba_contract_get app.version_name) \
         (shuba_contract_get android.target_sdk) \

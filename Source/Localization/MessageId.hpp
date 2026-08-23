@@ -239,10 +239,10 @@ enum class MessageId : std::uint16_t {
 	ScreenListingEmpty,
 	ScreenFinanceEmpty,
 	WorkflowPreviewUnavailable,
-	PhotoOperationBusy,
-	PhotoOperationHeading,
-	PhotoOperationCancel,
-	PhotoOperationCancelling,
-	PhotoOperationFailed,
+	ShellOperationBusy,
+	ShellOperationHeading,
+	ShellOperationCancel,
+	ShellOperationCancelling,
+	ShellOperationFailed,
 };
 }	 // namespace shuba::localization

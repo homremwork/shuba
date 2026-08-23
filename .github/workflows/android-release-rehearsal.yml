@@ -46,13 +46,18 @@ jobs:
         run: |
           echo "JAVA_HOME=$JAVA_HOME_17_X64" >>"$GITHUB_ENV"
           echo "$JAVA_HOME_17_X64/bin" >>"$GITHUB_PATH"
-      - name: Install exact Android SDK CMake
-        shell: bash
+      - name: Install exact Android SDK CMake with contract-selected tools
+        shell: fish {0}
         run: |
-          set -euo pipefail
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
-          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "cmake;3.22.1"
-          test -x "$ANDROID_SDK_ROOT/cmake/3.22.1/bin/cmake"
+          source tools/release/lib/core.fish
+          source tools/release/lib/release-contract.fish
+          source tools/release/lib/android-toolchain.fish
+          shuba_contract_load release/release.properties
+          set -gx shuba_android_sdk_root (shuba_resolve_android_sdk_root)
+          set -l sdkmanager (shuba_resolve_android_command_line_tools_root)/bin/sdkmanager
+          yes | $sdkmanager --licenses >/dev/null
+          $sdkmanager "cmake;3.22.1"
+          test -x "$shuba_android_sdk_root/cmake/3.22.1/bin/cmake"
       - name: Validate Android command-line tools and SDK contract
         run: tools/release/check-release-contract.fish
       - name: Calculate Android dependency fingerprints

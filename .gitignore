@@ -159,6 +159,8 @@ CMakeUserPresets.json
 .idea/
 /build/
 /build-host/
+/build-localization-diagnosis/
+/build-r05-host/
 /cmake-build-*/
 /Builds/Android/
 /JuceLibraryCode/

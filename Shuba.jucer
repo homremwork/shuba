@@ -144,10 +144,18 @@
               file="Source/UI/AppShell.cpp"/>
         <FILE id="appshellhpp" name="AppShell.hpp" compile="0" resource="0"
               file="Source/UI/AppShell.hpp"/>
-        <FILE id="appshellphotooperationrunnercpp" name="AppShellPhotoOperationRunner.cpp"
-              compile="1" resource="0" file="Source/UI/AppShellPhotoOperationRunner.cpp"/>
-        <FILE id="appshellphotooperationrunnerhpp" name="AppShellPhotoOperationRunner.hpp"
-              compile="0" resource="0" file="Source/UI/AppShellPhotoOperationRunner.hpp"/>
+        <FILE id="appshellbackhandlerhpp" name="AppShellBackHandler.hpp" compile="0"
+              resource="0" file="Source/UI/AppShellBackHandler.hpp"/>
+        <FILE id="appshelllifecyclehandlerhpp" name="AppShellLifecycleHandler.hpp"
+              compile="0" resource="0" file="Source/UI/AppShellLifecycleHandler.hpp"/>
+        <FILE id="appshellbacknavigationhpp" name="AppShellBackNavigation.hpp"
+              compile="0" resource="0" file="Source/UI/AppShellBackNavigation.hpp"/>
+        <FILE id="appshelloperationrunnercpp" name="AppShellOperationRunner.cpp"
+              compile="1" resource="0" file="Source/UI/AppShellOperationRunner.cpp"/>
+        <FILE id="appshelloperationrunnerhpp" name="AppShellOperationRunner.hpp"
+              compile="0" resource="0" file="Source/UI/AppShellOperationRunner.hpp"/>
+        <FILE id="callbacklifetimehpp" name="CallbackLifetime.hpp" compile="0"
+              resource="0" file="Source/UI/CallbackLifetime.hpp"/>
         <FILE id="appshellpreviewschedulercpp" name="AppShellPreviewScheduler.cpp"
               compile="1" resource="0" file="Source/UI/AppShellPreviewScheduler.cpp"/>
         <FILE id="appshellpreviewschedulerhpp" name="AppShellPreviewScheduler.hpp"
@@ -188,6 +196,10 @@
                   file="Source/UI/View/Primitives/TouchGuards.cpp"/>
             <FILE id="touchguardshpp" name="TouchGuards.hpp" compile="0" resource="0"
                   file="Source/UI/View/Primitives/TouchGuards.hpp"/>
+            <FILE id="photoviewerpinchgesturecpp" name="PhotoViewerPinchGesture.cpp"
+                  compile="1" resource="0" file="Source/UI/View/Primitives/PhotoViewerPinchGesture.cpp"/>
+            <FILE id="photoviewerpinchgesturehpp" name="PhotoViewerPinchGesture.hpp"
+                  compile="0" resource="0" file="Source/UI/View/Primitives/PhotoViewerPinchGesture.hpp"/>
             <FILE id="rowscpp" name="Rows.cpp" compile="1" resource="0" file="Source/UI/View/Primitives/Rows.cpp"/>
             <FILE id="rowshpp" name="Rows.hpp" compile="0" resource="0" file="Source/UI/View/Primitives/Rows.hpp"/>
             <FILE id="previewscpp" name="Previews.cpp" compile="1" resource="0"
@@ -282,7 +294,7 @@
                    androidOtherPermissions="" headerPath="../../Source;../../third_party/glaze/include;../../third_party/spiritless_po/include;../../build/libjxl-android-arm64/lib/include"
                    extraDefs="JXL_STATIC_DEFINE=1 JXL_THREADS_STATIC_DEFINE=1 JXL_CMS_STATIC_DEFINE=1 HWY_STATIC_DEFINE=1"
                    externalLibraries="jxl_dec;jxl;jxl_threads;jxl_cms;brotlienc;brotlidec;brotlicommon;hwy;jnigraphics;m"
-                   androidCustomAppBuildGradleContent="    ndkVersion = &quot;29.0.14206865&quot;&#10;    buildToolsVersion = &quot;35.0.1&quot;&#10;"
+                   gradleVersion="8.13" androidPluginVersion="8.13.2" androidCustomAppBuildGradleContent="    ndkVersion = &quot;29.0.14206865&quot;&#10;    buildToolsVersion = &quot;35.0.1&quot;&#10;"
                    smallIcon="appiconsmall01" bigIcon="appiconlarge01" androidAdditionalResourceFolders="Assets/Android/res">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="1" name="Debug" targetName="Shuba" androidArchitectures="arm64-v8a"

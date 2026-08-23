@@ -70,7 +70,7 @@ constexpr std::uint64_t mebibyte{kibibyte * 1024U};
 }
 }	 // namespace
 
-PhotoOperationProgressComponent::PhotoOperationProgressComponent(
+ShellOperationProgressComponent::ShellOperationProgressComponent(
 	std::function<void()> cancel_handler) {
 	setOpaque(true);
 	heading_label.setJustificationType(juce::Justification::centredLeft);
@@ -90,8 +90,8 @@ PhotoOperationProgressComponent::PhotoOperationProgressComponent(
 	setVisible(false);
 }
 
-void PhotoOperationProgressComponent::update_model(
-	PhotoOperationProgressModel model_value) {
+void ShellOperationProgressComponent::update_model(
+	ShellOperationProgressModel model_value) {
 	model = std::move(model_value);
 	heading_label.setText(model.heading, juce::dontSendNotification);
 	summary_label.setText(model.summary, juce::dontSendNotification);
@@ -103,7 +103,7 @@ void PhotoOperationProgressComponent::update_model(
 	repaint();
 }
 
-void PhotoOperationProgressComponent::resized() {
+void ShellOperationProgressComponent::resized() {
 	juce::Rectangle<int> bounds	 = getLocalBounds().reduced(12, 8);
 	juce::Rectangle<int> heading = bounds.removeFromTop(28);
 	if (model.cancellation_available) {
@@ -116,7 +116,7 @@ void PhotoOperationProgressComponent::resized() {
 	summary_label.setBounds(bounds);
 }
 
-void PhotoOperationProgressComponent::paint(juce::Graphics& graphics) {
+void ShellOperationProgressComponent::paint(juce::Graphics& graphics) {
 	graphics.fillAll(background_colour());
 	draw_card_background(graphics, getLocalBounds(),
 						 accent_colour().withAlpha(0.34f), false);

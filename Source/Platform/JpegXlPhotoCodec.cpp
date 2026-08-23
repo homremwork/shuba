@@ -118,7 +118,7 @@ template<class Value>
 	JxlDecoderCloseInput(decoder.get());
 
 	JxlPixelFormat pixel_format{4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
-	JxlBasicInfo basic_info;  // Initialized by JxlDecoderGetBasicInfo.
+	JxlBasicInfo basic_info;	// Initialized by JxlDecoderGetBasicInfo.
 	std::vector<std::uint8_t> pixels;
 	bool have_basic_info{};
 
@@ -319,7 +319,7 @@ JpegXlInternalPhotoCodec::encode_internal_photo(
 			"JPEG XL encoder parallel runner setup failed.");
 	}
 
-	JxlBasicInfo basic_info;  // Initialized by JxlEncoderInitBasicInfo.
+	JxlBasicInfo basic_info;	// Initialized by JxlEncoderInitBasicInfo.
 	JxlEncoderInitBasicInfo(&basic_info);
 	basic_info.xsize					= request.pixels.width;
 	basic_info.ysize					= request.pixels.height;
@@ -335,7 +335,8 @@ JpegXlInternalPhotoCodec::encode_internal_photo(
 			"JPEG XL encoder basic image information setup failed.");
 	}
 
-	JxlColorEncoding color_encoding;  // Initialized by JxlColorEncodingSetToSRGB.
+	JxlColorEncoding
+		color_encoding;	   // Initialized by JxlColorEncodingSetToSRGB.
 	JxlColorEncodingSetToSRGB(&color_encoding, JXL_FALSE);
 	if (JxlEncoderSetColorEncoding(encoder.get(), &color_encoding)
 		!= JXL_ENC_SUCCESS) {

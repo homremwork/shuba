@@ -59,7 +59,7 @@
       "name": "ci-asan",
       "configurePreset": "ci-asan",
       "jobs": 2,
-      "targets": ["shuba_headless_tests", "shuba_jpeg_xl_codec_tests"]
+      "targets": ["shuba_headless_tests", "shuba_jpeg_xl_codec_tests", "shuba_asan_lsan_policy_probe"]
     },
     {
       "name": "ci-static",

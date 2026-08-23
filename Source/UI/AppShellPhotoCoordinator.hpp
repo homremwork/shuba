@@ -5,19 +5,17 @@
 #include "Core/Identifier.hpp"
 #include "Core/OperationGate.hpp"
 #include "Platform/PlatformServices.hpp"
-#include "UI/AppShellPhotoOperationRunner.hpp"
+#include "UI/AppShellOperationRunner.hpp"
 #include "UI/AppShellState.hpp"
+#include "UI/CallbackLifetime.hpp"
 #include "UI/Session/CatalogSessionState.hpp"
 #include "UI/Session/ImagePreviewSession.hpp"
 
-#include <atomic>
-#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <vector>
 
@@ -48,8 +46,8 @@ public:
 		platform::InternalPhotoCodec& internal_photo_codec;
 		platform::ProgressCollector& progress_events;
 		platform::CancellationToken& cancellation_token;
-		AppShellPhotoOperationRunner& photo_operation_runner;
-		AppShellPhotoOperationState& photo_operation_state;
+		AppShellOperationRunner& shell_operation_runner;
+		AppShellOperationState& shell_operation_state;
 		localization::Localization& localization;
 		std::function<void()> invalidate_all_previews;
 		std::function<void(const core::StableIdentifier&)>
@@ -57,9 +55,9 @@ public:
 		std::function<void(const std::filesystem::path&)>
 			invalidate_staged_photo_preview;
 		std::function<void()> refresh_all;
-		std::function<void(PhotoOperationJobType, std::uint64_t)>
-			begin_photo_operation;
-		std::function<void()> complete_photo_operation;
+		std::function<void(ShellOperationJobType, std::uint64_t)>
+			begin_shell_operation;
+		std::function<void()> complete_shell_operation;
 	};
 
 	explicit AppShellPhotoCoordinator(Dependencies dependencies);
@@ -89,14 +87,6 @@ public:
 	void remove_storage_pending_photo(std::size_t pending_photo_index);
 
 private:
-	struct LifetimeToken final {
-		std::atomic_bool alive{true};
-		std::atomic_uint32_t callback_count{};
-		std::mutex mutex;
-		std::condition_variable callbacks_finished;
-	};
-	class CallbackLifetimeLease;
-
 	enum class PendingPhotoDraftTarget : std::uint8_t {
 		Item,
 		Storage,
@@ -106,9 +96,9 @@ private:
 	void apply_pending_photo_staging_result(PendingPhotoStagingResult result,
 											PendingPhotoDraftTarget target);
 	void apply_busy_result();
-	void begin_photo_operation(PhotoOperationJobType job_type,
+	void begin_shell_operation(ShellOperationJobType job_type,
 							   std::uint64_t generation);
-	void complete_photo_operation();
+	void complete_shell_operation();
 	[[nodiscard]] std::vector<PendingPhotoSource> pending_sources_for(
 		PendingPhotoDraftTarget target) const;
 	[[nodiscard]] std::optional<domain::PhotoOwner> owner_for_pending_target(
@@ -143,8 +133,8 @@ private:
 	platform::InternalPhotoCodec& internal_photo_codec;
 	platform::ProgressCollector& progress_events;
 	platform::CancellationToken& cancellation_token;
-	AppShellPhotoOperationRunner& photo_operation_runner;
-	AppShellPhotoOperationState& photo_operation_state;
+	AppShellOperationRunner& shell_operation_runner;
+	AppShellOperationState& shell_operation_state;
 	localization::Localization& localization;
 	std::function<void()> invalidate_all_previews_handler;
 	std::function<void(const core::StableIdentifier&)>
@@ -152,10 +142,10 @@ private:
 	std::function<void(const std::filesystem::path&)>
 		invalidate_staged_photo_preview_handler;
 	std::function<void()> refresh_all_handler;
-	std::function<void(PhotoOperationJobType, std::uint64_t)>
-		begin_photo_operation_handler;
-	std::function<void()> complete_photo_operation_handler;
-	std::shared_ptr<LifetimeToken> lifetime_token{
-		std::make_shared<LifetimeToken>()};
+	std::function<void(ShellOperationJobType, std::uint64_t)>
+		begin_shell_operation_handler;
+	std::function<void()> complete_shell_operation_handler;
+	std::shared_ptr<CallbackLifetimeToken> lifetime_token{
+		std::make_shared<CallbackLifetimeToken>()};
 };
 }	 // namespace shuba::ui

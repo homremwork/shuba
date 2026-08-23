@@ -21,7 +21,7 @@ The CI lanes deliberately separate responsibilities:
 | `Lint and release-tool tests` | Validates workflow/action pinning and runs hermetic black-box/mutation tests for release tooling. |
 | `Host libjxl cache` | Builds or revalidates the required host libjxl 0.12 prefix from the exact recursive source graph. |
 | `GCC host tests and localization` | Configures the `ci-host` preset, builds tests, validates the source/POT/PO localization contract, and runs all registered CTest cases. |
-| `GCC AddressSanitizer` | Uses the isolated `ci-asan` preset and leak-detection settings. |
+| `GCC AddressSanitizer` | Uses the isolated `ci-asan` preset with leak detection enabled. The sole documented LeakSanitizer exception is the ASAN-only [`lsan-juce-fontconfig.supp`](../tools/ci/lsan-juce-fontconfig.supp) rule for JUCE 9's Linux FreeType/fontconfig fallback static state; an expected-failure control confirms unrelated project leaks still fail. |
 | `Clang-Tidy and Cppcheck` | Configures the generated-resource/compilation database needed for the project static-check targets. |
 
 Host JPEG XL coverage must not silently use an older distribution libjxl package. [`build-libjxl-host.fish`](../tools/ci/build-libjxl-host.fish:1) owns a fingerprinted, reconstructible prefix validated by every consumer.
@@ -37,7 +37,7 @@ Host JPEG XL coverage must not silently use an older distribution libjxl package
 
 The first secret is the base64-encoded PKCS12 release keystore. The workflow decodes it only late in the job to a mode-0600 path under `RUNNER_TEMP`, exports that temporary path as `SHUBA_ANDROID_KEYSTORE_FILE`, and removes it unconditionally. Secrets, private keys, generated signing properties, `dist`, and password-bearing data must never enter caches, artifacts other than the vetted public-safe packet, or logs.
 
-The rehearsal selects JDK 17, installs only the exact missing Android CMake version, validates the release contract, restores/revalidates fingerprinted native dependencies, regenerates and validates the disposable JUCE Android project, runs generated-project mutation tests, builds the signed candidate through [`build-android-release.fish`](../tools/release/build-android-release.fish:12), validates its real artifact packet, then uploads the exact final four-file directory as a private artifact retained for seven days.
+The rehearsal selects JDK 17, resolves the release-contract-selected Android command-line-tools revision, and uses that exact `sdkmanager` to install only the missing Android CMake version. It then validates the release contract, restores/revalidates fingerprinted native dependencies, regenerates and validates the disposable JUCE Android project, runs generated-project mutation tests, builds the signed candidate through [`build-android-release.fish`](../tools/release/build-android-release.fish:12), validates its real artifact packet, then uploads the exact final four-file directory as a private artifact retained for seven days.
 
 The rehearsal does **not** create or move tags, create a GitHub Release, publish to a channel/store, update a deployment, or decide that a candidate is accepted. It is a controlled build/rehearsal step; Android/device acceptance and publication remain governed by [`docs/release.md`](release.md).
 

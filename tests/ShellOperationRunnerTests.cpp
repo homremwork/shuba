@@ -1,5 +1,8 @@
+#include "Catalog/PhotoExport.hpp"
+#include "Platform/JuceZipArchive.hpp"
 #include "Platform/LinuxFakes.hpp"
-#include "UI/AppShellPhotoOperationRunner.hpp"
+#include "UI/AppShellOperationRunner.hpp"
+#include "UI/Session/BackupRecoverySession.hpp"
 #include "UI/Session/CatalogStartupSession.hpp"
 #include "UI/Session/EntityEditSession.hpp"
 
@@ -156,7 +159,7 @@ private:
 };
 
 class TestWorkerServiceFactory final
-	: public shuba::ui::PhotoOperationWorkerServiceFactory {
+	: public shuba::ui::ShellOperationWorkerServiceFactory {
 public:
 	explicit TestWorkerServiceFactory(
 		std::shared_ptr<BlockingPoint> point_value)
@@ -190,13 +193,29 @@ public:
 		return std::make_unique<shuba::platform::MarkerInternalPhotoCodec>();
 	}
 
+	[[nodiscard]] std::unique_ptr<shuba::platform::JpegExportService>
+	make_jpeg_export_service() const override {
+		return std::make_unique<shuba::platform::MarkerJpegExportService>();
+	}
+
+	[[nodiscard]] std::unique_ptr<shuba::platform::ZipArchiveService>
+	make_zip_archive_service() const override {
+		return std::make_unique<shuba::platform::JuceZipArchiveService>();
+	}
+
+	[[nodiscard]] std::unique_ptr<shuba::platform::DocumentExportService>
+	make_document_export_service() const override {
+		return std::make_unique<
+			shuba::platform::LinuxFakeDocumentExportService>();
+	}
+
 private:
 	std::shared_ptr<BlockingPoint> point;
 	std::size_t progress_event_count{};
 };
 
 class ImmediateWorkerServiceFactory final
-	: public shuba::ui::PhotoOperationWorkerServiceFactory {
+	: public shuba::ui::ShellOperationWorkerServiceFactory {
 public:
 	[[nodiscard]] std::unique_ptr<shuba::platform::ContentStagingService>
 	make_content_staging_service() const override {
@@ -227,6 +246,22 @@ public:
 	[[nodiscard]] std::unique_ptr<shuba::platform::InternalPhotoCodec>
 	make_internal_photo_codec() const override {
 		return std::make_unique<shuba::platform::MarkerInternalPhotoCodec>();
+	}
+
+	[[nodiscard]] std::unique_ptr<shuba::platform::JpegExportService>
+	make_jpeg_export_service() const override {
+		return std::make_unique<shuba::platform::MarkerJpegExportService>();
+	}
+
+	[[nodiscard]] std::unique_ptr<shuba::platform::ZipArchiveService>
+	make_zip_archive_service() const override {
+		return std::make_unique<shuba::platform::JuceZipArchiveService>();
+	}
+
+	[[nodiscard]] std::unique_ptr<shuba::platform::DocumentExportService>
+	make_document_export_service() const override {
+		return std::make_unique<
+			shuba::platform::LinuxFakeDocumentExportService>();
 	}
 };
 
@@ -305,22 +340,22 @@ TEST_CASE(
 	std::atomic_bool sentinel{};
 	std::atomic_bool completed{};
 	std::optional<shuba::ui::PendingPhotoStagingResult> result;
-	shuba::ui::AppShellPhotoOperationRunner runner{
-		shuba::ui::AppShellPhotoOperationRunner::Dependencies{
+	shuba::ui::AppShellOperationRunner runner{
+		shuba::ui::AppShellOperationRunner::Dependencies{
 			.operation_gate			= gate,
 			.worker_service_factory = factory,
 			.progress				= {},
 			.failure				= {}}};
 
-	const shuba::ui::AppShellPhotoOperationRunner::Submission submission =
+	const shuba::ui::AppShellOperationRunner::Submission submission =
 		runner.submit_pending_staging(
-			shuba::ui::PhotoOperationJobType::PendingItemStaging,
+			shuba::ui::ShellOperationJobType::PendingItemStaging,
 			make_request(session, identifiers, gate, staging, fingerprinting,
 						 "original.jpg"),
-			[&](shuba::ui::AppShellPhotoOperationRunner::Result
-					operation_result) {
+			[&](shuba::ui::AppShellOperationRunner::CompletionResult
+					completion) {
 		result = std::get<shuba::ui::PendingPhotoStagingResult>(
-			std::move(operation_result));
+			std::move(completion.value));
 		completed.store(true, std::memory_order_release);
 	});
 	REQUIRE(submission.accepted);
@@ -331,9 +366,9 @@ TEST_CASE(
 	REQUIRE(session.repository.photos.size() == original_photo_count);
 	REQUIRE(session.paths->active_catalog_root == original_root);
 
-	const shuba::ui::AppShellPhotoOperationRunner::Submission second =
+	const shuba::ui::AppShellOperationRunner::Submission second =
 		runner.submit_pending_staging(
-			shuba::ui::PhotoOperationJobType::PendingItemStaging,
+			shuba::ui::ShellOperationJobType::PendingItemStaging,
 			make_request(session, identifiers, gate, staging, fingerprinting,
 						 "second.jpg"),
 			{});
@@ -369,8 +404,8 @@ TEST_CASE("R13 runner coalesces a progress flood to the latest event",
 	std::atomic_uint64_t latest_units{};
 	std::atomic_bool sentinel{};
 	std::atomic_bool completed{};
-	shuba::ui::AppShellPhotoOperationRunner runner{
-		shuba::ui::AppShellPhotoOperationRunner::Dependencies{
+	shuba::ui::AppShellOperationRunner runner{
+		shuba::ui::AppShellOperationRunner::Dependencies{
 			.operation_gate			= gate,
 			.worker_service_factory = factory,
 			.progress =
@@ -382,12 +417,12 @@ TEST_CASE("R13 runner coalesces a progress flood to the latest event",
 	},
 			.failure = {}}};
 
-	const shuba::ui::AppShellPhotoOperationRunner::Submission submission =
+	const shuba::ui::AppShellOperationRunner::Submission submission =
 		runner.submit_pending_staging(
-			shuba::ui::PhotoOperationJobType::PendingItemStaging,
+			shuba::ui::ShellOperationJobType::PendingItemStaging,
 			make_request(session, identifiers, gate, staging, fingerprinting,
 						 "flood.jpg"),
-			[&](shuba::ui::AppShellPhotoOperationRunner::Result) {
+			[&](shuba::ui::AppShellOperationRunner::CompletionResult) {
 		completed.store(true, std::memory_order_release);
 	});
 	REQUIRE(submission.accepted);
@@ -419,20 +454,20 @@ TEST_CASE("R13 runner cancellation and destruction join the worker safely",
 	shuba::platform::LinuxFakeContentStagingService staging;
 	TestFingerprintService fingerprinting;
 	std::atomic_bool completion_called{};
-	std::unique_ptr<shuba::ui::AppShellPhotoOperationRunner> runner =
-		std::make_unique<shuba::ui::AppShellPhotoOperationRunner>(
-			shuba::ui::AppShellPhotoOperationRunner::Dependencies{
+	std::unique_ptr<shuba::ui::AppShellOperationRunner> runner =
+		std::make_unique<shuba::ui::AppShellOperationRunner>(
+			shuba::ui::AppShellOperationRunner::Dependencies{
 				.operation_gate			= gate,
 				.worker_service_factory = factory,
 				.progress				= {},
 				.failure				= {}});
 
-	const shuba::ui::AppShellPhotoOperationRunner::Submission submission =
+	const shuba::ui::AppShellOperationRunner::Submission submission =
 		runner->submit_pending_staging(
-			shuba::ui::PhotoOperationJobType::PendingStorageStaging,
+			shuba::ui::ShellOperationJobType::PendingStorageStaging,
 			make_request(session, identifiers, gate, staging, fingerprinting,
 						 "cancel.jpg"),
-			[&](shuba::ui::AppShellPhotoOperationRunner::Result) {
+			[&](shuba::ui::AppShellOperationRunner::CompletionResult) {
 		completion_called.store(true, std::memory_order_release);
 	});
 	REQUIRE(submission.accepted);
@@ -458,20 +493,20 @@ TEST_CASE("R13 runner drops a completed result when destroyed before delivery",
 	shuba::platform::LinuxFakeContentStagingService staging;
 	TestFingerprintService fingerprinting;
 	std::atomic_bool completion_called{};
-	std::unique_ptr<shuba::ui::AppShellPhotoOperationRunner> runner =
-		std::make_unique<shuba::ui::AppShellPhotoOperationRunner>(
-			shuba::ui::AppShellPhotoOperationRunner::Dependencies{
+	std::unique_ptr<shuba::ui::AppShellOperationRunner> runner =
+		std::make_unique<shuba::ui::AppShellOperationRunner>(
+			shuba::ui::AppShellOperationRunner::Dependencies{
 				.operation_gate			= gate,
 				.worker_service_factory = factory,
 				.progress				= {},
 				.failure				= {}});
 
-	const shuba::ui::AppShellPhotoOperationRunner::Submission submission =
+	const shuba::ui::AppShellOperationRunner::Submission submission =
 		runner->submit_pending_staging(
-			shuba::ui::PhotoOperationJobType::PendingItemStaging,
+			shuba::ui::ShellOperationJobType::PendingItemStaging,
 			make_request(session, identifiers, gate, staging, fingerprinting,
 						 "completed-before-delivery.jpg"),
-			[&](shuba::ui::AppShellPhotoOperationRunner::Result) {
+			[&](shuba::ui::AppShellOperationRunner::CompletionResult) {
 		completion_called.store(true, std::memory_order_release);
 	});
 	REQUIRE(submission.accepted);
@@ -500,16 +535,16 @@ TEST_CASE("R13 runner becomes idle after an empty completion is delivered",
 	shuba::platform::ScriptedIdentifierSource identifiers;
 	shuba::platform::LinuxFakeContentStagingService staging;
 	TestFingerprintService fingerprinting;
-	shuba::ui::AppShellPhotoOperationRunner runner{
-		shuba::ui::AppShellPhotoOperationRunner::Dependencies{
+	shuba::ui::AppShellOperationRunner runner{
+		shuba::ui::AppShellOperationRunner::Dependencies{
 			.operation_gate			= gate,
 			.worker_service_factory = factory,
 			.progress				= {},
 			.failure				= {}}};
 
-	const shuba::ui::AppShellPhotoOperationRunner::Submission submission =
+	const shuba::ui::AppShellOperationRunner::Submission submission =
 		runner.submit_pending_staging(
-			shuba::ui::PhotoOperationJobType::PendingStorageStaging,
+			shuba::ui::ShellOperationJobType::PendingStorageStaging,
 			make_request(session, identifiers, gate, staging, fingerprinting,
 						 "empty-completion.jpg"),
 			{});
@@ -534,8 +569,8 @@ TEST_CASE("R13 runner executes every supported photo mutation from snapshots",
 	TestFingerprintService message_fingerprinting;
 	shuba::platform::SyntheticSourceImageDecodeService message_decoder;
 	shuba::platform::MarkerInternalPhotoCodec message_codec;
-	shuba::ui::AppShellPhotoOperationRunner runner{
-		shuba::ui::AppShellPhotoOperationRunner::Dependencies{
+	shuba::ui::AppShellOperationRunner runner{
+		shuba::ui::AppShellOperationRunner::Dependencies{
 			.operation_gate			= gate,
 			.worker_service_factory = factory,
 			.progress				= {},
@@ -581,10 +616,10 @@ TEST_CASE("R13 runner executes every supported photo mutation from snapshots",
 	REQUIRE(runner
 				.submit_direct_import(
 					direct_request,
-					[&](shuba::ui::AppShellPhotoOperationRunner::Result
-							operation_result) {
+					[&](shuba::ui::AppShellOperationRunner::CompletionResult
+							completion) {
 		direct_result = std::get<shuba::ui::PhotoImportSessionResult>(
-			std::move(operation_result));
+			std::move(completion.value));
 		direct_completed.store(true, std::memory_order_release);
 	}).accepted);
 	direct_request.sources.front().display_name = "mutated-after-submit.jpg";
@@ -624,10 +659,10 @@ TEST_CASE("R13 runner executes every supported photo mutation from snapshots",
 	REQUIRE(runner
 				.submit_item_save(
 					item_request,
-					[&](shuba::ui::AppShellPhotoOperationRunner::Result
-							operation_result) {
+					[&](shuba::ui::AppShellOperationRunner::CompletionResult
+							completion) {
 		item_result = std::get<shuba::ui::ItemSaveWithPendingPhotosResult>(
-			std::move(operation_result));
+			std::move(completion.value));
 		item_completed.store(true, std::memory_order_release);
 	}).accepted);
 	item_request.draft.display_name = "mutated item";
@@ -668,11 +703,11 @@ TEST_CASE("R13 runner executes every supported photo mutation from snapshots",
 	REQUIRE(runner
 				.submit_storage_save(
 					storage_request,
-					[&](shuba::ui::AppShellPhotoOperationRunner::Result
-							operation_result) {
+					[&](shuba::ui::AppShellOperationRunner::CompletionResult
+							completion) {
 		storage_result =
 			std::get<shuba::ui::StorageSaveWithPendingPhotosResult>(
-				std::move(operation_result));
+				std::move(completion.value));
 		storage_completed.store(true, std::memory_order_release);
 	}).accepted);
 	storage_request.draft.display_name = "mutated storage";
@@ -687,5 +722,282 @@ TEST_CASE("R13 runner executes every supported photo mutation from snapshots",
 		== "Runner shelf");
 	REQUIRE(storage_result->session.repository.photos.size() == 3U);
 	REQUIRE_FALSE(std::filesystem::exists(storage_pending));
+	REQUIRE_FALSE(gate.is_busy());
+}
+
+TEST_CASE(
+	"Shell runner rejects a concurrent submission while an operation awaits "
+	"delivery",
+	"[shell-runner][busy][completion]") {
+	juce::ScopedJuceInitialiser_GUI juce_initialiser;
+	TemporaryDirectory temporary{"shuba-shell-runner-busy"};
+	shuba::ui::CatalogSessionState session = make_session(temporary);
+	ImmediateWorkerServiceFactory factory;
+	shuba::core::OperationGate gate;
+	shuba::platform::ScriptedIdentifierSource message_identifiers;
+	shuba::core::ManualClock message_clock{
+		shuba::core::EpochMilliseconds{1000}};
+	shuba::platform::LinuxFakeContentStagingService message_staging;
+	shuba::platform::LinuxFakeDocumentExportService message_document_export;
+	shuba::platform::JuceZipArchiveService message_zip_archives;
+	shuba::ui::AppShellOperationRunner runner{
+		shuba::ui::AppShellOperationRunner::Dependencies{
+			.operation_gate			= gate,
+			.worker_service_factory = factory,
+			.progress				= {},
+			.failure				= {}}};
+
+	std::atomic_bool completed{};
+	const shuba::ui::AppShellOperationRunner::Submission first =
+		runner.submit_jpeg_export(
+			shuba::catalog::PhotoExportRequest{
+				.current_state = session.repository,
+				.paths		   = *session.paths,
+				.photo_id =
+					*shuba::core::StableIdentifier::try_create_file_safe(
+						"missing-photo-busy"),
+				.destination = shuba::platform::make_local_file_destination(
+					temporary.path() / "busy.jpg"),
+				.jpeg_quality = 90},
+			[&](shuba::ui::AppShellOperationRunner::CompletionResult) {
+		completed.store(true, std::memory_order_release);
+	});
+	REQUIRE(first.accepted);
+
+	for (std::size_t attempt = 0U; attempt < 1000U && !runner.active();
+		 ++attempt)
+		std::this_thread::yield();
+	REQUIRE(runner.active());
+
+	const shuba::ui::AppShellOperationRunner::Submission second =
+		runner.submit_backup_export(
+			shuba::ui::BackupExportSessionRequest{
+				.current_session		 = session,
+				.identifiers			 = message_identifiers,
+				.clock					 = message_clock,
+				.operation_gate			 = gate,
+				.zip_archive_service	 = message_zip_archives,
+				.document_export_service = message_document_export,
+				.content_staging_service = message_staging,
+				.destination = shuba::platform::make_local_file_destination(
+					temporary.path() / "rejected.zip")},
+			false, {});
+	REQUIRE_FALSE(second.accepted);
+	REQUIRE(second.generation == 0U);
+
+	pump_messages_until(
+		[&completed] { return completed.load(std::memory_order_acquire); });
+	REQUIRE_FALSE(gate.is_busy());
+}
+
+TEST_CASE("Shell runner forwards cancellation into backup import staging",
+		  "[shell-runner][cancellation][backup-import]") {
+	juce::ScopedJuceInitialiser_GUI juce_initialiser;
+	TemporaryDirectory temporary{"shuba-shell-runner-cancellation"};
+	shuba::ui::CatalogSessionState session = make_session(temporary);
+	REQUIRE(session.paths.has_value());
+	std::shared_ptr<BlockingPoint> point = std::make_shared<BlockingPoint>();
+	TestWorkerServiceFactory factory{point};
+	shuba::core::OperationGate gate;
+	shuba::platform::ScriptedIdentifierSource message_identifiers;
+	shuba::core::ManualClock message_clock{
+		shuba::core::EpochMilliseconds{1000}};
+	shuba::platform::LinuxFakeContentStagingService message_staging;
+	shuba::platform::LinuxFakeDocumentExportService message_document_export;
+	shuba::platform::JuceZipArchiveService message_zip_archives;
+	shuba::ui::AppShellOperationRunner runner{
+		shuba::ui::AppShellOperationRunner::Dependencies{
+			.operation_gate			= gate,
+			.worker_service_factory = factory,
+			.progress				= {},
+			.failure				= {}}};
+
+	std::atomic_bool completed{};
+	std::optional<shuba::ui::BackupImportStagingSessionResult> result;
+	const shuba::ui::AppShellOperationRunner::Submission submission =
+		runner.submit_backup_import_staging(
+			shuba::ui::BackupImportStagingSessionRequest{
+				.current_session		 = session,
+				.identifiers			 = message_identifiers,
+				.clock					 = message_clock,
+				.operation_gate			 = gate,
+				.zip_archive_service	 = message_zip_archives,
+				.document_export_service = message_document_export,
+				.content_staging_service = message_staging,
+				.source = shuba::platform::make_local_file_source(
+					temporary.path() / "cancel.zip")},
+			[&](shuba::ui::AppShellOperationRunner::CompletionResult
+					completion) {
+		result = std::get<shuba::ui::BackupImportStagingSessionResult>(
+			std::move(completion.value));
+		completed.store(true, std::memory_order_release);
+	});
+	REQUIRE(submission.accepted);
+	point->wait_until_entered();
+	REQUIRE(gate.is_busy());
+	runner.request_cancellation();
+	pump_messages_until(
+		[&completed] { return completed.load(std::memory_order_acquire); });
+	REQUIRE(result.has_value());
+	REQUIRE(result->was_user_cancelled());
+	REQUIRE(point->cancellation_observed());
+	REQUIRE_FALSE(gate.is_busy());
+}
+
+TEST_CASE("Shell runner executes non-photo workflows from immutable snapshots",
+		  "[shell-runner][workflows][snapshot]") {
+	juce::ScopedJuceInitialiser_GUI juce_initialiser;
+	TemporaryDirectory temporary{"shuba-ji2-shell-operations"};
+	shuba::ui::CatalogSessionState session = make_session(temporary);
+	REQUIRE(session.paths.has_value());
+	ImmediateWorkerServiceFactory factory;
+	shuba::core::OperationGate gate;
+	shuba::platform::ScriptedIdentifierSource message_identifiers;
+	shuba::core::ManualClock message_clock{
+		shuba::core::EpochMilliseconds{1000}};
+	shuba::platform::LinuxFakeContentStagingService message_staging;
+	shuba::platform::LinuxFakeDocumentExportService message_document_export;
+	shuba::platform::JuceZipArchiveService message_zip_archives;
+	shuba::ui::AppShellOperationRunner runner{
+		shuba::ui::AppShellOperationRunner::Dependencies{
+			.operation_gate			= gate,
+			.worker_service_factory = factory,
+			.progress				= {},
+			.failure				= {}}};
+
+	std::atomic_bool jpeg_completed{};
+	std::optional<shuba::catalog::PhotoExportResult> jpeg_result;
+	std::optional<shuba::ui::AppShellOperationRunner::CompletionResult>
+		jpeg_completion;
+	const std::filesystem::path jpeg_destination =
+		temporary.path() / "photo-original.jpg";
+	shuba::catalog::PhotoExportRequest jpeg_request{
+		.current_state = session.repository,
+		.paths		   = *session.paths,
+		.photo_id	   = *shuba::core::StableIdentifier::try_create_file_safe(
+			"missing-photo-ji2"),
+		.destination =
+			shuba::platform::make_local_file_destination(jpeg_destination),
+		.jpeg_quality = 90};
+	REQUIRE(runner
+				.submit_jpeg_export(
+					jpeg_request,
+					[&](shuba::ui::AppShellOperationRunner::CompletionResult
+							completion) {
+		jpeg_completion = std::move(completion);
+		jpeg_result		= std::get<shuba::catalog::PhotoExportResult>(
+			std::move(jpeg_completion->value));
+		jpeg_completed.store(true, std::memory_order_release);
+	}).accepted);
+	jpeg_request.destination = shuba::platform::make_local_file_destination(
+		temporary.path() / "photo-mutated.jpg");
+	pump_messages_until([&jpeg_completed] {
+		return jpeg_completed.load(std::memory_order_acquire);
+	});
+	REQUIRE(jpeg_result.has_value());
+	REQUIRE(jpeg_completion.has_value());
+	REQUIRE(jpeg_completion->job_type
+			== shuba::ui::ShellOperationJobType::JpegExport);
+	REQUIRE(jpeg_completion->generation == 1U);
+	REQUIRE(jpeg_result->failed());
+
+	auto submit_archive =
+		[&](bool diagnostic_archive,
+			const std::filesystem::path& original_destination,
+			const std::filesystem::path& mutated_destination) {
+		std::atomic_bool completed{};
+		std::optional<shuba::ui::BackupExportSessionResult> result;
+		shuba::ui::BackupExportSessionRequest request{
+			.current_session		 = session,
+			.identifiers			 = message_identifiers,
+			.clock					 = message_clock,
+			.operation_gate			 = gate,
+			.zip_archive_service	 = message_zip_archives,
+			.document_export_service = message_document_export,
+			.content_staging_service = message_staging,
+			.destination = shuba::platform::make_local_file_destination(
+				original_destination)};
+		REQUIRE(runner
+					.submit_backup_export(
+						request, diagnostic_archive,
+						[&](shuba::ui::AppShellOperationRunner::CompletionResult
+								completion) {
+			result = std::get<shuba::ui::BackupExportSessionResult>(
+				std::move(completion.value));
+			completed.store(true, std::memory_order_release);
+		}).accepted);
+		request.destination =
+			shuba::platform::make_local_file_destination(mutated_destination);
+		pump_messages_until(
+			[&completed] { return completed.load(std::memory_order_acquire); });
+		REQUIRE(result.has_value());
+		REQUIRE(result->succeeded());
+		REQUIRE(std::filesystem::is_regular_file(original_destination));
+		REQUIRE_FALSE(std::filesystem::exists(mutated_destination));
+	};
+
+	const std::filesystem::path backup_destination =
+		temporary.path() / "backup-original.zip";
+	submit_archive(false, backup_destination,
+				   temporary.path() / "backup-mutated.zip");
+	submit_archive(true, temporary.path() / "diagnostic-original.zip",
+				   temporary.path() / "diagnostic-mutated.zip");
+
+	std::atomic_bool staging_completed{};
+	std::optional<shuba::ui::BackupImportStagingSessionResult> staging_result;
+	shuba::ui::BackupImportStagingSessionRequest staging_request{
+		.current_session		 = session,
+		.identifiers			 = message_identifiers,
+		.clock					 = message_clock,
+		.operation_gate			 = gate,
+		.zip_archive_service	 = message_zip_archives,
+		.document_export_service = message_document_export,
+		.content_staging_service = message_staging,
+		.source = shuba::platform::make_local_file_source(backup_destination)};
+	REQUIRE(runner
+				.submit_backup_import_staging(
+					staging_request,
+					[&](shuba::ui::AppShellOperationRunner::CompletionResult
+							completion) {
+		staging_result = std::get<shuba::ui::BackupImportStagingSessionResult>(
+			std::move(completion.value));
+		staging_completed.store(true, std::memory_order_release);
+	}).accepted);
+	staging_request.source = shuba::platform::make_local_file_source(
+		temporary.path() / "backup-mutated.zip");
+	pump_messages_until([&staging_completed] {
+		return staging_completed.load(std::memory_order_acquire);
+	});
+	REQUIRE(staging_result.has_value());
+	REQUIRE(staging_result->succeeded());
+	REQUIRE(staging_result->staging_result.staging_catalog_root.has_value());
+
+	std::atomic_bool replacement_completed{};
+	std::optional<shuba::ui::BackupImportReplacementSessionResult>
+		replacement_result;
+	shuba::ui::BackupImportReplacementSessionRequest replacement_request{
+		.current_session	   = session,
+		.identifiers		   = message_identifiers,
+		.clock				   = message_clock,
+		.operation_gate		   = gate,
+		.staged_catalog_root   = temporary.path() / "missing-staged-catalog",
+		.replacement_confirmed = true};
+	REQUIRE(runner
+				.submit_backup_import_replacement(
+					replacement_request,
+					[&](shuba::ui::AppShellOperationRunner::CompletionResult
+							completion) {
+		replacement_result =
+			std::get<shuba::ui::BackupImportReplacementSessionResult>(
+				std::move(completion.value));
+		replacement_completed.store(true, std::memory_order_release);
+	}).accepted);
+	replacement_request.staged_catalog_root =
+		*staging_result->staging_result.staging_catalog_root;
+	pump_messages_until([&replacement_completed] {
+		return replacement_completed.load(std::memory_order_acquire);
+	});
+	REQUIRE(replacement_result.has_value());
+	REQUIRE(replacement_result->failed());
 	REQUIRE_FALSE(gate.is_busy());
 }

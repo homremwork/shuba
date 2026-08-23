@@ -119,6 +119,8 @@ class SyntheticSourceImageDecodeService final
 public:
 	void set_decoded_pixels(ImagePixels pixels);
 	void clear_decoded_pixels();
+	[[nodiscard]] const std::optional<SourceImageDecodeSizing>&
+	last_requested_sizing() const noexcept;
 
 	[[nodiscard]] PlatformValueResult<ImagePixels> decode_source_image(
 		const SourceImageDecodeRequest& request,
@@ -127,6 +129,7 @@ public:
 
 private:
 	std::optional<ImagePixels> decoded_pixels;
+	std::optional<SourceImageDecodeSizing> requested_sizing;
 };
 
 class MarkerInternalPhotoCodec final : public InternalPhotoCodec {

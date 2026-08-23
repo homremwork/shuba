@@ -99,7 +99,9 @@ A change after acceptance creates a new candidate requirement. Do not retarget a
 
 ## Publication is a separate decision
 
-A verified APK does not by itself publish a release. Before external distribution, make and record the project-license decision, including the applicable JUCE licensing route, then prepare the exact corresponding source required by that decision, third-party notices/licenses for the actually linked dependencies, release notes, distribution channel, and retention of the final packet. JUCE is dual-licensed under AGPLv3 or its commercial licence; see [`third_party/JUCE/LICENSE.md`](../third_party/JUCE/LICENSE.md:1). This repository does not yet contain a project-level publication/license package, so no document may imply that public redistribution terms or notices are complete. The current GitHub workflow is a private rehearsal path, not a publication action; see [`docs/ci.md`](ci.md).
+A verified APK does not by itself publish a release. Before external distribution, make and record the project-license decision, including the applicable JUCE 9 licensing route, then prepare the exact corresponding source required by that decision, third-party notices/licenses for the actually linked dependencies, release notes, distribution channel, and retention of the final packet. JUCE 9 is dual-licensed under AGPLv3 or the JUCE 9 commercial licence; see [`third_party/JUCE/LICENSE.md`](../third_party/JUCE/LICENSE.md:1). This repository does not yet contain a project-level publication/license package, so no document may imply that public redistribution terms or notices are complete. The current GitHub workflow is a private rehearsal path, not a publication action; see [`docs/ci.md`](ci.md).
+
+Android API 35 adoption remains a separate platform-compatibility decision. The current JUCE 9 migration intentionally retains API 34 as the minimum, target, and compile SDK declared by [`release/release.properties`](../release/release.properties:8).
 
 ## Stop conditions
 

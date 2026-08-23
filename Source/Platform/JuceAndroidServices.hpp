@@ -30,6 +30,7 @@ public:
 
 private:
 	struct ActiveChooser;
+	static void register_supported_source_image_mime_mappings();
 	std::unique_ptr<ActiveChooser> active_chooser;
 };
 

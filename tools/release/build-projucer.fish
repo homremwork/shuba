@@ -13,9 +13,9 @@ function shuba_projucer_usage
 end
 
 function shuba_projucer_validate_source --argument-names shuba_project_root shuba_source_root
-    set --local shuba_expected_commit 7c9d3783b127263d72bb65fe0a7e2dc8a02a7ac2
+    set --local shuba_expected_commit e18f7f506c0b96f2c738a0bcd7fe6467a5005ad8
     set --local shuba_submodule_line ($shuba_git_path -C $shuba_project_root submodule status -- third_party/JUCE); or return 1
-    if not string match --regex --quiet '^ 7c9d3783b127263d72bb65fe0a7e2dc8a02a7ac2 third_party/JUCE([ (]|$)' -- $shuba_submodule_line
+    if not string match --regex --quiet '^ e18f7f506c0b96f2c738a0bcd7fe6467a5005ad8 third_party/JUCE([ (]|$)' -- $shuba_submodule_line
         shuba_fail 'JUCE is absent, conflicted, dirty at the gitlink level, or not at the required commit'
         return 1
     end
@@ -23,8 +23,8 @@ function shuba_projucer_validate_source --argument-names shuba_project_root shub
         shuba_fail 'JUCE HEAD differs from the required release commit'
         return 1
     end
-    test ($shuba_git_path -C $shuba_source_root rev-list -n 1 '8.0.13^{commit}') = $shuba_expected_commit; or begin
-        shuba_fail 'JUCE 8.0.13 tag differs from the required release commit'
+    test ($shuba_git_path -C $shuba_source_root rev-list -n 1 '9.0.1^{commit}') = $shuba_expected_commit; or begin
+        shuba_fail 'JUCE 9.0.1 tag differs from the required release commit'
         return 1
     end
 end
@@ -49,7 +49,7 @@ function shuba_projucer_validate_outputs --argument-names shuba_source_root shub
         return 1
     end
     set --local shuba_version ($shuba_executable --get-version $shuba_source_root/extras/Projucer/Projucer.jucer); or return 1
-    test "$shuba_version" = 8.0.13; or begin
+    test "$shuba_version" = 9.0.1; or begin
         shuba_fail 'Projucer executable reports an unexpected version'
         return 1
     end
@@ -67,8 +67,8 @@ function shuba_projucer_write_descriptor --argument-names shuba_project_root shu
         $shuba_project_root/tools/release/lib/repository-state.fish \
         $shuba_project_root/tools/release/lib/fingerprint.fish; or return 1
     begin
-        printf '%s\n' 'fingerprint_schema_version=2' 'juce_release_version=8.0.13' \
-            'juce_release_commit=7c9d3783b127263d72bb65fe0a7e2dc8a02a7ac2'
+        printf '%s\n' 'fingerprint_schema_version=2' 'juce_release_version=9.0.1' \
+            'juce_release_commit=e18f7f506c0b96f2c738a0bcd7fe6467a5005ad8'
         printf 'juce_state_sha256=%s\n' (shuba_repository_state_digest $shuba_source_root)
         printf 'cmake.path=%s\ncmake.version=%s\ncmake.sha256=%s\n' $shuba_cmake_path $shuba_cmake_version (shuba_sha256_file $shuba_cmake_path)
         printf 'ninja.path=%s\nninja.version=%s\nninja.sha256=%s\n' $shuba_ninja_path $shuba_ninja_version (shuba_sha256_file $shuba_ninja_path)

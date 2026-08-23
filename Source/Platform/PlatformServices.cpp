@@ -1,6 +1,7 @@
 #include "Platform/PlatformServices.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <limits>
@@ -10,6 +11,18 @@
 
 namespace shuba::platform {
 namespace {
+constexpr std::array<SourceImageMimeMapping, 8>
+	supported_source_image_mime_mapping_table{{
+		{.mime_type = "image/jpeg", .file_extension = "jpg"},
+		{.mime_type = "image/jpeg", .file_extension = "jpeg"},
+		{.mime_type = "image/png", .file_extension = "png"},
+		{.mime_type = "image/webp", .file_extension = "webp"},
+		{.mime_type = "image/heic", .file_extension = "heic"},
+		{.mime_type = "image/heif", .file_extension = "heif"},
+		{.mime_type = "image/gif", .file_extension = "gif"},
+		{.mime_type = "image/bmp", .file_extension = "bmp"},
+	}};
+
 [[nodiscard]] std::string to_lower_ascii(std::string_view text) {
 	std::string result;
 	result.reserve(text.size());
@@ -30,14 +43,25 @@ void add_unique_pattern(std::vector<std::string>& patterns,
 }
 
 void add_image_patterns(std::vector<std::string>& patterns) {
-	add_unique_pattern(patterns, "*.jpg");
-	add_unique_pattern(patterns, "*.jpeg");
-	add_unique_pattern(patterns, "*.png");
-	add_unique_pattern(patterns, "*.webp");
-	add_unique_pattern(patterns, "*.heic");
-	add_unique_pattern(patterns, "*.heif");
-	add_unique_pattern(patterns, "*.gif");
-	add_unique_pattern(patterns, "*.bmp");
+	for (const SourceImageMimeMapping& mapping :
+		 supported_source_image_mime_mapping_table) {
+		add_unique_pattern(patterns,
+						   "*." + std::string{mapping.file_extension});
+	}
+}
+
+[[nodiscard]] bool add_patterns_for_supported_source_image_mime_type(
+	std::vector<std::string>& patterns, std::string_view mime_type) {
+	bool mapping_found{};
+	for (const SourceImageMimeMapping& mapping :
+		 supported_source_image_mime_mapping_table) {
+		if (mapping.mime_type != mime_type)
+			continue;
+		mapping_found = true;
+		add_unique_pattern(patterns,
+						   "*." + std::string{mapping.file_extension});
+	}
+	return mapping_found;
 }
 
 [[nodiscard]] std::string join_patterns(
@@ -468,21 +492,8 @@ std::string file_patterns_for_mime_types(
 
 		if (lower_mime_type == "image/*") {
 			add_image_patterns(patterns);
-		} else if (lower_mime_type == "image/jpeg") {
-			add_unique_pattern(patterns, "*.jpg");
-			add_unique_pattern(patterns, "*.jpeg");
-		} else if (lower_mime_type == "image/png") {
-			add_unique_pattern(patterns, "*.png");
-		} else if (lower_mime_type == "image/webp") {
-			add_unique_pattern(patterns, "*.webp");
-		} else if (lower_mime_type == "image/heic") {
-			add_unique_pattern(patterns, "*.heic");
-		} else if (lower_mime_type == "image/heif") {
-			add_unique_pattern(patterns, "*.heif");
-		} else if (lower_mime_type == "image/gif") {
-			add_unique_pattern(patterns, "*.gif");
-		} else if (lower_mime_type == "image/bmp") {
-			add_unique_pattern(patterns, "*.bmp");
+		} else if (add_patterns_for_supported_source_image_mime_type(
+					   patterns, lower_mime_type)) {
 		} else if (lower_mime_type == "application/zip"
 				   || lower_mime_type == "application/x-zip-compressed") {
 			add_unique_pattern(patterns, "*.zip");
@@ -493,6 +504,32 @@ std::string file_patterns_for_mime_types(
 		}
 	}
 
+	return join_patterns(patterns);
+}
+
+std::span<const SourceImageMimeMapping>
+supported_source_image_mime_mappings() noexcept {
+	return supported_source_image_mime_mapping_table;
+}
+
+std::vector<std::string> supported_source_image_picker_mime_types() {
+	std::vector<std::string> mime_types;
+	mime_types.reserve(supported_source_image_mime_mapping_table.size());
+	for (const SourceImageMimeMapping& mapping :
+		 supported_source_image_mime_mapping_table) {
+		const std::string mime_type{mapping.mime_type};
+		const std::vector<std::string>::const_iterator found =
+			std::find(mime_types.begin(), mime_types.end(), mime_type);
+		if (found == mime_types.end())
+			mime_types.push_back(mime_type);
+	}
+	return mime_types;
+}
+
+std::string supported_source_image_picker_file_patterns() {
+	std::vector<std::string> patterns;
+	patterns.reserve(supported_source_image_mime_mapping_table.size());
+	add_image_patterns(patterns);
 	return join_patterns(patterns);
 }
 
@@ -628,6 +665,49 @@ ImagePixelsValidation validate_image_pixels(
 
 	return ImagePixelsValidation{.expected_byte_count = *expected,
 								 .actual_byte_count	  = actual};
+}
+
+bool validate_source_image_decode_sizing(
+	const SourceImageDecodeSizing& sizing) noexcept {
+	return sizing.maximum_longest_edge != 0U;
+}
+
+std::optional<SourceImageDecodeTargetSize> source_image_decode_target_size(
+	std::uint32_t source_width, std::uint32_t source_height,
+	const SourceImageDecodeSizing& sizing) noexcept {
+	if (source_width == 0U || source_height == 0U
+		|| !validate_source_image_decode_sizing(sizing))
+		return std::nullopt;
+
+	const std::uint32_t source_longest_edge =
+		std::max(source_width, source_height);
+	std::uint32_t target_width	= source_width;
+	std::uint32_t target_height = source_height;
+	if (source_longest_edge > sizing.maximum_longest_edge) {
+		if (source_width >= source_height) {
+			target_width  = sizing.maximum_longest_edge;
+			target_height = static_cast<std::uint32_t>(std::max(
+				std::uint64_t{1}, (static_cast<std::uint64_t>(source_height)
+								   * sizing.maximum_longest_edge)
+									  / source_width));
+		} else {
+			target_height = sizing.maximum_longest_edge;
+			target_width  = static_cast<std::uint32_t>(std::max(
+				std::uint64_t{1}, (static_cast<std::uint64_t>(source_width)
+								   * sizing.maximum_longest_edge)
+									  / source_height));
+		}
+	}
+
+	const std::optional<std::uint64_t> target_byte_count =
+		image_pixel_byte_count(target_width, target_height, PixelFormat::Rgba8);
+	if (!target_byte_count.has_value()
+		|| *target_byte_count > static_cast<std::uint64_t>(
+			   std::numeric_limits<std::size_t>::max()))
+		return std::nullopt;
+
+	return SourceImageDecodeTargetSize{.width  = target_width,
+									   .height = target_height};
 }
 
 InternalPhotoEncodeSettings default_internal_photo_encode_settings() noexcept {

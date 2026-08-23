@@ -52,7 +52,7 @@ public:
 			stopping = true;
 			queued_preview_jobs.clear();
 			queued_display_jobs.clear();
-			pending_preview_identities.clear();
+			pending_preview_jobs.clear();
 			pending_display_photo_ids.clear();
 		}
 		condition.notify_all();
@@ -93,8 +93,7 @@ public:
 				return;
 			if (has_preview_failure(identity))
 				return;
-			if (contains_preview_identity(pending_preview_identities,
-										  identity)) {
+			if (contains_preview_identity(pending_preview_jobs, identity)) {
 				raise_queued_preview_priority(identity, priority);
 				return;
 			}
@@ -106,7 +105,9 @@ public:
 								   .priority	= priority,
 								   .generation	= preview_generation};
 			queued_preview_jobs.push_back(PreviewJob{std::move(job)});
-			pending_preview_identities.push_back(std::move(identity));
+			pending_preview_jobs.push_back(
+				PendingPreviewJob{.identity	  = std::move(identity),
+								  .generation = preview_generation});
 		}
 		condition.notify_one();
 	}
@@ -124,8 +125,7 @@ public:
 				return;
 			if (has_preview_failure(identity))
 				return;
-			if (contains_preview_identity(pending_preview_identities,
-										  identity)) {
+			if (contains_preview_identity(pending_preview_jobs, identity)) {
 				raise_queued_preview_priority(identity, priority);
 				return;
 			}
@@ -135,7 +135,9 @@ public:
 								 .priority	  = priority,
 								 .generation  = preview_generation};
 			queued_preview_jobs.push_back(PreviewJob{std::move(job)});
-			pending_preview_identities.push_back(std::move(identity));
+			pending_preview_jobs.push_back(
+				PendingPreviewJob{.identity	  = std::move(identity),
+								  .generation = preview_generation});
 		}
 		condition.notify_one();
 	}
@@ -176,8 +178,21 @@ public:
 			photo_display.displayed_photo_id.reset();
 			queued_preview_jobs.clear();
 			queued_display_jobs.clear();
-			pending_preview_identities.clear();
+			pending_preview_jobs.clear();
 			pending_display_photo_ids.clear();
+			preview_failures.clear();
+		}
+		preview_cache.clear();
+	}
+
+	void release_disposable_preview_memory() {
+		{
+			const std::lock_guard<std::mutex> lock{mutex};
+			if (stopping)
+				return;
+			++preview_generation;
+			queued_preview_jobs.clear();
+			pending_preview_jobs.clear();
 			preview_failures.clear();
 		}
 		preview_cache.clear();
@@ -206,10 +221,11 @@ public:
 		std::erase_if(queued_display_jobs, [&photo_id](const DisplayJob& job) {
 			return job.photo_id == photo_id;
 		});
-		std::erase_if(pending_preview_identities,
-					  [&photo_id](const ImagePreviewRequestIdentity& identity) {
-			return identity.kind == ImagePreviewRequestKind::InternalPhoto
-				   && identity.source_key == photo_id.value();
+		std::erase_if(pending_preview_jobs,
+					  [&photo_id](const PendingPreviewJob& pending) {
+			return pending.identity.kind
+					   == ImagePreviewRequestKind::InternalPhoto
+				   && pending.identity.source_key == photo_id.value();
 		});
 		std::erase(pending_display_photo_ids, photo_id);
 	}
@@ -233,11 +249,10 @@ public:
 			return job.identity().kind == ImagePreviewRequestKind::StagedPhoto
 				   && job.identity().source_key == source_key;
 		});
-		std::erase_if(
-			pending_preview_identities,
-			[&source_key](const ImagePreviewRequestIdentity& identity) {
-			return identity.kind == ImagePreviewRequestKind::StagedPhoto
-				   && identity.source_key == source_key;
+		std::erase_if(pending_preview_jobs,
+					  [&source_key](const PendingPreviewJob& pending) {
+			return pending.identity.kind == ImagePreviewRequestKind::StagedPhoto
+				   && pending.identity.source_key == source_key;
 		});
 	}
 
@@ -259,6 +274,11 @@ private:
 
 	private:
 		core::RandomIdentifierSource random_identifiers;
+	};
+
+	struct PendingPreviewJob final {
+		ImagePreviewRequestIdentity identity;
+		std::uint64_t generation{};
 	};
 
 	struct InternalPreviewJob final {
@@ -333,9 +353,22 @@ private:
 	};
 
 	[[nodiscard]] static bool contains_preview_identity(
-		const std::vector<ImagePreviewRequestIdentity>& identities,
+		const std::vector<PendingPreviewJob>& pending_jobs,
 		const ImagePreviewRequestIdentity& identity) {
-		return std::ranges::find(identities, identity) != identities.end();
+		return std::ranges::find_if(
+				   pending_jobs, [&identity](const PendingPreviewJob& pending) {
+			return pending.identity == identity;
+		}) != pending_jobs.end();
+	}
+
+	void erase_pending_preview_job(const ImagePreviewRequestIdentity& identity,
+								   std::uint64_t generation) {
+		std::erase_if(
+			pending_preview_jobs,
+			[&identity, generation](const PendingPreviewJob& pending) {
+			return pending.identity == identity
+				   && pending.generation == generation;
+		});
 	}
 
 	[[nodiscard]] bool has_preview_failure(
@@ -521,7 +554,7 @@ private:
 	void apply_preview_result(PreviewResult result) {
 		{
 			const std::lock_guard<std::mutex> lock{mutex};
-			std::erase(pending_preview_identities, result.identity);
+			erase_pending_preview_job(result.identity, result.generation);
 			if (stopping || stale_generation(result.generation))
 				return;
 		}
@@ -567,7 +600,7 @@ private:
 	std::condition_variable condition;
 	std::vector<PreviewJob> queued_preview_jobs;
 	std::vector<DisplayJob> queued_display_jobs;
-	std::vector<ImagePreviewRequestIdentity> pending_preview_identities;
+	std::vector<PendingPreviewJob> pending_preview_jobs;
 	std::vector<core::StableIdentifier> pending_display_photo_ids;
 	std::vector<PreviewFailure> preview_failures;
 	std::shared_ptr<LifetimeToken> lifetime_token{
@@ -615,6 +648,10 @@ void AppShellPreviewScheduler::cancel_display_requests() {
 
 void AppShellPreviewScheduler::invalidate_all() {
 	impl->invalidate_all();
+}
+
+void AppShellPreviewScheduler::release_disposable_preview_memory() {
+	impl->release_disposable_preview_memory();
 }
 
 void AppShellPreviewScheduler::invalidate_internal_photo(

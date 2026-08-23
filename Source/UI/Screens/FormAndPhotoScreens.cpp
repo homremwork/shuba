@@ -118,7 +118,7 @@ void add_tag_rows(Content& content, std::vector<domain::TagRow>& tags,
 }	 // namespace
 
 void AppShellScreenRenderer::build_item_form_content() {
-	const bool mutation_allowed = !photo_operation_state.active();
+	const bool mutation_allowed = !shell_operation_state.active();
 	std::optional<domain::PhotoOwner> owner;
 	if (item_form.mode == FormMode::Edit && item_form.draft.existing_id) {
 		owner = domain::PhotoOwner{.type = domain::PhotoOwnerType::Item,
@@ -438,7 +438,7 @@ void AppShellScreenRenderer::build_item_form_content() {
 	}
 }
 void AppShellScreenRenderer::build_storage_form_content() {
-	const bool mutation_allowed = !photo_operation_state.active();
+	const bool mutation_allowed = !shell_operation_state.active();
 	std::optional<domain::PhotoOwner> owner;
 	if (storage_form.mode == FormMode::Edit && storage_form.draft.existing_id) {
 		owner = domain::PhotoOwner{.type = domain::PhotoOwnerType::Storage,
@@ -704,7 +704,7 @@ void AppShellScreenRenderer::build_storage_form_content() {
 }
 
 void AppShellScreenRenderer::build_photo_viewer_content() {
-	const bool mutation_allowed = !photo_operation_state.active();
+	const bool mutation_allowed = !shell_operation_state.active();
 	if (!route.selected_photo_owner) {
 		content->add_label("No photo owner selected.", 54, panel_colour(),
 						   true);
@@ -920,10 +920,6 @@ void AppShellScreenRenderer::build_photo_viewer_content() {
 							   photo_display.result.diagnostics)),
 						   76, warning_panel_colour(), true);
 	}
-	content->add_label(juce_text(progress_summary(last_progress_events.events(),
-												  localization)),
-					   50, panel_colour());
-
 	juce::Button& set_main = content->add_button(
 		photo->record.is_main
 			? juce_text(

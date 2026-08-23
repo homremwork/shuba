@@ -265,6 +265,9 @@ TEST_CASE("B13 imports media before metadata and marks first owner photo main",
 	REQUIRE(photo->record.encoded_bytes == std::uint64_t{15});
 	REQUIRE(photo->record.source_mime_type == "image/jpeg");
 	REQUIRE(photo->record.source_md5 == "be897b804568f7c80a0d999d836657bb");
+	REQUIRE(harness.decoder.last_requested_sizing().has_value());
+	REQUIRE(harness.decoder.last_requested_sizing()->maximum_longest_edge
+			== shuba::platform::default_durable_photo_maximum_longest_edge);
 	const shuba::catalog::ItemProjection& projection =
 		summary.updated_state.item_projections.at("item-001");
 	REQUIRE(projection.representative_usable_photo_id->value() == "photo-001");

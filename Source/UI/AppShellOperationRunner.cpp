@@ -1,6 +1,8 @@
-#include "UI/AppShellPhotoOperationRunner.hpp"
+#include "UI/AppShellOperationRunner.hpp"
 
+#include "Catalog/PhotoExport.hpp"
 #include "Core/Identifier.hpp"
+#include "UI/Session/BackupRecoverySession.hpp"
 #include "UI/Session/PhotoSession.hpp"
 
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -19,8 +21,8 @@
 #include <vector>
 
 namespace shuba::ui {
-bool AppShellPhotoOperationState::active() const noexcept {
-	return state != PhotoOperationState::Idle;
+bool AppShellOperationState::active() const noexcept {
+	return state != ShellOperationState::Idle;
 }
 
 namespace {
@@ -71,7 +73,7 @@ private:
 };
 
 struct PendingStagingJob final {
-	PhotoOperationJobType type{PhotoOperationJobType::PendingItemStaging};
+	ShellOperationJobType type{ShellOperationJobType::PendingItemStaging};
 	CatalogSessionState current_session;
 	std::vector<platform::ContentSourceDescriptor> sources;
 	std::vector<PendingPhotoSource> existing_pending_sources;
@@ -104,14 +106,41 @@ struct StorageSaveJob final {
 	bool create_previous_copy{true};
 };
 
+struct JpegExportJob final {
+	catalog::PhotoExportRequest request;
+};
+
+struct BackupExportJob final {
+	CatalogSessionState current_session;
+	platform::DocumentDestinationDescriptor destination;
+	bool diagnostic_archive{};
+	bool keep_temp_zip{};
+};
+
+struct BackupImportStagingJob final {
+	CatalogSessionState current_session;
+	platform::ContentSourceDescriptor source;
+	bool keep_staged_zip{};
+	bool keep_extracted_catalog{true};
+};
+
+struct BackupImportReplacementJob final {
+	CatalogSessionState current_session;
+	std::filesystem::path staged_catalog_root;
+	bool replacement_confirmed{};
+	bool degraded_import_confirmed{};
+	catalog::CatalogReplacementFaultMode fault_mode{
+		catalog::CatalogReplacementFaultMode::None};
+};
+
 struct LifetimeToken final {
 	std::atomic_bool alive{true};
 };
 }	 // namespace
 
-class AppShellPhotoOperationRunner::Impl final {
+class AppShellOperationRunner::Impl final {
 public:
-	explicit Impl(AppShellPhotoOperationRunner::Dependencies dependencies)
+	explicit Impl(AppShellOperationRunner::Dependencies dependencies)
 		: operation_gate(dependencies.operation_gate)
 		, worker_service_factory(dependencies.worker_service_factory)
 		, progress_handler(std::move(dependencies.progress))
@@ -121,10 +150,10 @@ public:
 	~Impl() { stop(); }
 
 	[[nodiscard]] Submission submit_pending_staging(
-		PhotoOperationJobType job_type,
+		ShellOperationJobType job_type,
 		const PendingPhotoStagingRequest& request, Completion completion) {
-		if (job_type != PhotoOperationJobType::PendingItemStaging
-			&& job_type != PhotoOperationJobType::PendingStorageStaging) {
+		if (job_type != ShellOperationJobType::PendingItemStaging
+			&& job_type != ShellOperationJobType::PendingStorageStaging) {
 			return {};
 		}
 		return submit(Job{
@@ -142,7 +171,7 @@ public:
 	[[nodiscard]] Submission submit_direct_import(
 		const PhotoImportSessionRequest& request, Completion completion) {
 		return submit(Job{
-			.type  = PhotoOperationJobType::DirectImport,
+			.type  = ShellOperationJobType::DirectImport,
 			.value = DirectImportJob{.current_session = request.current_session,
 									 .owner			  = request.owner,
 									 .sources		  = request.sources,
@@ -157,7 +186,7 @@ public:
 		const ItemSaveWithPendingPhotosRequest& request,
 		Completion completion) {
 		return submit(
-			Job{.type  = PhotoOperationJobType::ItemSaveWithPendingPhotos,
+			Job{.type  = ShellOperationJobType::ItemSaveWithPendingPhotos,
 				.value = ItemSaveJob{.current_session = request.current_session,
 									 .draft			  = request.draft,
 									 .pending_sources = request.pending_sources,
@@ -174,7 +203,7 @@ public:
 		const StorageSaveWithPendingPhotosRequest& request,
 		Completion completion) {
 		return submit(Job{
-			.type  = PhotoOperationJobType::StorageSaveWithPendingPhotos,
+			.type  = ShellOperationJobType::StorageSaveWithPendingPhotos,
 			.value = StorageSaveJob{.current_session = request.current_session,
 									.draft			 = request.draft,
 									.pending_sources = request.pending_sources,
@@ -185,6 +214,57 @@ public:
 									.create_previous_copy =
 										request.create_previous_copy},
 			.completion = std::move(completion)});
+	}
+
+	[[nodiscard]] Submission submit_jpeg_export(
+		const catalog::PhotoExportRequest& request, Completion completion) {
+		return submit(Job{.type		  = ShellOperationJobType::JpegExport,
+						  .value	  = JpegExportJob{.request = request},
+						  .completion = std::move(completion)});
+	}
+
+	[[nodiscard]] Submission submit_backup_export(
+		const BackupExportSessionRequest& request, bool diagnostic_archive,
+		Completion completion) {
+		return submit(Job{
+			.type  = diagnostic_archive
+						 ? ShellOperationJobType::DiagnosticArchiveExport
+						 : ShellOperationJobType::BackupExport,
+			.value = BackupExportJob{.current_session = request.current_session,
+									 .destination	  = request.destination,
+									 .diagnostic_archive = diagnostic_archive,
+									 .keep_temp_zip = request.keep_temp_zip},
+			.completion = std::move(completion)});
+	}
+
+	[[nodiscard]] Submission submit_backup_import_staging(
+		const BackupImportStagingSessionRequest& request,
+		Completion completion) {
+		return submit(Job{
+			.type = ShellOperationJobType::BackupImportStaging,
+			.value =
+				BackupImportStagingJob{
+					.current_session		= request.current_session,
+					.source					= request.source,
+					.keep_staged_zip		= request.keep_staged_zip,
+					.keep_extracted_catalog = request.keep_extracted_catalog},
+			.completion = std::move(completion)});
+	}
+
+	[[nodiscard]] Submission submit_backup_import_replacement(
+		const BackupImportReplacementSessionRequest& request,
+		Completion completion) {
+		return submit(
+			Job{.type = ShellOperationJobType::BackupImportReplacement,
+				.value =
+					BackupImportReplacementJob{
+						.current_session	   = request.current_session,
+						.staged_catalog_root   = request.staged_catalog_root,
+						.replacement_confirmed = request.replacement_confirmed,
+						.degraded_import_confirmed =
+							request.degraded_import_confirmed,
+						.fault_mode = request.fault_mode},
+				.completion = std::move(completion)});
 	}
 
 	[[nodiscard]] bool active() const {
@@ -220,10 +300,11 @@ public:
 
 private:
 	struct Job final {
-		PhotoOperationJobType type{PhotoOperationJobType::DirectImport};
+		ShellOperationJobType type{ShellOperationJobType::DirectImport};
 		std::uint64_t generation{};
 		std::variant<PendingStagingJob, DirectImportJob, ItemSaveJob,
-					 StorageSaveJob>
+					 StorageSaveJob, JpegExportJob, BackupExportJob,
+					 BackupImportStagingJob, BackupImportReplacementJob>
 			value;
 		Completion completion;
 	};
@@ -258,7 +339,9 @@ private:
 			}
 
 			cancellation.reset();
-			Completion completion = std::move(job->completion);
+			Completion completion				 = std::move(job->completion);
+			const ShellOperationJobType job_type = job->type;
+			const std::uint64_t generation		 = job->generation;
 			std::optional<Result> result;
 			std::string failure;
 			try {
@@ -266,7 +349,7 @@ private:
 			} catch (const std::exception& exception) {
 				failure = exception.what();
 			} catch (...) {
-				failure = "Unknown photo operation worker failure.";
+				failure = "Unknown shell operation worker failure.";
 			}
 			{
 				const std::lock_guard<std::mutex> lock{mutex};
@@ -277,9 +360,10 @@ private:
 					const std::lock_guard<std::mutex> lock{mutex};
 					result_pending = true;
 				}
-				post_completion(std::move(completion), std::move(*result));
+				post_completion(std::move(completion), job_type, generation,
+								std::move(*result));
 			} else {
-				post_failure(std::move(failure));
+				post_failure(job_type, generation, std::move(failure));
 			}
 		}
 	}
@@ -299,18 +383,23 @@ private:
 			worker_service_factory.make_source_decode_service();
 		std::unique_ptr<platform::InternalPhotoCodec> codec =
 			worker_service_factory.make_internal_photo_codec();
-		if (staging == nullptr || fingerprinting == nullptr
-			|| decoder == nullptr || codec == nullptr) {
-			throw std::runtime_error{
-				"Photo operation worker service factory returned a null "
-				"service."};
-		}
-
+		std::unique_ptr<platform::JpegExportService> jpeg_exporter =
+			worker_service_factory.make_jpeg_export_service();
+		std::unique_ptr<platform::ZipArchiveService> zip_archives =
+			worker_service_factory.make_zip_archive_service();
+		std::unique_ptr<platform::DocumentExportService> document_exporter =
+			worker_service_factory.make_document_export_service();
 		return std::visit(
 			[this, &identifiers, &clock, &progress, &staging, &fingerprinting,
-			 &decoder, &codec](const auto& concrete_job) -> Result {
+			 &decoder, &codec, &jpeg_exporter, &zip_archives,
+			 &document_exporter](const auto& concrete_job) -> Result {
 			using JobType = std::decay_t<decltype(concrete_job)>;
 			if constexpr (std::same_as<JobType, PendingStagingJob>) {
+				if (staging == nullptr || fingerprinting == nullptr)
+					throw std::runtime_error{
+						"Shell operation worker service factory returned a "
+						"null "
+						"staging service."};
 				return stage_pending_photos_for_session(
 					PendingPhotoStagingRequest{
 						.current_session	 = concrete_job.current_session,
@@ -324,6 +413,13 @@ private:
 						.existing_owner = concrete_job.existing_owner},
 					progress, cancellation);
 			} else if constexpr (std::same_as<JobType, DirectImportJob>) {
+				if (staging == nullptr || fingerprinting == nullptr
+					|| decoder == nullptr || codec == nullptr) {
+					throw std::runtime_error{
+						"Shell operation worker service factory returned a "
+						"null "
+						"photo-import service."};
+				}
 				return import_photos_into_session(
 					PhotoImportSessionRequest{
 						.current_session	 = concrete_job.current_session,
@@ -342,6 +438,13 @@ private:
 							concrete_job.create_previous_copy},
 					progress, cancellation);
 			} else if constexpr (std::same_as<JobType, ItemSaveJob>) {
+				if (staging == nullptr || fingerprinting == nullptr
+					|| decoder == nullptr || codec == nullptr) {
+					throw std::runtime_error{
+						"Shell operation worker service factory returned a "
+						"null "
+						"item-save service."};
+				}
 				return save_item_draft_and_import_pending_photos(
 					ItemSaveWithPendingPhotosRequest{
 						.current_session	 = concrete_job.current_session,
@@ -361,7 +464,14 @@ private:
 						.create_previous_copy =
 							concrete_job.create_previous_copy},
 					progress, cancellation);
-			} else {
+			} else if constexpr (std::same_as<JobType, StorageSaveJob>) {
+				if (staging == nullptr || fingerprinting == nullptr
+					|| decoder == nullptr || codec == nullptr) {
+					throw std::runtime_error{
+						"Shell operation worker service factory returned a "
+						"null "
+						"storage-save service."};
+				}
 				return save_storage_draft_and_import_pending_photos(
 					StorageSaveWithPendingPhotosRequest{
 						.current_session	 = concrete_job.current_session,
@@ -380,6 +490,79 @@ private:
 							concrete_job.active_catalog_root_override,
 						.create_previous_copy =
 							concrete_job.create_previous_copy},
+					progress, cancellation);
+			} else if constexpr (std::same_as<JobType, JpegExportJob>) {
+				if (codec == nullptr || jpeg_exporter == nullptr
+					|| document_exporter == nullptr) {
+					throw std::runtime_error{
+						"Shell operation worker service factory returned a "
+						"null "
+						"JPEG-export service."};
+				}
+				catalog::PhotoExportUseCase use_case{
+					identifiers, operation_gate, *codec, *jpeg_exporter,
+					*document_exporter};
+				return use_case.export_photo_as_jpeg(concrete_job.request,
+													 progress, cancellation);
+			} else if constexpr (std::same_as<JobType, BackupExportJob>) {
+				if (staging == nullptr || zip_archives == nullptr
+					|| document_exporter == nullptr) {
+					throw std::runtime_error{
+						"Shell operation worker service factory returned a "
+						"null "
+						"backup-export service."};
+				}
+				const BackupExportSessionRequest request{
+					.current_session		 = concrete_job.current_session,
+					.identifiers			 = identifiers,
+					.clock					 = clock,
+					.operation_gate			 = operation_gate,
+					.zip_archive_service	 = *zip_archives,
+					.document_export_service = *document_exporter,
+					.content_staging_service = *staging,
+					.destination			 = concrete_job.destination,
+					.keep_temp_zip			 = concrete_job.keep_temp_zip};
+				return concrete_job.diagnostic_archive
+						   ? export_diagnostic_archive_from_session(
+								 request, progress, cancellation)
+						   : export_backup_from_session(request, progress,
+														cancellation);
+			} else if constexpr (std::same_as<JobType,
+											  BackupImportStagingJob>) {
+				if (staging == nullptr || zip_archives == nullptr
+					|| document_exporter == nullptr) {
+					throw std::runtime_error{
+						"Shell operation worker service factory returned a "
+						"null "
+						"backup-import service."};
+				}
+				return stage_backup_import_for_session(
+					BackupImportStagingSessionRequest{
+						.current_session		 = concrete_job.current_session,
+						.identifiers			 = identifiers,
+						.clock					 = clock,
+						.operation_gate			 = operation_gate,
+						.zip_archive_service	 = *zip_archives,
+						.document_export_service = *document_exporter,
+						.content_staging_service = *staging,
+						.source					 = concrete_job.source,
+						.keep_staged_zip		 = concrete_job.keep_staged_zip,
+						.keep_extracted_catalog =
+							concrete_job.keep_extracted_catalog},
+					progress, cancellation);
+			} else {
+				return replace_session_with_staged_import(
+					BackupImportReplacementSessionRequest{
+						.current_session	 = concrete_job.current_session,
+						.identifiers		 = identifiers,
+						.clock				 = clock,
+						.operation_gate		 = operation_gate,
+						.staged_catalog_root = concrete_job.staged_catalog_root,
+						.replacement_confirmed =
+							concrete_job.replacement_confirmed,
+						.degraded_import_confirmed =
+							concrete_job.degraded_import_confirmed,
+						.fault_mode = concrete_job.fault_mode},
 					progress, cancellation);
 			}
 		},
@@ -454,7 +637,8 @@ private:
 			post_progress_delivery();
 	}
 
-	void post_failure(std::string failure) {
+	void post_failure(ShellOperationJobType job_type, std::uint64_t generation,
+					  std::string failure) {
 		const std::weak_ptr<LifetimeToken> lifetime = lifetime_token;
 		Failure handler								= failure_handler;
 		{
@@ -463,32 +647,36 @@ private:
 		}
 		Impl* const owner = this;
 		const bool posted = juce::MessageManager::callAsync(
-			[lifetime, owner, handler = std::move(handler),
-			 failure = std::move(failure)]() mutable {
+			[lifetime, owner, handler = std::move(handler), job_type,
+			 generation, failure = std::move(failure)]() mutable {
 			const std::shared_ptr<LifetimeToken> token = lifetime.lock();
 			if (token == nullptr
 				|| !token->alive.load(std::memory_order_acquire))
 				return;
 			if (handler)
-				handler(std::move(failure));
+				handler(job_type, generation, std::move(failure));
 			owner->completion_applied();
 		});
 		if (!posted)
 			completion_applied();
 	}
 
-	void post_completion(Completion completion, Result result) {
+	void post_completion(Completion completion, ShellOperationJobType job_type,
+						 std::uint64_t generation, Result result) {
 		const std::weak_ptr<LifetimeToken> lifetime = lifetime_token;
 		Impl* const owner							= this;
 		const bool posted = juce::MessageManager::callAsync(
-			[lifetime, owner, completion = std::move(completion),
-			 result = std::move(result)]() mutable {
+			[lifetime, owner, completion = std::move(completion), job_type,
+			 generation, result = std::move(result)]() mutable {
 			const std::shared_ptr<LifetimeToken> token = lifetime.lock();
 			if (token == nullptr
 				|| !token->alive.load(std::memory_order_acquire))
 				return;
-			if (completion)
-				completion(std::move(result));
+			if (completion) {
+				completion(CompletionResult{.job_type	= job_type,
+											.generation = generation,
+											.value		= std::move(result)});
+			}
 			owner->completion_applied();
 		});
 		if (!posted)
@@ -496,7 +684,7 @@ private:
 	}
 
 	core::OperationGate& operation_gate;
-	const PhotoOperationWorkerServiceFactory& worker_service_factory;
+	const ShellOperationWorkerServiceFactory& worker_service_factory;
 	std::function<void(std::uint64_t, const platform::ProgressEvent&)>
 		progress_handler;
 	Failure failure_handler;
@@ -517,47 +705,72 @@ private:
 	bool stopping{};
 };
 
-AppShellPhotoOperationRunner::AppShellPhotoOperationRunner(
-	Dependencies dependencies)
+AppShellOperationRunner::AppShellOperationRunner(Dependencies dependencies)
 	: impl(std::make_unique<Impl>(std::move(dependencies))) {}
 
-AppShellPhotoOperationRunner::~AppShellPhotoOperationRunner() = default;
+AppShellOperationRunner::~AppShellOperationRunner() = default;
 
-AppShellPhotoOperationRunner::Submission
-AppShellPhotoOperationRunner::submit_pending_staging(
-	PhotoOperationJobType job_type, const PendingPhotoStagingRequest& request,
+AppShellOperationRunner::Submission
+AppShellOperationRunner::submit_pending_staging(
+	ShellOperationJobType job_type, const PendingPhotoStagingRequest& request,
 	Completion completion) {
 	return impl->submit_pending_staging(job_type, request,
 										std::move(completion));
 }
 
-AppShellPhotoOperationRunner::Submission
-AppShellPhotoOperationRunner::submit_direct_import(
+AppShellOperationRunner::Submission
+AppShellOperationRunner::submit_direct_import(
 	const PhotoImportSessionRequest& request, Completion completion) {
 	return impl->submit_direct_import(request, std::move(completion));
 }
 
-AppShellPhotoOperationRunner::Submission
-AppShellPhotoOperationRunner::submit_item_save(
+AppShellOperationRunner::Submission AppShellOperationRunner::submit_item_save(
 	const ItemSaveWithPendingPhotosRequest& request, Completion completion) {
 	return impl->submit_item_save(request, std::move(completion));
 }
 
-AppShellPhotoOperationRunner::Submission
-AppShellPhotoOperationRunner::submit_storage_save(
+AppShellOperationRunner::Submission
+AppShellOperationRunner::submit_storage_save(
 	const StorageSaveWithPendingPhotosRequest& request, Completion completion) {
 	return impl->submit_storage_save(request, std::move(completion));
 }
 
-bool AppShellPhotoOperationRunner::active() const {
+AppShellOperationRunner::Submission AppShellOperationRunner::submit_jpeg_export(
+	const catalog::PhotoExportRequest& request, Completion completion) {
+	return impl->submit_jpeg_export(request, std::move(completion));
+}
+
+AppShellOperationRunner::Submission
+AppShellOperationRunner::submit_backup_export(
+	const BackupExportSessionRequest& request, bool diagnostic_archive,
+	Completion completion) {
+	return impl->submit_backup_export(request, diagnostic_archive,
+									  std::move(completion));
+}
+
+AppShellOperationRunner::Submission
+AppShellOperationRunner::submit_backup_import_staging(
+	const BackupImportStagingSessionRequest& request, Completion completion) {
+	return impl->submit_backup_import_staging(request, std::move(completion));
+}
+
+AppShellOperationRunner::Submission
+AppShellOperationRunner::submit_backup_import_replacement(
+	const BackupImportReplacementSessionRequest& request,
+	Completion completion) {
+	return impl->submit_backup_import_replacement(request,
+												  std::move(completion));
+}
+
+bool AppShellOperationRunner::active() const {
 	return impl->active();
 }
 
-void AppShellPhotoOperationRunner::request_cancellation() {
+void AppShellOperationRunner::request_cancellation() {
 	impl->request_cancellation();
 }
 
-void AppShellPhotoOperationRunner::stop() {
+void AppShellOperationRunner::stop() {
 	impl->stop();
 }
 }	 // namespace shuba::ui

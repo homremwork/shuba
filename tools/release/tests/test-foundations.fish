@@ -27,6 +27,23 @@ function shuba_test_mutated_contract --argument-names shuba_source shuba_pattern
     end
 end
 
+function shuba_test_write_android_command_line_tools --argument-names shuba_sdk_root shuba_directory shuba_version
+    set --local shuba_tools_root $shuba_sdk_root/cmdline-tools/$shuba_directory
+    mkdir -p $shuba_tools_root/bin; or return 1
+    printf 'Pkg.Revision = %s\n' $shuba_version >$shuba_tools_root/source.properties; or return 1
+    printf '%s\n' '#!/bin/sh' 'exit 0' >$shuba_tools_root/bin/apkanalyzer; or return 1
+    chmod 0700 $shuba_tools_root/bin/apkanalyzer; or return 1
+    printf '%s\n' '#!/bin/sh' 'if [ "$1" = "--version" ]; then printf "%s\\n" 1.0; exit 0; fi' 'exit 1' >$shuba_tools_root/bin/sdkmanager; or return 1
+    chmod 0700 $shuba_tools_root/bin/sdkmanager; or return 1
+end
+
+function shuba_test_resolve_android_command_line_tools --argument-names shuba_sdk_root
+    set --global shuba_android_sdk_root $shuba_sdk_root
+    set --global shuba_release_contract_keys android.command_line_tools_versions
+    set --global shuba_release_contract_values 20.0,12.0
+    shuba_resolve_android_command_line_tools_root
+end
+
 function shuba_test_main
     set --local shuba_with_android false
     if test (count $argv) -eq 1; and test $argv[1] = --with-android-toolchain
@@ -53,9 +70,11 @@ function shuba_test_main
     end
 
     set --local shuba_version_code (shuba_contract_get app.version_code); or return 1
-    shuba_test_mutated_contract $shuba_contract '^contract.schema_version=2$' 'contract.schema_version=1' 'unsupported release contract schema'; or return 1
+    shuba_test_mutated_contract $shuba_contract '^contract.schema_version=3$' 'contract.schema_version=2' 'unsupported release contract schema'; or return 1
     shuba_test_mutated_contract $shuba_contract "^app.version_code=$shuba_version_code\$" 'app.version_code=0' 'invalid value for app.version_code'; or return 1
     shuba_test_mutated_contract $shuba_contract '^tool.jq_min_version=1.7.0$' 'tool.jq_min_version=01.7.0' 'invalid value for tool.jq_min_version'; or return 1
+    shuba_test_mutated_contract $shuba_contract '^android.command_line_tools_versions=20.0,12.0$' 'android.command_line_tools_versions=20.0,20.0' 'duplicate Android command-line tools version'; or return 1
+    shuba_test_mutated_contract $shuba_contract '^android.command_line_tools_versions=20.0,12.0$' 'android.command_line_tools_versions=20.0,12.0,' 'invalid Android command-line tools version'; or return 1
     shuba_test_mutated_contract $shuba_contract '^android.target_sdk=34$' 'android.target_sdk=35' 'android.target_sdk exceeds android.compile_sdk'; or return 1
     cat $shuba_contract $shuba_contract >$shuba_test_root/duplicate.properties
     if shuba_contract_load $shuba_test_root/duplicate.properties >/dev/null 2>&1
@@ -70,14 +89,63 @@ function shuba_test_main
     end
     shuba_contract_load $shuba_contract; or return 1
 
+    set --local shuba_android_tools_root $shuba_test_root/android-sdk
+    mkdir -p $shuba_android_tools_root/cmdline-tools; or return 1
+    shuba_test_write_android_command_line_tools $shuba_android_tools_root latest 20.0; or return 1
+    set --local shuba_resolved_tools (shuba_test_resolve_android_command_line_tools $shuba_android_tools_root); or return 1
+    if test "$shuba_resolved_tools" != "$shuba_android_tools_root/cmdline-tools/latest"
+        shuba_test_fail 'metadata-checked latest command-line tools 20.0 was not selected'
+        return 1
+    end
+    shuba_test_write_android_command_line_tools $shuba_android_tools_root 20.0 20.0; or return 1
+    if shuba_test_resolve_android_command_line_tools $shuba_android_tools_root >/dev/null 2>&1
+        shuba_test_fail 'duplicate command-line tools 20.0 candidates were accepted'
+        return 1
+    end
+    rm -rf -- $shuba_android_tools_root/cmdline-tools/20.0
+    shuba_test_write_android_command_line_tools $shuba_android_tools_root 12.0 12.0; or return 1
+    set shuba_resolved_tools (shuba_test_resolve_android_command_line_tools $shuba_android_tools_root); or return 1
+    if test "$shuba_resolved_tools" != "$shuba_android_tools_root/cmdline-tools/latest"
+        shuba_test_fail 'allowed command-line tools 20.0 did not retain precedence over 12.0'
+        return 1
+    end
+    rm -rf -- $shuba_android_tools_root/cmdline-tools/latest
+    set shuba_resolved_tools (shuba_test_resolve_android_command_line_tools $shuba_android_tools_root); or return 1
+    if test "$shuba_resolved_tools" != "$shuba_android_tools_root/cmdline-tools/12.0"
+        shuba_test_fail 'named command-line tools 12.0 fallback was not selected'
+        return 1
+    end
+    rm -rf -- $shuba_android_tools_root/cmdline-tools/12.0
+    shuba_test_write_android_command_line_tools $shuba_android_tools_root latest 21.0; or return 1
+    if shuba_test_resolve_android_command_line_tools $shuba_android_tools_root >/dev/null 2>&1
+        shuba_test_fail 'unlisted command-line tools latest revision was accepted'
+        return 1
+    end
+    rm -f -- $shuba_android_tools_root/cmdline-tools/latest/bin/sdkmanager
+    if shuba_test_resolve_android_command_line_tools $shuba_android_tools_root >/dev/null 2>&1
+        shuba_test_fail 'command-line tools without sdkmanager were accepted'
+        return 1
+    end
+    rm -rf -- $shuba_android_tools_root/cmdline-tools/latest
+    shuba_test_write_android_command_line_tools $shuba_android_tools_root latest 20.0; or return 1
+    printf '%s\n' 'Pkg.Revision = 20.0' >>$shuba_android_tools_root/cmdline-tools/latest/source.properties
+    if shuba_test_resolve_android_command_line_tools $shuba_android_tools_root >/dev/null 2>&1
+        shuba_test_fail 'command-line tools with duplicate revision metadata were accepted'
+        return 1
+    end
+
+    shuba_contract_load $shuba_contract; or return 1
     set --local shuba_descriptor $shuba_test_root/tools.descriptor
     shuba_write_structured_tool_descriptor $shuba_descriptor; or return 1
     test -s $shuba_descriptor; or return 1
     grep --quiet '^tool.xmlstarlet.version=unreported$' $shuba_descriptor; or return 1
     grep --quiet '^tool.xmlstarlet.version_output_sha256=[0-9a-f]\{64\}$' $shuba_descriptor; or return 1
     if test $shuba_with_android = true
+        grep --quiet '^tool.android_command_line_tools.allowed_versions=20.0,12.0$' $shuba_descriptor; or return 1
+        grep --quiet '^tool.android_command_line_tools.selected_version=\(20.0\|12.0\)$' $shuba_descriptor; or return 1
         grep --quiet '^tool.apkanalyzer.sha256=[0-9a-f]\{64\}$' $shuba_descriptor; or return 1
-    else if grep --quiet '^tool.apkanalyzer[.]' $shuba_descriptor
+        grep --quiet '^tool.sdkmanager.sha256=[0-9a-f]\{64\}$' $shuba_descriptor; or return 1
+    else if grep --quiet '^tool.\(android_command_line_tools\|apkanalyzer\|sdkmanager\)[.]' $shuba_descriptor
         shuba_test_fail 'hermetic structured-tool descriptor unexpectedly contains Android tooling'
         return 1
     end

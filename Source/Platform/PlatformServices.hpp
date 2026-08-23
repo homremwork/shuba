@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <functional>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -392,6 +393,20 @@ struct DocumentDestinationDescriptor final {
 [[nodiscard]] std::string file_patterns_for_mime_types(
 	const std::vector<std::string>& mime_types);
 
+struct SourceImageMimeMapping final {
+	std::string_view mime_type;
+	std::string_view file_extension;
+
+	friend bool operator==(const SourceImageMimeMapping&,
+						   const SourceImageMimeMapping&) = default;
+};
+
+[[nodiscard]] std::span<const SourceImageMimeMapping>
+supported_source_image_mime_mappings() noexcept;
+[[nodiscard]] std::vector<std::string>
+supported_source_image_picker_mime_types();
+[[nodiscard]] std::string supported_source_image_picker_file_patterns();
+
 struct PhotoSelectionRequest final {
 	bool allow_multiple{true};
 	std::vector<std::string> accepted_mime_types;
@@ -568,8 +583,40 @@ struct ImagePixelsValidation final {
 [[nodiscard]] ImagePixelsValidation validate_image_pixels(
 	const ImagePixels& pixels) noexcept;
 
+struct SourceImageDecodeSizing final {
+	std::uint32_t maximum_longest_edge{};
+
+	friend bool operator==(const SourceImageDecodeSizing&,
+						   const SourceImageDecodeSizing&) = default;
+};
+
+struct SourceImageDecodeTargetSize final {
+	std::uint32_t width{};
+	std::uint32_t height{};
+
+	friend bool operator==(const SourceImageDecodeTargetSize&,
+						   const SourceImageDecodeTargetSize&) = default;
+};
+
+inline constexpr std::uint32_t default_durable_photo_maximum_longest_edge =
+	4096U;
+
+[[nodiscard]] constexpr SourceImageDecodeSizing
+default_durable_photo_source_image_decode_sizing() noexcept {
+	return SourceImageDecodeSizing{
+		.maximum_longest_edge = default_durable_photo_maximum_longest_edge};
+}
+
+[[nodiscard]] bool validate_source_image_decode_sizing(
+	const SourceImageDecodeSizing& sizing) noexcept;
+[[nodiscard]] std::optional<SourceImageDecodeTargetSize>
+source_image_decode_target_size(std::uint32_t source_width,
+								std::uint32_t source_height,
+								const SourceImageDecodeSizing& sizing) noexcept;
+
 struct SourceImageDecodeRequest final {
 	StagedContent content;
+	std::optional<SourceImageDecodeSizing> sizing;
 
 	friend bool operator==(const SourceImageDecodeRequest&,
 						   const SourceImageDecodeRequest&) = default;

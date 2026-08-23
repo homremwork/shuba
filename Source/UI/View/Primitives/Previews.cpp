@@ -4,6 +4,7 @@
 #include "UI/View/Primitives/Palette.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <memory>
 #include <utility>
@@ -80,17 +81,24 @@ namespace {
 	return outline_colour();
 }
 
+int calculate_preview_badge_width(const juce::String& text,
+								  int container_width) {
+	const juce::FontOptions font_options{11.5f, juce::Font::bold};
+	const int text_width =
+		static_cast<int>(std::ceil(shaped_text_width(text, font_options)));
+	const int available_width = std::max(1, container_width - 12);
+	return std::min(std::max(68, text_width + 18), available_width);
+}
+
 void draw_preview_badge(juce::Graphics& graphics, juce::Rectangle<int> bounds,
 						PreviewImageVisualState state,
 						const localization::Localization& localization) {
 	if (state == PreviewImageVisualState::Loaded)
 		return;
 
-	juce::String text		  = preview_state_badge_text(state, localization);
-	const int character_width = 7;
-	const int estimated_text_width = text.length() * character_width;
-	const int badge_width = std::min(std::max(68, estimated_text_width + 18),
-									 std::max(1, bounds.getWidth() - 12));
+	juce::String text = preview_state_badge_text(state, localization);
+	const int badge_width =
+		calculate_preview_badge_width(text, bounds.getWidth());
 	juce::Rectangle<int> badge =
 		bounds.removeFromTop(25).removeFromRight(badge_width).reduced(4, 3);
 	graphics.setColour(preview_state_colour(state).withAlpha(0.86f));
@@ -217,6 +225,10 @@ void draw_viewer_image_transformed(juce::Graphics& graphics,
 	graphics.drawImageTransformed(image, transform, false);
 }
 }	 // namespace
+
+int preview_badge_width(const juce::String& text, int container_width) {
+	return calculate_preview_badge_width(text, container_width);
+}
 
 void draw_preview_image_slot(juce::Graphics& graphics,
 							 juce::Rectangle<int> bounds,
@@ -507,8 +519,40 @@ PhotoViewerImageComponent::Layout PhotoViewerImageComponent::calculate_layout()
 	return layout;
 }
 
+juce::Rectangle<float> PhotoViewerImageComponent::image_gesture_bounds() const {
+	return calculate_layout().image.reduced(8).toFloat();
+}
+
 bool PhotoViewerImageComponent::zoomed() const noexcept {
 	return zoom_scale > minimum_zoom_scale + 0.01f;
+}
+
+void PhotoViewerImageComponent::apply_pinch_update(
+	const PhotoViewerPinchUpdate& update) {
+	if (!model.image.isValid() || !std::isfinite(update.scale_factor)
+		|| update.scale_factor <= 0.0f) {
+		return;
+	}
+
+	const juce::Rectangle<float> slot		  = image_gesture_bounds();
+	const ViewerImageMetrics unzoomed_metrics = calculate_viewer_image_metrics(
+		model.image, slot.toNearestInt(), model.rotation_quarter_turns,
+		minimum_zoom_scale);
+	const PhotoViewerPinchTransform transform = apply_photo_viewer_pinch_update(
+		PhotoViewerPinchTransform{.zoom_scale = zoom_scale,
+								  .pan_offset = pan_offset},
+		update,
+		PhotoViewerPinchGeometry{
+			.slot_centre	= slot.getCentre(),
+			.slot			= slot,
+			.unzoomed_image = {0.0f, 0.0f, unzoomed_metrics.drawn_width,
+							   unzoomed_metrics.drawn_height}},
+		minimum_zoom_scale, maximum_zoom_scale);
+	zoom_scale = transform.zoom_scale;
+	pan_offset = transform.pan_offset;
+	clamp_pan();
+	refresh_viewport_drag_policy();
+	repaint();
 }
 
 void PhotoViewerImageComponent::clamp_pan() {
@@ -534,12 +578,16 @@ void PhotoViewerImageComponent::clamp_pan() {
 void PhotoViewerImageComponent::reset_zoom() {
 	zoom_scale = minimum_zoom_scale;
 	pan_offset = {};
+	pinch_gesture.reset();
+	tracking_pointer	 = false;
+	single_pointer_index = -1;
 	refresh_viewport_drag_policy();
 	repaint();
 }
 
 void PhotoViewerImageComponent::refresh_viewport_drag_policy() {
-	setViewportIgnoreDragFlag(zoomed());
+	setViewportIgnoreDragFlag(photo_viewer_blocks_viewport_drag(
+		zoomed(), tracking_pointer, pinch_gesture.active()));
 }
 
 void PhotoViewerImageComponent::paint(juce::Graphics& graphics) {
@@ -591,22 +639,51 @@ void PhotoViewerImageComponent::paint(juce::Graphics& graphics) {
 							juce::Justification::centredLeft, 1, 0.88f);
 }
 
-void PhotoViewerImageComponent::mouseDown(const juce::MouseEvent&) {
-	tracking_pointer   = true;
-	horizontal_gesture = false;
-	vertical_gesture   = false;
-	drag_start_pan	   = pan_offset;
+void PhotoViewerImageComponent::mouseDown(const juce::MouseEvent& event) {
+	if (!photo_viewer_gesture_starts_in_image_slot(image_gesture_bounds(),
+												   event.position)) {
+		refresh_viewport_drag_policy();
+		return;
+	}
+
+	if (event.source.isTouch()) {
+		pinch_gesture.begin_touch(event.source.getIndex(), event.position);
+		if (pinch_gesture.active()) {
+			tracking_pointer	 = false;
+			single_pointer_index = -1;
+			horizontal_gesture	 = false;
+			vertical_gesture	 = false;
+			refresh_viewport_drag_policy();
+			return;
+		}
+	}
+
+	tracking_pointer			  = true;
+	single_pointer_index		  = event.source.getIndex();
+	single_pointer_start_position = event.position;
+	horizontal_gesture			  = false;
+	vertical_gesture			  = false;
+	drag_start_pan				  = pan_offset;
+	refresh_viewport_drag_policy();
 }
 
 void PhotoViewerImageComponent::mouseDrag(const juce::MouseEvent& event) {
+	if (pinch_gesture.active()) {
+		const std::optional<PhotoViewerPinchUpdate> update =
+			pinch_gesture.update_touch(event.source.getIndex(), event.position);
+		if (update.has_value())
+			apply_pinch_update(*update);
+		return;
+	}
+
 	if (!tracking_pointer)
+		return;
+	if (event.source.getIndex() != single_pointer_index)
 		return;
 
 	if (zoomed()) {
-		pan_offset = drag_start_pan
-					 + juce::Point<float>{
-						 static_cast<float>(event.getDistanceFromDragStartX()),
-						 static_cast<float>(event.getDistanceFromDragStartY())};
+		pan_offset =
+			drag_start_pan + event.position - single_pointer_start_position;
 		clamp_pan();
 		repaint();
 		return;
@@ -628,10 +705,37 @@ void PhotoViewerImageComponent::mouseDrag(const juce::MouseEvent& event) {
 }
 
 void PhotoViewerImageComponent::mouseUp(const juce::MouseEvent& event) {
+	const int touch_index = event.source.getIndex();
+	if (pinch_gesture.active()) {
+		if (!pinch_gesture.tracks_touch(touch_index))
+			return;
+
+		pinch_gesture.end_touch(touch_index);
+		const std::optional<PhotoViewerPinchTouch> remaining_touch =
+			pinch_gesture.single_touch();
+		tracking_pointer = remaining_touch.has_value();
+		if (remaining_touch.has_value()) {
+			single_pointer_index		  = remaining_touch->index;
+			single_pointer_start_position = remaining_touch->position;
+			drag_start_pan				  = pan_offset;
+		} else {
+			single_pointer_index = -1;
+		}
+		horizontal_gesture = false;
+		vertical_gesture   = false;
+		refresh_viewport_drag_policy();
+		return;
+	}
+	if (event.source.isTouch())
+		pinch_gesture.end_touch(touch_index);
+
 	if (!tracking_pointer)
 		return;
+	if (touch_index != single_pointer_index)
+		return;
 
-	tracking_pointer = false;
+	tracking_pointer	 = false;
+	single_pointer_index = -1;
 	if (zoomed())
 		return;
 
@@ -650,7 +754,7 @@ void PhotoViewerImageComponent::mouseUp(const juce::MouseEvent& event) {
 }
 
 void PhotoViewerImageComponent::mouseDoubleClick(const juce::MouseEvent&) {
-	if (!model.image.isValid())
+	if (!model.image.isValid() || pinch_gesture.active())
 		return;
 
 	if (zoomed()) {

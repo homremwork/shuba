@@ -43,36 +43,65 @@ function shuba_extract_first_semantic_version
     return 1
 end
 
+function shuba_android_command_line_tools_revision --argument-names shuba_candidate
+    if not test -d $shuba_candidate; or test -L $shuba_candidate
+        return 1
+    end
+    set --local shuba_source_properties $shuba_candidate/source.properties
+    if not test -f $shuba_source_properties; or test -L $shuba_source_properties
+        return 1
+    end
+    for shuba_tool in $shuba_candidate/bin/apkanalyzer $shuba_candidate/bin/sdkmanager
+        if not test -f $shuba_tool; or test -L $shuba_tool; or not test -x $shuba_tool
+            return 1
+        end
+    end
+    set --local shuba_versions (sed -n 's/^Pkg[.]Revision[[:space:]]*=[[:space:]]*//p' $shuba_source_properties)
+    if test (count $shuba_versions) -ne 1
+        return 1
+    end
+    set --local shuba_version $shuba_versions[1]
+    if not string match --regex --quiet '^(0|[1-9][0-9]*)([.](0|[1-9][0-9]*)){1,2}$' -- $shuba_version
+        return 1
+    end
+    printf '%s\n' $shuba_version
+end
+
 function shuba_resolve_android_command_line_tools_root
     if not set --query shuba_android_sdk_root
         set --global shuba_android_sdk_root (shuba_resolve_android_sdk_root); or return 1
     end
-    set --local shuba_required_version (shuba_contract_get android.command_line_tools_version); or return 1
-    set --local shuba_candidates \
-        $shuba_android_sdk_root/cmdline-tools/$shuba_required_version \
-        $shuba_android_sdk_root/cmdline-tools/latest
-    set --local shuba_matches
-    for shuba_candidate in $shuba_candidates
-        if not test -d $shuba_candidate; or test -L $shuba_candidate
-            continue
+    set --local shuba_allowed_versions \
+        (string split , -- (shuba_contract_get android.command_line_tools_versions)); or return 1
+    set --local shuba_tools_parent $shuba_android_sdk_root/cmdline-tools
+    for shuba_allowed_version in $shuba_allowed_versions
+        set --local shuba_candidates
+        set --local shuba_named_candidate $shuba_tools_parent/$shuba_allowed_version
+        set --local shuba_named_revision (shuba_android_command_line_tools_revision $shuba_named_candidate)
+        if test $status -eq 0; and test "$shuba_named_revision" = "$shuba_allowed_version"
+            set --append shuba_candidates $shuba_named_candidate
         end
-        set --local shuba_source_properties $shuba_candidate/source.properties
-        if not test -f $shuba_source_properties; or test -L $shuba_source_properties
-            continue
+
+        set --local shuba_latest_candidate $shuba_tools_parent/latest
+        set --local shuba_latest_revision (shuba_android_command_line_tools_revision $shuba_latest_candidate)
+        if test $status -eq 0; and test "$shuba_latest_revision" = "$shuba_allowed_version"
+            set --append shuba_candidates $shuba_latest_candidate
         end
-        set --local shuba_version (sed -n 's/^Pkg[.]Revision[[:space:]]*=[[:space:]]*//p' $shuba_source_properties)
-        if test (count $shuba_version) -eq 1; and test "$shuba_version" = "$shuba_required_version"
-            set --local shuba_resolved (realpath --canonicalize-existing -- $shuba_candidate); or return 1
-            if not contains -- $shuba_resolved $shuba_matches
-                set --append shuba_matches $shuba_resolved
-            end
+
+        if test (count $shuba_candidates) -gt 1
+            shuba_fail "multiple Android command-line tools candidates report allowed revision $shuba_allowed_version"
+            return 1
+        end
+        if test (count $shuba_candidates) -eq 1
+            set --global shuba_android_command_line_tools_version $shuba_allowed_version
+            set --global shuba_android_command_line_tools_root \
+                (realpath --canonicalize-existing -- $shuba_candidates[1]); or return 1
+            printf '%s\n' $shuba_android_command_line_tools_root
+            return 0
         end
     end
-    if test (count $shuba_matches) -ne 1
-        shuba_fail "expected exactly one Android command-line tools $shuba_required_version installation"
-        return 1
-    end
-    printf '%s\n' $shuba_matches[1]
+    shuba_fail "no allowed Android command-line tools installation is available for "(string join , -- $shuba_allowed_versions)
+    return 1
 end
 
 function shuba_validate_structured_tools
@@ -165,19 +194,22 @@ end
 
 function shuba_validate_android_toolchain
     set --global shuba_android_sdk_root (shuba_resolve_android_sdk_root); or return 1
-    set --local shuba_command_line_tools_root (shuba_resolve_android_command_line_tools_root); or return 1
-    set --local shuba_source_properties $shuba_command_line_tools_root/source.properties
-    shuba_require_regular_file $shuba_source_properties; or return 1
-    set --global shuba_apkanalyzer_path $shuba_command_line_tools_root/bin/apkanalyzer
+    set --global shuba_android_command_line_tools_root \
+        (shuba_resolve_android_command_line_tools_root); or return 1
+    set --global shuba_android_command_line_tools_version \
+        (shuba_android_command_line_tools_revision $shuba_android_command_line_tools_root); or return 1
+    set --global shuba_apkanalyzer_path $shuba_android_command_line_tools_root/bin/apkanalyzer
+    set --global shuba_sdkmanager_path $shuba_android_command_line_tools_root/bin/sdkmanager
     shuba_require_executable_file $shuba_apkanalyzer_path; or return 1
-    set --global shuba_android_command_line_tools_version (sed -n 's/^Pkg\.Revision[[:space:]]*=[[:space:]]*//p' $shuba_source_properties)
-    if test (count $shuba_android_command_line_tools_version) -ne 1; or test "$shuba_android_command_line_tools_version" != (shuba_contract_get android.command_line_tools_version)
-        shuba_fail 'Android command-line tools revision differs from the release contract'
-        return 1
-    end
+    shuba_require_executable_file $shuba_sdkmanager_path; or return 1
     $shuba_apkanalyzer_path --help >/dev/null 2>&1
     if test $status -ne 0
         shuba_fail 'apkanalyzer capability probe failed'
+        return 1
+    end
+    set --local shuba_sdkmanager_version ($shuba_sdkmanager_path --version)
+    if test $status -ne 0; or test (count $shuba_sdkmanager_version) -eq 0; or not string match --regex --quiet '^[0-9]+[.][0-9]+([.][0-9]+)?$' -- $shuba_sdkmanager_version[1]
+        shuba_fail 'sdkmanager capability probe failed'
         return 1
     end
 end
@@ -312,9 +344,18 @@ function shuba_write_structured_tool_descriptor --argument-names shuba_output_pa
         printf 'tool.bsdtar.version=%s\n' $shuba_bsdtar_version
         printf 'tool.bsdtar.sha256=%s\n' (shuba_sha256_file $shuba_bsdtar_path)
         if set --query shuba_apkanalyzer_path
+            printf 'tool.android_command_line_tools.allowed_versions=%s\n' \
+                (shuba_contract_get android.command_line_tools_versions)
+            printf 'tool.android_command_line_tools.selected_root=%s\n' \
+                $shuba_android_command_line_tools_root
+            printf 'tool.android_command_line_tools.selected_version=%s\n' \
+                $shuba_android_command_line_tools_version
             printf 'tool.apkanalyzer.path=%s\n' $shuba_apkanalyzer_path
             printf 'tool.apkanalyzer.version=%s\n' $shuba_android_command_line_tools_version
             printf 'tool.apkanalyzer.sha256=%s\n' (shuba_sha256_file $shuba_apkanalyzer_path)
+            printf 'tool.sdkmanager.path=%s\n' $shuba_sdkmanager_path
+            printf 'tool.sdkmanager.version=%s\n' $shuba_android_command_line_tools_version
+            printf 'tool.sdkmanager.sha256=%s\n' (shuba_sha256_file $shuba_sdkmanager_path)
         end
     end >$shuba_output_path
 end

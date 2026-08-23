@@ -112,12 +112,44 @@ TEST_CASE("B23 shell chrome keeps bottom controls inside safe content") {
 		CAPTURE(safe_bounds.toString());
 		chrome.update_model(shuba::ui::AppShellChromeComponent::Model{
 			.destination = shuba::ui::RootDestination::ItemDetail});
-		static_cast<void>(chrome.layout_shell(safe_bounds));
+		const juce::Rectangle<int> detail_content_bounds =
+			chrome.layout_shell(safe_bounds);
 		require_visible_chrome_inside(chrome, safe_bounds);
+		REQUIRE(detail_content_bounds.getY() == safe_bounds.getY() + 62);
+		REQUIRE(detail_content_bounds.getBottom()
+				== safe_bounds.getBottom() - 54);
+
+		chrome.update_model(shuba::ui::AppShellChromeComponent::Model{
+			.destination = shuba::ui::RootDestination::PhotoViewer});
+		const juce::Rectangle<int> viewer_content_bounds =
+			chrome.layout_shell(safe_bounds);
+		require_visible_chrome_inside(chrome, safe_bounds);
+		REQUIRE(viewer_content_bounds.getY() == safe_bounds.getY() + 62);
+		REQUIRE(viewer_content_bounds.getBottom() == safe_bounds.getBottom());
+
+		chrome.update_model(shuba::ui::AppShellChromeComponent::Model{
+			.destination = shuba::ui::RootDestination::BackupRecovery});
+		const juce::Rectangle<int> recovery_content_bounds =
+			chrome.layout_shell(safe_bounds);
+		require_visible_chrome_inside(chrome, safe_bounds);
+		REQUIRE(recovery_content_bounds.getY() == safe_bounds.getY() + 62);
+		REQUIRE(recovery_content_bounds.getBottom()
+				== safe_bounds.getBottom() - 54);
 
 		chrome.update_model(shuba::ui::AppShellChromeComponent::Model{
 			.destination = shuba::ui::RootDestination::ItemForm});
-		static_cast<void>(chrome.layout_shell(safe_bounds));
+		const juce::Rectangle<int> form_content_bounds =
+			chrome.layout_shell(safe_bounds);
 		require_visible_chrome_inside(chrome, safe_bounds);
+		REQUIRE(form_content_bounds.getY() == safe_bounds.getY() + 62);
+		REQUIRE(form_content_bounds.getBottom()
+				== safe_bounds.getBottom() - 58);
+
+		chrome.update_model(shuba::ui::AppShellChromeComponent::Model{
+			.destination = shuba::ui::RootDestination::Storages});
+		const juce::Rectangle<int> storage_content_bounds =
+			chrome.layout_shell(safe_bounds);
+		require_visible_chrome_inside(chrome, safe_bounds);
+		REQUIRE(storage_content_bounds.getY() == safe_bounds.getY() + 106);
 	}
 }

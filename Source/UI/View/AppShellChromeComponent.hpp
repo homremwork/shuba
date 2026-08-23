@@ -23,7 +23,6 @@ public:
 		std::function<void()> catalog_clear_filters;
 		std::function<void()> catalog_close_filters;
 		std::function<void()> storage_clear;
-		std::function<void()> back;
 		std::function<void()> form_cancel;
 		std::function<void()> form_save;
 		std::function<void()> select_catalog;
@@ -40,7 +39,7 @@ public:
 		juce::String status;
 		juce::String catalog_draft_result_count;
 		bool session_fatal{};
-		bool photo_operation_active{};
+		bool shell_operation_active{};
 		bool catalog_filters_active{};
 		bool catalog_filter_panel_visible{};
 	};
@@ -74,7 +73,6 @@ private:
 	juce::TextButton catalog_clear_filters_button{"Clear filters"};
 	juce::TextButton catalog_close_filters_button{"Close"};
 	juce::TextButton storage_clear_button{"Clear"};
-	juce::TextButton back_button{"Back"};
 	juce::TextButton form_cancel_button{"Cancel"};
 	juce::TextButton form_save_button{"Save"};
 	juce::TextButton catalog_nav_button{"Catalog"};

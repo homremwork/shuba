@@ -133,25 +133,82 @@ TEST_CASE("R13 progress application cannot rebuild the routed content tree",
 		  "[r13][ui][progress][static-contract]") {
 	const std::string source = read_source_file("Source/UI/AppShell.cpp");
 	const std::string progress_application = function_body(
-		source, "void AppShellComponent::apply_photo_operation_progress(",
-		"void AppShellComponent::update_photo_operation_progress_surface()");
+		source, "void AppShellComponent::apply_shell_operation_progress(",
+		"void AppShellComponent::update_shell_operation_progress_surface()");
 	REQUIRE(progress_application.find("MessageManager::callAsync")
 			== std::string::npos);
 	REQUIRE(progress_application.find("refresh_all()") == std::string::npos);
 	REQUIRE(progress_application.find("refresh_content()")
 			== std::string::npos);
 	REQUIRE(
-		progress_application.find("update_photo_operation_progress_surface()")
+		progress_application.find("update_shell_operation_progress_surface()")
 		!= std::string::npos);
 
 	const std::string stable_surface = function_body(
 		source,
-		"void AppShellComponent::update_photo_operation_progress_surface()",
+		"void AppShellComponent::update_shell_operation_progress_surface()",
 		"std::optional<juce::String> "
 		"AppShellComponent::preview_failure_message(");
-	REQUIRE(stable_surface.find("photo_operation_progress->update_model")
+	REQUIRE(stable_surface.find("shell_operation_progress->update_model")
 			!= std::string::npos);
 	REQUIRE(stable_surface.find("refresh_all()") == std::string::npos);
 	REQUIRE(stable_surface.find("refresh_content()") == std::string::npos);
 	REQUIRE(stable_surface.find("clear_rows()") == std::string::npos);
+}
+
+TEST_CASE("JI.4 preview completions use the shell timer refresh boundary",
+		  "[ji4][ui][preview][static-contract]") {
+	const std::string shell_source = read_source_file("Source/UI/AppShell.cpp");
+	const std::string scheduler_construction = function_body(
+		shell_source,
+		"preview_scheduler = std::make_unique<AppShellPreviewScheduler>(",
+		"route_coordinator = std::make_unique<AppShellRouteCoordinator>(");
+	REQUIRE(scheduler_construction.find(
+				".refresh_content\t\t = [this] { schedule_content_refresh(); }")
+			!= std::string::npos);
+	REQUIRE(scheduler_construction.find("[this] { refresh_content(); }")
+			== std::string::npos);
+
+	const std::string renderer_construction = function_body(
+		shell_source,
+		"screen_renderer = std::make_unique<AppShellScreenRenderer>(",
+		"viewport.setViewedComponent(content.get(), false);");
+	REQUIRE(
+		renderer_construction.find(".refresh_all = [this] { refresh_all(); },")
+		!= std::string::npos);
+	REQUIRE(renderer_construction.find(
+				".refresh_content = [this] { refresh_content(); }")
+			!= std::string::npos);
+
+	const std::string timer_callback =
+		function_body(shell_source, "void AppShellComponent::timerCallback()",
+					  "void AppShellComponent::refresh_all()");
+	REQUIRE(timer_callback.find("stopTimer()") != std::string::npos);
+	REQUIRE(timer_callback.find("refresh_content()") != std::string::npos);
+}
+
+TEST_CASE("Maintenance document picker callbacks use shell lifetime guards",
+		  "[shell-operation][ui][lifetime][static-contract]") {
+	const std::string source =
+		read_source_file("Source/UI/Screens/MaintenanceScreens.cpp");
+	for (const std::string_view signature :
+		 {"void AppShellComponent::request_export_backup()",
+		  "void AppShellComponent::request_export_diagnostic_archive()",
+		  "void AppShellComponent::request_import_backup()"}) {
+		const std::size_t begin = source.find(signature);
+		REQUIRE(begin != std::string::npos);
+		const std::size_t callback_begin =
+			source.find("callback_lifetime", begin);
+		REQUIRE(callback_begin != std::string::npos);
+		REQUIRE(
+			source.find("CallbackLifetimeLease::try_acquire", callback_begin)
+			!= std::string::npos);
+	}
+
+	const std::string shell_source = read_source_file("Source/UI/AppShell.cpp");
+	const std::string destructor =
+		function_body(shell_source, "AppShellComponent::~AppShellComponent()",
+					  "void AppShellComponent::paint(");
+	REQUIRE(destructor.find("picker_lifetime->invalidate_and_wait()")
+			!= std::string::npos);
 }

@@ -65,6 +65,8 @@ Run focused test names while developing, but do not close changes to shared cont
 
 The `shuba_static_checks` target runs the project Cppcheck and Clang-Tidy targets against owned [`Source`](../Source) and [`tests`](../tests) translation units. The analyzer profile deliberately has narrow documented suppressions for third-party/tool limitations; do not add broad suppressions to silence new project findings.
 
+The ASAN lane retains leak detection. Its sole LeakSanitizer exception is [`lsan-juce-fontconfig.supp`](../tools/ci/lsan-juce-fontconfig.supp), which matches only JUCE 9's Linux `FreeTypeTypeface::fromPattern` fallback path. It is active only for ASAN CTest runs and its expected-failure probe verifies that unrelated project leaks still fail. Reassess and remove it for any JUCE/font-backend change, upstream cleanup, or new allocation path; never replace it with `detect_leaks=0` or a broad library-level rule.
+
 Use the CI static preset when the required tools are installed:
 
 ```sh
@@ -117,7 +119,7 @@ tools/release/check-release-identity.fish
 tools/release/check-generated-android.fish
 ```
 
-The tooling enforces the current contract: JDK 17, API 34, pinned NDK/build-tools/CMake/Gradle values, C++23 without GNU extensions, `arm64-v8a`, the complete source/resource inventory, and the permission denylist. It owns dependency builds and generated output checks. Do not substitute a manual generated-file edit for a failed assertion.
+The tooling enforces the current contract: JDK 17, API 34, pinned NDK/build-tools/CMake/Gradle values, C++23 without GNU extensions, `arm64-v8a`, the complete source/resource inventory, and the permission denylist. Android command-line tools use the ordered bounded allowlist in [`release/release.properties`](../release/release.properties:19): the resolver selects `20.0` before `12.0`, accepting `cmdline-tools/latest` only when its installed metadata names an allowed revision. The selected tool path, revision, and hash are recorded in release evidence. It owns dependency builds and generated output checks. Do not substitute a manual generated-file edit for a failed assertion.
 
 A host test pass cannot prove Android picker behavior, provider behavior, media responsiveness, safe-area layout, install/upgrade behavior, or runtime resource rendering. Device validation is required for a change that touches those boundaries; record device/API, tested APK identity, steps, expected/actual outcome, and safe screenshots/logs.
 

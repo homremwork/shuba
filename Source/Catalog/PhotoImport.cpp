@@ -531,7 +531,10 @@ PhotoImportSummary PhotoImportUseCase::import_photos(
 		}
 		platform::PlatformValueResult<platform::ImagePixels> decoded =
 			decoder.decode_source_image(
-				platform::SourceImageDecodeRequest{.content = *staged.value},
+				platform::SourceImageDecodeRequest{
+					.content = *staged.value,
+					.sizing	 = platform::
+						default_durable_photo_source_image_decode_sizing()},
 				operation.context(), progress_sink, cancellation_token);
 		if (!decoded.succeeded()) {
 			cleanup_staged_source(summary, photo_result);

@@ -53,6 +53,7 @@ public:
 	void enqueue_display(core::StableIdentifier photo_id);
 	void cancel_display_requests();
 	void invalidate_all();
+	void release_disposable_preview_memory();
 	void invalidate_internal_photo(const core::StableIdentifier& photo_id);
 	void invalidate_staged_photo(const std::filesystem::path& staged_path);
 

@@ -85,3 +85,67 @@ TEST_CASE("B12 default JPEG XL policy stays platform-neutral",
 	settings.effort	 = 10U;
 	REQUIRE_FALSE(validate_internal_photo_encode_settings(settings));
 }
+
+TEST_CASE(
+	"JI.8/JI.10 source-image decode sizing bounds output dimensions safely",
+	"[ji8][ji10][b12][media][decode-sizing]") {
+	using shuba::platform::default_durable_photo_maximum_longest_edge;
+	using shuba::platform::default_durable_photo_source_image_decode_sizing;
+	using shuba::platform::source_image_decode_target_size;
+	using shuba::platform::SourceImageDecodeSizing;
+	using shuba::platform::SourceImageDecodeTargetSize;
+	using shuba::platform::validate_source_image_decode_sizing;
+
+	const SourceImageDecodeSizing policy =
+		default_durable_photo_source_image_decode_sizing();
+	REQUIRE(policy.maximum_longest_edge
+			== default_durable_photo_maximum_longest_edge);
+	REQUIRE(validate_source_image_decode_sizing(policy));
+
+	const std::optional<SourceImageDecodeTargetSize> in_bound =
+		source_image_decode_target_size(4032U, 3024U, policy);
+	REQUIRE((in_bound
+			 == SourceImageDecodeTargetSize{.width = 4032U, .height = 3024U}));
+
+	const std::optional<SourceImageDecodeTargetSize> landscape =
+		source_image_decode_target_size(6001U, 4001U, policy);
+	REQUIRE((landscape
+			 == SourceImageDecodeTargetSize{.width = 4096U, .height = 2730U}));
+
+	const std::optional<SourceImageDecodeTargetSize> portrait =
+		source_image_decode_target_size(4001U, 6001U, policy);
+	REQUIRE((portrait
+			 == SourceImageDecodeTargetSize{.width = 2730U, .height = 4096U}));
+
+	const std::optional<SourceImageDecodeTargetSize> square =
+		source_image_decode_target_size(8192U, 8192U, policy);
+	REQUIRE((square
+			 == SourceImageDecodeTargetSize{.width = 4096U, .height = 4096U}));
+
+	const SourceImageDecodeSizing preview_policy{.maximum_longest_edge = 640U};
+	const std::optional<SourceImageDecodeTargetSize> odd_landscape =
+		source_image_decode_target_size(1001U, 667U, preview_policy);
+	REQUIRE((odd_landscape
+			 == SourceImageDecodeTargetSize{.width = 640U, .height = 426U}));
+
+	const std::optional<SourceImageDecodeTargetSize> exact_boundary =
+		source_image_decode_target_size(4096U, 1U, policy);
+	REQUIRE((exact_boundary
+			 == SourceImageDecodeTargetSize{.width = 4096U, .height = 1U}));
+
+	REQUIRE_FALSE(validate_source_image_decode_sizing(
+		SourceImageDecodeSizing{.maximum_longest_edge = 0U}));
+	REQUIRE_FALSE(source_image_decode_target_size(0U, 1U, policy).has_value());
+	REQUIRE_FALSE(source_image_decode_target_size(1U, 0U, policy).has_value());
+	REQUIRE_FALSE(
+		source_image_decode_target_size(1U, 1U, SourceImageDecodeSizing{})
+			.has_value());
+
+	const SourceImageDecodeSizing overflowing_policy{
+		.maximum_longest_edge = std::numeric_limits<std::uint32_t>::max()};
+	REQUIRE_FALSE(source_image_decode_target_size(
+					  std::numeric_limits<std::uint32_t>::max(),
+					  std::numeric_limits<std::uint32_t>::max(),
+					  overflowing_policy)
+					  .has_value());
+}

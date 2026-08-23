@@ -39,13 +39,25 @@ struct AppShellManagedPhotoDeckState final {
 	std::optional<std::size_t> staged_main_index;
 };
 
+struct AppShellRouteLocation final {
+	RootDestination destination{RootDestination::Catalog};
+	std::optional<core::StableIdentifier> selected_item_id;
+	std::optional<core::StableIdentifier> selected_storage_id;
+
+	friend bool operator==(const AppShellRouteLocation&,
+						   const AppShellRouteLocation&) = default;
+};
+
 struct AppShellRouteState final {
+	static constexpr std::size_t maximum_contextual_return_locations{64U};
+
 	RootDestination destination{RootDestination::Catalog};
 	std::optional<core::StableIdentifier> selected_item_id;
 	std::optional<core::StableIdentifier> selected_storage_id;
 	std::optional<domain::PhotoOwner> selected_photo_owner;
 	std::optional<core::StableIdentifier> selected_photo_id;
 	std::optional<RootDestination> form_return_destination;
+	std::vector<AppShellRouteLocation> contextual_return_locations;
 };
 
 struct AppShellCatalogFilterState final {

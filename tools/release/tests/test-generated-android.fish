@@ -95,6 +95,18 @@ function shuba_generated_test_main
     shuba_generated_test_require_verdict $shuba_case_root false changed-native-link-order; or return 1
 
     set shuba_case_root (shuba_generated_test_fixture); or return 1
+    shuba_generated_test_replace $shuba_case_root/Builds/Android/app/CMakeLists.txt 'JUCE_PROJUCER_VERSION=0x90001' 'JUCE_PROJUCER_VERSION=0x8000d'; or return 1
+    shuba_generated_test_require_verdict $shuba_case_root false wrong-JUCE-9-Projucer-version; or return 1
+
+    set shuba_case_root (shuba_generated_test_fixture); or return 1
+    rm $shuba_case_root/JuceLibraryCode/include_juce_graphics_libpng.c
+    shuba_generated_test_require_verdict $shuba_case_root false missing-JUCE-9-native-C-wrapper; or return 1
+
+    set shuba_case_root (shuba_generated_test_fixture); or return 1
+    shuba_generated_test_replace $shuba_case_root/Builds/Android/app/CMakeLists.txt 'include_juce_graphics_libpng.c' 'include_juce_graphics_libpng_changed.c'; or return 1
+    shuba_generated_test_require_verdict $shuba_case_root false missing-JUCE-9-native-C-CMake-source; or return 1
+
+    set shuba_case_root (shuba_generated_test_fixture); or return 1
     sed -E 's/(ru_poSize = )[0-9]+/\11/' $shuba_case_root/JuceLibraryCode/BinaryData.h >$shuba_case_root/JuceLibraryCode/BinaryData.h.mutated; or return 1
     mv $shuba_case_root/JuceLibraryCode/BinaryData.h.mutated $shuba_case_root/JuceLibraryCode/BinaryData.h; or return 1
     shuba_generated_test_require_verdict $shuba_case_root false stale-BinaryData; or return 1

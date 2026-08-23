@@ -124,7 +124,7 @@ private:
 };
 
 class TestWorkerServiceFactory final
-	: public shuba::ui::PhotoOperationWorkerServiceFactory {
+	: public shuba::ui::ShellOperationWorkerServiceFactory {
 public:
 	explicit TestWorkerServiceFactory(
 		std::shared_ptr<BlockingPoint> point_value)
@@ -191,7 +191,7 @@ public:
 			  shuba::localization::Language::English, {}))
 		, blocking_point(std::make_shared<BlockingPoint>())
 		, worker_factory(blocking_point)
-		, runner(shuba::ui::AppShellPhotoOperationRunner::Dependencies{
+		, runner(shuba::ui::AppShellOperationRunner::Dependencies{
 			  .operation_gate		  = operation_gate,
 			  .worker_service_factory = worker_factory,
 			  .progress				  = {},
@@ -220,8 +220,8 @@ public:
 				.source_fingerprint_service = fingerprint_service,
 				.source_decode_service		= decode_service,
 				.internal_photo_codec		= photo_codec,
-				.photo_operation_runner		= runner,
-				.photo_operation_state		= operation_state,
+				.shell_operation_runner		= runner,
+				.shell_operation_state		= operation_state,
 				.localization				= localization,
 				.editors =
 					shuba::ui::AppShellEditCoordinator::Editors{
@@ -243,15 +243,15 @@ public:
 				.invalidate_all_previews		= {},
 				.refresh_all					= [this] { ++refresh_count; },
 				.refresh_content				= [this] { ++refresh_count; },
-				.begin_photo_operation =
-					[this](shuba::ui::PhotoOperationJobType job_type,
+				.begin_shell_operation =
+					[this](shuba::ui::ShellOperationJobType job_type,
 						   std::uint64_t generation) {
-			operation_state.state	 = shuba::ui::PhotoOperationState::Running;
+			operation_state.state	 = shuba::ui::ShellOperationState::Running;
 			operation_state.job_type = job_type;
 			operation_state.generation = generation;
 		},
-				.complete_photo_operation = [this] {
-			operation_state.state = shuba::ui::PhotoOperationState::Idle;
+				.complete_shell_operation = [this] {
+			operation_state.state = shuba::ui::ShellOperationState::Idle;
 			operation_state.job_type.reset();
 			++completion_count;
 		}});
@@ -317,10 +317,10 @@ public:
 	TestFingerprintService fingerprint_service;
 	shuba::platform::SyntheticSourceImageDecodeService decode_service;
 	shuba::platform::MarkerInternalPhotoCodec photo_codec;
-	shuba::ui::AppShellPhotoOperationState operation_state;
+	shuba::ui::AppShellOperationState operation_state;
 	std::shared_ptr<BlockingPoint> blocking_point;
 	TestWorkerServiceFactory worker_factory;
-	shuba::ui::AppShellPhotoOperationRunner runner;
+	shuba::ui::AppShellOperationRunner runner;
 	juce::TextEditor item_name_editor;
 	juce::TextEditor item_category_editor;
 	juce::TextEditor item_notes_editor;
