@@ -28,7 +28,7 @@ function shuba_ci_release_tests_main
     set --local shuba_tests_root $shuba_release_root/tests
     set --local shuba_expected_tests \
         test-agp-metadata.fish test-apk-validation.fish test-atomic-publication.fish \
-        test-foundations.fish test-generated-android.fish test-release-provenance.fish \
+        test-foundations.fish test-generated-android.fish test-historical-release-packet.fish test-release-provenance.fish \
         test-signing-preparer.fish test-upgrade-probe.fish
     set --local shuba_actual_tests (find -P $shuba_tests_root -maxdepth 1 -type f -name 'test-*.fish' -printf '%f\n' | sort)
     if test (string join , -- (printf '%s\n' $shuba_expected_tests | sort)) != (string join , -- $shuba_actual_tests)
@@ -43,7 +43,7 @@ function shuba_ci_release_tests_main
     if contains -- $shuba_mode hermetic rehearsal
         for shuba_test in \
             test-agp-metadata.fish test-apk-validation.fish test-atomic-publication.fish \
-            test-foundations.fish test-release-provenance.fish test-signing-preparer.fish \
+            test-foundations.fish test-historical-release-packet.fish test-release-provenance.fish test-signing-preparer.fish \
             test-upgrade-probe.fish
             printf 'CI release-tool tests: running %s\n' $shuba_test
             $shuba_tests_root/$shuba_test; or return 1

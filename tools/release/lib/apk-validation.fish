@@ -58,6 +58,17 @@ function shuba_apk_check_expectation --argument-names shuba_project_root shuba_a
         shuba_fail 'APK filename differs from the verification expectation'
         return 1
     end
+    set --global shuba_apk_expected_application_id (shuba_contract_get app.application_id); or return 1
+    set --global shuba_apk_expected_version_name (shuba_contract_get app.version_name); or return 1
+    set --global shuba_apk_expected_min_sdk (shuba_contract_get android.min_sdk); or return 1
+    set --global shuba_apk_expected_target_sdk (shuba_contract_get android.target_sdk); or return 1
+    set --global shuba_apk_expected_abi (shuba_contract_get android.abi); or return 1
+    set --global shuba_apk_expected_signing_certificate (shuba_contract_get signing.certificate_sha256); or return 1
+    set --global shuba_apk_expected_native_library (shuba_contract_get artifact.native_library_path); or return 1
+    set --global shuba_apk_expected_application_label (shuba_contract_get app.name); or return 1
+    set --global shuba_apk_expected_forbidden_permissions \
+        (string split , -- (shuba_contract_get android.forbidden_permissions)); or return 1
+    set --global shuba_apk_require_zero_permissions false
     set --local shuba_physical_apk (realpath --canonicalize-existing -- $shuba_apk_path); or return 1
     if test $shuba_artifact_kind = upgrade-probe
         set --local shuba_non_final_root (realpath --canonicalize-existing -- $shuba_project_root/dist/non-final 2>/dev/null); or begin
@@ -77,13 +88,72 @@ function shuba_apk_check_expectation --argument-names shuba_project_root shuba_a
     end
 end
 
+function shuba_apk_check_historical_expectation --argument-names \
+    shuba_apk_path shuba_basename shuba_application_id shuba_version_code shuba_version_name \
+    shuba_min_sdk shuba_target_sdk shuba_abi shuba_signing_certificate shuba_application_label
+    if test (path basename -- $shuba_apk_path) != $shuba_basename
+        shuba_fail 'historical APK filename differs from its retained provenance'
+        return 1
+    end
+    if not string match --regex --quiet '^[A-Za-z0-9][A-Za-z0-9._+-]{0,254}[.]apk$' -- $shuba_basename
+        shuba_fail 'historical APK provenance basename is unsafe'
+        return 1
+    end
+    if not string match --regex --quiet '^[a-z][a-z0-9_]*([.][a-z][a-z0-9_]*)+$' -- $shuba_application_id
+        shuba_fail 'historical APK provenance application ID is malformed'
+        return 1
+    end
+    if not string match --regex --quiet '^[1-9][0-9]*$' -- $shuba_version_code
+        shuba_fail 'historical APK provenance version code is malformed'
+        return 1
+    end
+    if not string match --regex --quiet '^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$' -- $shuba_version_name
+        shuba_fail 'historical APK provenance version name is malformed'
+        return 1
+    end
+    for shuba_sdk in $shuba_min_sdk $shuba_target_sdk
+        if not string match --regex --quiet '^[1-9][0-9]*$' -- $shuba_sdk
+            shuba_fail 'historical APK provenance SDK value is malformed'
+            return 1
+        end
+    end
+    if test $shuba_min_sdk -gt $shuba_target_sdk
+        shuba_fail 'historical APK provenance minimum SDK exceeds target SDK'
+        return 1
+    end
+    if not string match --regex --quiet '^[A-Za-z0-9_-]+$' -- $shuba_abi
+        shuba_fail 'historical APK provenance ABI is malformed'
+        return 1
+    end
+    if not string match --regex --quiet '^[0-9A-F]{64}$' -- $shuba_signing_certificate
+        shuba_fail 'historical APK provenance signing certificate is malformed'
+        return 1
+    end
+    if test -z "$shuba_application_label"; or string match --regex --quiet '[[:cntrl:]]' -- $shuba_application_label
+        shuba_fail 'historical APK verification evidence application label is malformed'
+        return 1
+    end
+    set --global shuba_apk_expected_basename $shuba_basename
+    set --global shuba_apk_expected_application_id $shuba_application_id
+    set --global shuba_apk_expected_version_code $shuba_version_code
+    set --global shuba_apk_expected_version_name $shuba_version_name
+    set --global shuba_apk_expected_min_sdk $shuba_min_sdk
+    set --global shuba_apk_expected_target_sdk $shuba_target_sdk
+    set --global shuba_apk_expected_abi $shuba_abi
+    set --global shuba_apk_expected_signing_certificate $shuba_signing_certificate
+    set --global shuba_apk_expected_native_library lib/$shuba_abi/libjuce_jni.so
+    set --global shuba_apk_expected_application_label $shuba_application_label
+    set --global shuba_apk_expected_forbidden_permissions
+    set --global shuba_apk_require_zero_permissions true
+end
+
 function shuba_apk_check_signer_alignment --argument-names shuba_apk_path shuba_state_root
     shuba_apk_capture 'APK signature verification' $shuba_state_root/apksigner $shuba_apksigner_path verify --verbose --print-certs $shuba_apk_path; or return 1
     shuba_apk_require_fixed_line $shuba_state_root/apksigner 'Verified using v2 scheme (APK Signature Scheme v2): true' 'APK v2 signature verification failed'; or return 1
     shuba_apk_require_fixed_line $shuba_state_root/apksigner 'Number of signers: 1' 'APK must contain exactly one signer'; or return 1
     set --local shuba_fingerprints (sed -n 's/^Signer #[0-9][0-9]* certificate SHA-256 digest: \([0-9a-fA-F]\{64\}\)$/\1/p' $shuba_state_root/apksigner)
-    if test (count $shuba_fingerprints) -ne 1; or test (string upper -- $shuba_fingerprints[1]) != (shuba_contract_get signing.certificate_sha256)
-        shuba_fail 'APK signer certificate SHA-256 differs from the release contract'
+    if test (count $shuba_fingerprints) -ne 1; or test (string upper -- $shuba_fingerprints[1]) != $shuba_apk_expected_signing_certificate
+        shuba_fail 'APK signer certificate SHA-256 differs from the expected artifact evidence'
         return 1
     end
     shuba_apk_capture 'APK alignment verification' $shuba_state_root/zipalign $shuba_zipalign_path -c -v 4 $shuba_apk_path; or return 1
@@ -101,27 +171,40 @@ function shuba_apk_check_manifest --argument-names shuba_apk_path shuba_state_ro
         return 1
     end
     for shuba_record in \
-        'string(/manifest/@package)|app.application_id' \
+        'string(/manifest/@package)|application_id' \
         'string(/manifest/@android:versionCode)|__version_code__' \
-        'string(/manifest/@android:versionName)|app.version_name' \
-        'string(/manifest/uses-sdk/@android:minSdkVersion)|android.min_sdk' \
-        'string(/manifest/uses-sdk/@android:targetSdkVersion)|android.target_sdk'
+        'string(/manifest/@android:versionName)|version_name' \
+        'string(/manifest/uses-sdk/@android:minSdkVersion)|min_sdk' \
+        'string(/manifest/uses-sdk/@android:targetSdkVersion)|target_sdk'
         set --local shuba_fields (string split --max 1 '|' -- $shuba_record)
         set --local shuba_expected $shuba_fields[2]
         if test $shuba_expected = __version_code__
             set shuba_expected $shuba_apk_expected_version_code
         else
-            set shuba_expected (shuba_contract_get $shuba_expected); or return 1
+            switch $shuba_expected
+                case application_id
+                    set shuba_expected $shuba_apk_expected_application_id
+                case version_name
+                    set shuba_expected $shuba_apk_expected_version_name
+                case min_sdk
+                    set shuba_expected $shuba_apk_expected_min_sdk
+                case target_sdk
+                    set shuba_expected $shuba_apk_expected_target_sdk
+            end
         end
-        shuba_apk_require_xml $shuba_manifest $shuba_fields[1] $shuba_expected "APK identity differs from the release contract: $shuba_fields[1]"; or return 1
+        shuba_apk_require_xml $shuba_manifest $shuba_fields[1] $shuba_expected "APK identity differs from the expected artifact evidence: $shuba_fields[1]"; or return 1
     end
-    for shuba_permission in (string split , -- (shuba_contract_get android.forbidden_permissions))
+    for shuba_permission in $shuba_apk_expected_forbidden_permissions
         set --local shuba_permission_xpath (string join '' -- "count(/manifest/uses-permission[@android:name='" $shuba_permission "'])")
         set --local shuba_permission_count (shuba_apk_xml_value $shuba_manifest $shuba_permission_xpath); or return 1
         if test $shuba_permission_count -ne 0
-            shuba_fail 'APK manifest requests a forbidden release-contract permission'
+            shuba_fail 'APK manifest requests a forbidden permission'
             return 1
         end
+    end
+    if test $shuba_apk_require_zero_permissions = true
+        shuba_apk_require_xml $shuba_manifest "count(/manifest/*[starts-with(local-name(), 'uses-permission')])" 0 \
+            'historical APK manifest requests a permission'; or return 1
     end
     for shuba_record in \
         'debuggable|APK is debuggable' \
@@ -156,9 +239,9 @@ function shuba_apk_check_manifest --argument-names shuba_apk_path shuba_state_ro
     end
     set --local shuba_badging $shuba_state_root/badging
     shuba_apk_capture 'APK badging inspection' $shuba_badging $shuba_aapt2_path dump badging $shuba_apk_path; or return 1
-    set --local shuba_label_line (grep --fixed-strings --line-regexp -- "application-label:'"(shuba_contract_get app.name)"'" $shuba_badging)
+    set --local shuba_label_line (grep --fixed-strings --line-regexp -- "application-label:'"$shuba_apk_expected_application_label"'" $shuba_badging)
     if test $status -ne 0; or test (count $shuba_label_line) -ne 1
-        shuba_fail 'APK application label differs from the release contract'
+        shuba_fail 'APK application label differs from the expected artifact evidence'
         return 1
     end
 end
@@ -190,14 +273,14 @@ function shuba_apk_check_archive --argument-names shuba_apk_path shuba_state_roo
     while read --null shuba_native_path
         set --append shuba_native_entries (string replace "$shuba_extract_root/" '' -- $shuba_native_path | string collect)
     end <$shuba_native_paths
-    if test (count $shuba_native_entries) -ne 1; or test $shuba_native_entries[1] != (shuba_contract_get artifact.native_library_path)
-        shuba_fail 'APK native payload differs from the release contract'
+    if test (count $shuba_native_entries) -ne 1; or test $shuba_native_entries[1] != $shuba_apk_expected_native_library
+        shuba_fail 'APK native payload differs from the expected artifact evidence'
         return 1
     end
     for shuba_required in AndroidManifest.xml resources.arsc
         shuba_require_regular_file $shuba_extract_root/$shuba_required; or return 1
     end
-    set --global shuba_apk_extracted_library $shuba_extract_root/(shuba_contract_get artifact.native_library_path)
+    set --global shuba_apk_extracted_library $shuba_extract_root/$shuba_apk_expected_native_library
 end
 
 function shuba_apk_check_elf_icons --argument-names shuba_apk_path shuba_state_root
@@ -211,7 +294,7 @@ function shuba_apk_check_elf_icons --argument-names shuba_apk_path shuba_state_r
         shuba_fail 'APK native library contains unstripped sections'
         return 1
     end
-    set --local shuba_configurations ($shuba_apkanalyzer_path resources configs --type drawable --package (shuba_contract_get app.application_id) $shuba_apk_path 2>/dev/null); or return 1
+    set --local shuba_configurations ($shuba_apkanalyzer_path resources configs --type drawable --package $shuba_apk_expected_application_id $shuba_apk_path 2>/dev/null); or return 1
     for shuba_configuration in ldpi mdpi hdpi xhdpi anydpi
         contains -- $shuba_configuration $shuba_configurations; or begin
             shuba_fail "APK launcher icon lacks the $shuba_configuration resource"
@@ -246,5 +329,28 @@ function shuba_validate_android_apk --argument-names shuba_project_root shuba_ap
         return $shuba_validation_status
     end
     printf 'Android APK verification: %s %s code %s (%s) is signed, aligned, contract-consistent, and stripped.\n' \
-        (shuba_contract_get app.name) (shuba_contract_get app.version_name) $shuba_apk_expected_version_code (shuba_contract_get android.abi)
+        $shuba_apk_expected_application_label $shuba_apk_expected_version_name $shuba_apk_expected_version_code $shuba_apk_expected_abi
+end
+
+function shuba_validate_historical_android_apk --argument-names \
+    shuba_project_root shuba_apk_path shuba_basename shuba_application_id shuba_version_code \
+    shuba_version_name shuba_min_sdk shuba_target_sdk shuba_abi shuba_signing_certificate \
+    shuba_application_label
+    shuba_require_regular_file $shuba_apk_path; or return 1
+    shuba_apk_check_historical_expectation $shuba_apk_path $shuba_basename $shuba_application_id \
+        $shuba_version_code $shuba_version_name $shuba_min_sdk $shuba_target_sdk $shuba_abi \
+        $shuba_signing_certificate $shuba_application_label; or return 1
+    set --local shuba_state_root (mktemp --directory /tmp/shuba-historical-apk-validation.XXXXXX); or return 1
+    shuba_apk_check_signer_alignment $shuba_apk_path $shuba_state_root
+    and shuba_apk_check_manifest $shuba_apk_path $shuba_state_root
+    and shuba_apk_check_archive $shuba_apk_path $shuba_state_root
+    and shuba_apk_check_elf_icons $shuba_apk_path $shuba_state_root
+    set --local shuba_validation_status $status
+    rm -rf -- $shuba_state_root
+    set --erase --global shuba_apk_extracted_library
+    if test $shuba_validation_status -ne 0
+        return $shuba_validation_status
+    end
+    printf 'Historical Android APK verification: %s %s code %s (%s) is signed, aligned, evidence-consistent, and stripped.\n' \
+        $shuba_apk_expected_application_label $shuba_apk_expected_version_name $shuba_apk_expected_version_code $shuba_apk_expected_abi
 end

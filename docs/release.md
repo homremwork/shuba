@@ -55,7 +55,7 @@ tools/release/build-android-release.fish
 8. copies the bytes into a private staging directory, re-verifies them, emits non-secret provenance and checksum/verification sidecars; and
 9. atomically replaces [`dist/release`](../dist/release) only after all gates pass.
 
-A failed or interrupted candidate must not replace an existing verified packet. Do not manually populate [`dist/release`](../dist/release), rename an APK into compliance, or publish a partial directory.
+A failed or interrupted candidate must not replace an existing verified packet. When a prior accepted packet occupies [`dist/release`](../dist/release), the coordinator first validates it against its own retained provenance, checksum, verification evidence, signer, structural APK evidence, and lower version code. It never judges historical bytes against the successor contract. A malformed or unverifiable prior packet is a stop condition; do not manually populate, delete, move, or rename [`dist/release`](../dist/release) to bypass it.
 
 ## Artifact packet and verification
 

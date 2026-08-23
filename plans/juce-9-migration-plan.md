@@ -128,19 +128,19 @@ flowchart LR
 
 **Owner:** release boundary.
 
-**Changes:** execute the existing immutable-state, signing, artifact-verification, and adjacent-code upgrade workflow; do not change release identity merely to hide a dependency failure.
+**Changes:** execute the existing immutable-state, signing, artifact-verification, and adjacent-code upgrade workflow; do not change release identity merely to hide a dependency failure. When a prior accepted packet already occupies `dist/release`, validate it against its own retained provenance, checksum, verification evidence, signer, and structural identity before atomic successor replacement. Do not reinterpret the historical packet under the successor contract, and retain all successor staging and post-publication verification as successor-contract-driven checks.
 
 **Entry gate:** U9.1 through U9.4 are accepted, the chosen JUCE 9 license route is recorded for the intended distribution context, and the private signing boundary is available.
 
 **Acceptance:**
 
 1. Build the final signed candidate only through [`build-android-release.fish`](../tools/release/build-android-release.fish:12).
-2. Confirm the final four-file packet, contract identity, signer, APK contents, and provenance against the exact JUCE 9 source state.
+2. Confirm the final four-file packet, contract identity, signer, APK contents, and provenance against the exact JUCE 9 source state. A prior packet may be replaced only after a dedicated provenance-bound validator proves its exact historical four-file inventory, checksum/provenance byte binding, retained pre/post evidence, signer/application/ABI continuity, and strictly lower version code; malformed, unverifiable, probe-contaminated, or successor-reinterpreted prior evidence is a stop condition.
 3. Install the candidate over the previously accepted same-key baseline where available; verify catalog, media, and recovery preservation.
 4. Build the isolated adjacent-code probe using [`build-android-upgrade-probe.fish`](../tools/release/build-android-upgrade-probe.fish:55), install it over the final candidate, and recheck preservation plus backup restore. Keep it below [`dist/non-final`](../dist/non-final) only.
 5. Run the protected rehearsal workflow path in [`android-release-rehearsal.yml`](../.github/workflows/android-release-rehearsal.yml:16) after local evidence is satisfactory.
 
-**Rollback/stop:** before final publication, restore the source pin and rebuild from clean output if any candidate gate fails. After a verified final artifact is accepted, never replace its bytes or reinterpret its evidence; a subsequent correction requires a new source state and release candidate under the existing release procedure.
+**Rollback/stop:** before final publication, restore the source pin and rebuild from clean output if any candidate gate fails. Never manually delete, move, rename, or reinterpret a prior accepted packet to bypass a failed successor gate. After a verified final artifact is accepted, never replace its bytes or reinterpret its evidence; a subsequent correction requires a new source state and release candidate under the existing release procedure.
 
 ## Required validation order
 

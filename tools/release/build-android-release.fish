@@ -148,7 +148,7 @@ function shuba_release_publish_internal
     set --local shuba_basename (shuba_contract_get artifact.basename)
 
     if test -e $shuba_release_final_directory
-        shuba_validate_artifact_directory $shuba_release_final_directory $shuba_basename $shuba_verifier; or return 1
+        shuba_validate_historical_release_packet $shuba_release_final_directory; or return 1
     end
     shuba_atomic_publication_initialize $shuba_release_dist_root $shuba_release_final_directory release; or return 1
     set --local shuba_stage (shuba_atomic_publication_stage_path); or return 1
