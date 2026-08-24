@@ -70,12 +70,16 @@ function shuba_test_main
     end
 
     set --local shuba_version_code (shuba_contract_get app.version_code); or return 1
-    shuba_test_mutated_contract $shuba_contract '^contract.schema_version=3$' 'contract.schema_version=2' 'unsupported release contract schema'; or return 1
+    shuba_test_mutated_contract $shuba_contract '^contract.schema_version=4$' 'contract.schema_version=3' 'unsupported release contract schema'; or return 1
     shuba_test_mutated_contract $shuba_contract "^app.version_code=$shuba_version_code\$" 'app.version_code=0' 'invalid value for app.version_code'; or return 1
     shuba_test_mutated_contract $shuba_contract '^tool.jq_min_version=1.7.0$' 'tool.jq_min_version=01.7.0' 'invalid value for tool.jq_min_version'; or return 1
     shuba_test_mutated_contract $shuba_contract '^android.command_line_tools_versions=20.0,12.0$' 'android.command_line_tools_versions=20.0,20.0' 'duplicate Android command-line tools version'; or return 1
     shuba_test_mutated_contract $shuba_contract '^android.command_line_tools_versions=20.0,12.0$' 'android.command_line_tools_versions=20.0,12.0,' 'invalid Android command-line tools version'; or return 1
     shuba_test_mutated_contract $shuba_contract '^android.target_sdk=34$' 'android.target_sdk=35' 'android.target_sdk exceeds android.compile_sdk'; or return 1
+    shuba_test_mutated_contract $shuba_contract '^android.abi=arm64-v8a$' 'android.abi=x86_64' 'native CPU policy supports only arm64-v8a'; or return 1
+    shuba_test_mutated_contract $shuba_contract '^android.native_cpu=cortex-a73$' 'android.native_cpu=cortex-a53' 'unsupported android.native_cpu'; or return 1
+    shuba_test_mutated_contract $shuba_contract '^android.native_feature_floor=armv8-a+neon+aes+sha2+crc32$' 'android.native_feature_floor=armv8-a+neon' 'android.native_feature_floor differs'; or return 1
+    shuba_test_mutated_contract $shuba_contract '^android.release_optimization=O3$' 'android.release_optimization=Ofast' 'must use safe O3 optimization'; or return 1
     cat $shuba_contract $shuba_contract >$shuba_test_root/duplicate.properties
     if shuba_contract_load $shuba_test_root/duplicate.properties >/dev/null 2>&1
         shuba_test_fail 'duplicate contract keys were accepted'

@@ -313,14 +313,25 @@ function shuba_resolve_android_verification_tools
         shuba_fail 'resolved NDK revision differs from the release contract'
         return 1
     end
-    set --global shuba_ndk_readelf_path $shuba_ndk_root/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf
+    set --local shuba_llvm_bin $shuba_ndk_root/toolchains/llvm/prebuilt/linux-x86_64/bin
+    set --global shuba_ndk_readelf_path $shuba_llvm_bin/llvm-readelf
+    set --global shuba_ndk_objdump_path $shuba_llvm_bin/llvm-objdump
     if not test -x $shuba_ndk_readelf_path
-        shuba_fail "pinned NDK LLVM ELF inspector is unavailable: $shuba_ndk_readelf_path"
+        shuba_fail "pinned NDK LLVM ELF-header inspector is unavailable: $shuba_ndk_readelf_path"
         return 1
     end
     set --local shuba_ndk_readelf_resolved (realpath --canonicalize-existing -- $shuba_ndk_readelf_path); or return 1
     if not test -f $shuba_ndk_readelf_resolved; or not test -x $shuba_ndk_readelf_resolved
-        shuba_fail "pinned NDK LLVM ELF inspector resolves to an invalid executable: $shuba_ndk_readelf_path"
+        shuba_fail "pinned NDK LLVM ELF-header inspector resolves to an invalid executable: $shuba_ndk_readelf_path"
+        return 1
+    end
+    if not test -x $shuba_ndk_objdump_path
+        shuba_fail "pinned NDK LLVM AArch64 disassembler is unavailable: $shuba_ndk_objdump_path"
+        return 1
+    end
+    set --local shuba_ndk_objdump_resolved (realpath --canonicalize-existing -- $shuba_ndk_objdump_path); or return 1
+    if not test -f $shuba_ndk_objdump_resolved; or not test -x $shuba_ndk_objdump_resolved
+        shuba_fail "pinned NDK LLVM AArch64 disassembler resolves to an invalid executable: $shuba_ndk_objdump_path"
         return 1
     end
 end

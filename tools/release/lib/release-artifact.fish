@@ -69,6 +69,7 @@ function shuba_validate_historical_provenance_header --argument-names shuba_prov
         artifact.generated_apk_sha256 artifact.generated_output_metadata_sha256 release_contract.sha256 \
         release_entrypoint.sha256 signing.certificate_sha256 app.application_id app.version_name \
         app.version_code android.min_sdk android.target_sdk android.abi android.ndk_version \
+        android.native_cpu android.native_feature_floor android.release_optimization \
         android.build_tools_version android.cmake_version android.gradle_version \
         android.gradle_plugin_version android.command_line_tools_version \
         android.command_line_tools_versions android.gradle_wrapper_distribution tool.java.home \
@@ -83,6 +84,7 @@ function shuba_validate_historical_provenance_header --argument-names shuba_prov
         tool.apkanalyzer.sha256 tool.sdkmanager.path tool.sdkmanager.version tool.sdkmanager.sha256 \
         tool.aapt2.path tool.aapt2.sha256 tool.apksigner.path tool.apksigner.sha256 \
         tool.zipalign.path tool.zipalign.sha256 tool.llvm_readelf.path tool.llvm_readelf.sha256 \
+        tool.llvm_objdump.path tool.llvm_objdump.sha256 \
         libjxl.fingerprint_sha256 projucer.fingerprint_sha256 verification.pre_publish_sha256
     set --local shuba_seen_keys
     set --local shuba_found_release_state false
@@ -127,6 +129,36 @@ function shuba_validate_historical_provenance_header --argument-names shuba_prov
         if not contains -- $shuba_key $shuba_seen_keys
             shuba_fail "historical release provenance is missing required record: $shuba_key"
             return 1
+        end
+    end
+    set --local shuba_native_policy_keys \
+        android.native_cpu android.native_feature_floor android.release_optimization
+    set --local shuba_native_policy_records 0
+    for shuba_key in $shuba_native_policy_keys
+        contains -- $shuba_key $shuba_seen_keys; and set shuba_native_policy_records (math $shuba_native_policy_records + 1)
+    end
+    if test $shuba_native_policy_records -ne 0; and test $shuba_native_policy_records -ne (count $shuba_native_policy_keys)
+        shuba_fail 'historical release provenance must retain either all or none of the Android native-policy records'
+        return 1
+    end
+    if test $shuba_native_policy_records -gt 0
+        if test (shuba_historical_provenance_get $shuba_provenance_path android.native_cpu) != cortex-a73
+            shuba_fail 'historical release provenance has an unsupported Android native CPU policy'
+            return 1
+        end
+        if test (shuba_historical_provenance_get $shuba_provenance_path android.native_feature_floor) != armv8-a+neon+aes+sha2+crc32
+            shuba_fail 'historical release provenance has an unsupported Android native feature floor'
+            return 1
+        end
+        if test (shuba_historical_provenance_get $shuba_provenance_path android.release_optimization) != O3
+            shuba_fail 'historical release provenance has an unsupported Android Release optimization policy'
+            return 1
+        end
+        for shuba_key in tool.llvm_objdump.path tool.llvm_objdump.sha256
+            if not contains -- $shuba_key $shuba_seen_keys
+                shuba_fail "historical release provenance is missing native-disassembly tool evidence: $shuba_key"
+                return 1
+            end
         end
     end
     set --local shuba_legacy_command_line_tools_count 0
@@ -262,6 +294,11 @@ function shuba_validate_historical_release_packet --argument-names shuba_directo
     set --local shuba_verification_fields (string match --regex --groups-only \
         '^Android APK verification: (.+) ((0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)) code ([1-9][0-9]*) [(]([A-Za-z0-9_-]+)[)] is signed, aligned, contract-consistent, and stripped[.]$' \
         -- $shuba_verification_line)
+    if test (count $shuba_verification_fields) -ne 7
+        set shuba_verification_fields (string match --regex --groups-only \
+            '^Android APK verification: (.+) ((0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)) code ([1-9][0-9]*) [(]([A-Za-z0-9_-]+)[)] is signed, aligned, contract-consistent, stripped, and AArch64-disassembled[.]$' \
+            -- $shuba_verification_line)
+    end
     if test (count $shuba_verification_fields) -ne 7; or test "$shuba_verification_fields[2]" != "$shuba_version_name"; or test "$shuba_verification_fields[6]" != "$shuba_version_code"; or test "$shuba_verification_fields[7]" != "$shuba_abi"
         shuba_fail 'historical release verification evidence does not bind its retained identity'
         return 1
@@ -364,6 +401,8 @@ function shuba_validate_release_provenance --argument-names shuba_provenance_pat
         tool.sdkmanager.path tool.sdkmanager.version tool.sdkmanager.sha256 \
         tool.aapt2.path tool.aapt2.sha256 tool.apksigner.path tool.apksigner.sha256 \
         tool.zipalign.path tool.zipalign.sha256 tool.llvm_readelf.path tool.llvm_readelf.sha256 \
+        tool.llvm_objdump.path tool.llvm_objdump.sha256 \
+        android.native_cpu android.native_feature_floor android.release_optimization \
         libjxl.fingerprint_sha256 projucer.fingerprint_sha256 verification.pre_publish_sha256
         set --local shuba_records (awk -F= -v key=$shuba_key \
             '$1 == key && length($0) > length(key) + 1 { print }' $shuba_provenance_path)
@@ -427,7 +466,8 @@ function shuba_write_release_provenance --argument-names shuba_output shuba_proj
         printf 'release_entrypoint.sha256=%s\n' (shuba_sha256_file $shuba_project_root/tools/release/build-android-release.fish)
         printf 'signing.certificate_sha256=%s\n' (shuba_contract_get signing.certificate_sha256)
         for shuba_key in app.application_id app.version_name app.version_code android.min_sdk android.target_sdk \
-            android.abi android.ndk_version android.build_tools_version android.cmake_version \
+            android.abi android.native_cpu android.native_feature_floor android.release_optimization \
+            android.ndk_version android.build_tools_version android.cmake_version \
             android.gradle_version android.gradle_plugin_version android.command_line_tools_versions
             printf '%s=%s\n' $shuba_key (shuba_contract_get $shuba_key)
         end
@@ -437,7 +477,7 @@ function shuba_write_release_provenance --argument-names shuba_output shuba_proj
         printf 'tool.javac.version=%s\ntool.javac.sha256=%s\n' $shuba_javac_version (shuba_sha256_file $shuba_javac_path)
         printf 'tool.git.path=%s\ntool.git.version=%s\ntool.git.sha256=%s\n' \
             $shuba_git_path (shuba_first_line $shuba_git_path --version) (shuba_sha256_file $shuba_git_path)
-        for shuba_tool_name in aapt2 apksigner zipalign llvm_readelf
+        for shuba_tool_name in aapt2 apksigner zipalign llvm_readelf llvm_objdump
             set --local shuba_tool_path
             switch $shuba_tool_name
                 case aapt2
@@ -448,6 +488,8 @@ function shuba_write_release_provenance --argument-names shuba_output shuba_proj
                     set shuba_tool_path $shuba_zipalign_path
                 case llvm_readelf
                     set shuba_tool_path $shuba_ndk_readelf_path
+                case llvm_objdump
+                    set shuba_tool_path $shuba_ndk_objdump_path
             end
             set --local shuba_tool_resolved_path \
                 (realpath --canonicalize-existing -- $shuba_tool_path); or return 1

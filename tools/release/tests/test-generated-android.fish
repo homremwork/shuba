@@ -63,6 +63,10 @@ function shuba_generated_test_main
     shuba_generated_test_require_verdict $shuba_case_root false wrong-authority-target-SDK; or return 1
 
     set shuba_case_root (shuba_generated_test_fixture); or return 1
+    shuba_generated_test_replace $shuba_case_root/Shuba.jucer 'extraCompilerFlags="-mcpu=cortex-a73"' 'extraCompilerFlags="-mcpu=generic"'; or return 1
+    shuba_generated_test_require_verdict $shuba_case_root false wrong-authority-native-CPU; or return 1
+
+    set shuba_case_root (shuba_generated_test_fixture); or return 1
     rm $shuba_case_root/Source/Core/Clock.hpp
     shuba_generated_test_require_verdict $shuba_case_root false missing-source; or return 1
 
@@ -89,6 +93,14 @@ function shuba_generated_test_main
     set shuba_case_root (shuba_generated_test_fixture); or return 1
     shuba_generated_test_replace $shuba_case_root/Builds/Android/app/build.gradle 'compileSdk(34)' 'compileSdk(35)'; or return 1
     shuba_generated_test_require_verdict $shuba_case_root false wrong-generated-compile-SDK; or return 1
+
+    set shuba_case_root (shuba_generated_test_fixture); or return 1
+    shuba_generated_test_replace $shuba_case_root/Builds/Android/app/build.gradle 'cFlags("-O3")' 'cFlags("-Ofast")'; or return 1
+    shuba_generated_test_require_verdict $shuba_case_root false aggressive-generated-optimization; or return 1
+
+    set shuba_case_root (shuba_generated_test_fixture); or return 1
+    shuba_generated_test_replace $shuba_case_root/Builds/Android/app/CMakeLists.txt '-mcpu=cortex-a73' '-mcpu=generic'; or return 1
+    shuba_generated_test_require_verdict $shuba_case_root false wrong-generated-native-CPU; or return 1
 
     set shuba_case_root (shuba_generated_test_fixture); or return 1
     shuba_generated_test_replace $shuba_case_root/Builds/Android/app/CMakeLists.txt '\[\[jxl_dec\]\]' '[[jxl_changed]]'; or return 1

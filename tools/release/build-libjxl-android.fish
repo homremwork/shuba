@@ -319,6 +319,8 @@ end
 function shuba_libjxl_prepare_tools
     set --global shuba_libjxl_android_abi (shuba_contract_get android.abi)
     set --global shuba_libjxl_android_api (shuba_contract_get android.min_sdk)
+    set --global shuba_libjxl_native_cpu (shuba_contract_get android.native_cpu)
+    set --global shuba_libjxl_release_optimization (shuba_contract_get android.release_optimization)
     if test $shuba_libjxl_android_abi != arm64-v8a
         shuba_fail "libjxl builder owns only arm64-v8a, not $shuba_libjxl_android_abi"
         return 1
@@ -361,10 +363,15 @@ function shuba_libjxl_prepare_tools
     set --global shuba_libjxl_ninja_version (shuba_first_line $shuba_libjxl_ninja --version); or return 1
     set --global shuba_libjxl_clang_version (shuba_first_line $shuba_libjxl_clangxx --version); or return 1
     set --global shuba_git_version (shuba_first_line $shuba_git_path --version); or return 1
+    set --local shuba_native_flags \
+        "-mcpu=$shuba_libjxl_native_cpu -$shuba_libjxl_release_optimization"
     set --global shuba_libjxl_cmake_definitions \
         "ANDROID_ABI=$shuba_libjxl_android_abi" "ANDROID_PLATFORM=android-$shuba_libjxl_android_api" \
         CMAKE_BUILD_TYPE=Release "CMAKE_MAKE_PROGRAM=$shuba_libjxl_ninja" \
-        "CMAKE_TOOLCHAIN_FILE=$shuba_libjxl_toolchain" $shuba_libjxl_fixed_definitions
+        "CMAKE_TOOLCHAIN_FILE=$shuba_libjxl_toolchain" \
+        "CMAKE_C_FLAGS_RELEASE=$shuba_native_flags -DNDEBUG" \
+        "CMAKE_CXX_FLAGS_RELEASE=$shuba_native_flags -DNDEBUG" \
+        $shuba_libjxl_fixed_definitions
 end
 
 function shuba_libjxl_build --argument-names shuba_descriptor shuba_fingerprint
@@ -455,6 +462,7 @@ function shuba_libjxl_main
     shuba_validate_structured_tools; or return 1
     shuba_validate_android_toolchain; or return 1
     shuba_validate_android_sdk_layout; or return 1
+    shuba_validate_android_native_policy; or return 1
     shuba_libjxl_initialize_configuration
     shuba_libjxl_prepare_tools; or return 1
     shuba_require_regular_file $shuba_libjxl_source_root/CMakeLists.txt; or return 1
@@ -527,6 +535,7 @@ set --local shuba_script_directory (status dirname)
 source $shuba_script_directory/lib/core.fish
 source $shuba_script_directory/lib/release-contract.fish
 source $shuba_script_directory/lib/android-toolchain.fish
+source $shuba_script_directory/lib/android-native-policy.fish
 source $shuba_script_directory/lib/repository-state.fish
 source $shuba_script_directory/lib/fingerprint.fish
 

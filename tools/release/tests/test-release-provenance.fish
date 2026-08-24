@@ -36,6 +36,8 @@ function shuba_provenance_test_write_valid --argument-names shuba_path
             tool.sdkmanager.path tool.sdkmanager.version tool.sdkmanager.sha256 \
             tool.aapt2.path tool.aapt2.sha256 tool.apksigner.path tool.apksigner.sha256 \
             tool.zipalign.path tool.zipalign.sha256 tool.llvm_readelf.path tool.llvm_readelf.sha256 \
+            tool.llvm_objdump.path tool.llvm_objdump.sha256 \
+            android.native_cpu android.native_feature_floor android.release_optimization \
             libjxl.fingerprint_sha256 projucer.fingerprint_sha256 verification.pre_publish_sha256
             printf '%s=value\n' $shuba_key
         end
@@ -80,6 +82,22 @@ function shuba_provenance_test_main
     grep --invert-match '^tool.sdkmanager.sha256=' $shuba_valid >$shuba_fixture
     shuba_provenance_test_expect_rejection missing-sdkmanager $shuba_fixture \
         'requires exactly one non-empty record: tool.sdkmanager.sha256'; or return 1
+
+    set shuba_fixture $shuba_provenance_test_root/missing-native-cpu.provenance
+    grep --invert-match '^android.native_cpu=' $shuba_valid >$shuba_fixture
+    shuba_provenance_test_expect_rejection missing-native-cpu $shuba_fixture \
+        'requires exactly one non-empty record: android.native_cpu'; or return 1
+
+    set shuba_fixture $shuba_provenance_test_root/duplicate-native-optimization.provenance
+    cp -- $shuba_valid $shuba_fixture
+    printf 'android.release_optimization=duplicate\n' >>$shuba_fixture
+    shuba_provenance_test_expect_rejection duplicate-native-optimization $shuba_fixture \
+        'requires exactly one non-empty record: android.release_optimization'; or return 1
+
+    set shuba_fixture $shuba_provenance_test_root/missing-objdump.provenance
+    grep --invert-match '^tool.llvm_objdump.sha256=' $shuba_valid >$shuba_fixture
+    shuba_provenance_test_expect_rejection missing-objdump $shuba_fixture \
+        'requires exactly one non-empty record: tool.llvm_objdump.sha256'; or return 1
 
     set shuba_fixture $shuba_provenance_test_root/secret-name.provenance
     cp -- $shuba_valid $shuba_fixture

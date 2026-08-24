@@ -5,7 +5,7 @@ function shuba_historical_packet_test_fail
     return 1
 end
 
-function shuba_historical_packet_test_write_packet --argument-names shuba_directory
+function shuba_historical_packet_test_write_packet --argument-names shuba_directory shuba_packet_schema
     mkdir -p -- $shuba_directory; or return 1
     set --local shuba_basename Shuba-1.0.0-arm64-v8a.apk
     set --local shuba_apk $shuba_directory/$shuba_basename
@@ -16,6 +16,9 @@ function shuba_historical_packet_test_write_packet --argument-names shuba_direct
     set --local shuba_digest (shuba_sha256_file $shuba_apk); or return 1
     set --local shuba_size (stat --format %s -- $shuba_apk); or return 1
     set --local shuba_verification_line 'Android APK verification: Shuba 1.0.0 code 1 (arm64-v8a) is signed, aligned, contract-consistent, and stripped.'
+    if test $shuba_packet_schema = current
+        set shuba_verification_line 'Android APK verification: Shuba 1.0.0 code 1 (arm64-v8a) is signed, aligned, contract-consistent, stripped, and AArch64-disassembled.'
+    end
     begin
         printf '%s\n' verification_evidence_schema_version=1 pre_publication_verification_begin $shuba_verification_line \
             pre_publication_verification_end post_publication_verification_begin $shuba_verification_line \
@@ -65,13 +68,16 @@ function shuba_historical_packet_test_write_packet --argument-names shuba_direct
             build_input_manifest_schema_version=1 \
             build_input_manifest_end
     end >$shuba_provenance; or return 1
+    if test $shuba_packet_schema = current
+        sed -i '/^release_state_begin/i android.native_cpu=cortex-a73\nandroid.native_feature_floor=armv8-a+neon+aes+sha2+crc32\nandroid.release_optimization=O3\ntool.llvm_objdump.path=/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-objdump\ntool.llvm_objdump.sha256=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' $shuba_provenance; or return 1
+    end
     shuba_write_checksum_sidecar $shuba_apk.sha256 $shuba_digest $shuba_basename; or return 1
     chmod 0644 $shuba_apk $shuba_apk.sha256 $shuba_provenance $shuba_verification
 end
 
-function shuba_historical_packet_test_prepare --argument-names shuba_case
+function shuba_historical_packet_test_prepare --argument-names shuba_case shuba_packet_schema
     set --local shuba_directory $shuba_historical_packet_test_root/$shuba_case
-    shuba_historical_packet_test_write_packet $shuba_directory; or return 1
+    shuba_historical_packet_test_write_packet $shuba_directory $shuba_packet_schema; or return 1
     printf '%s\n' $shuba_directory
 end
 
@@ -104,59 +110,77 @@ function shuba_historical_packet_test_main
         return 1
     end
 
-    set --local shuba_directory (shuba_historical_packet_test_prepare valid); or return 1
+    set --local shuba_directory (shuba_historical_packet_test_prepare valid legacy); or return 1
     shuba_validate_historical_release_packet $shuba_directory; or return 1
     if test (count $shuba_historical_packet_test_validation_arguments) -ne 11; or test "$shuba_historical_packet_test_validation_arguments[3]" != Shuba-1.0.0-arm64-v8a.apk; or test "$shuba_historical_packet_test_validation_arguments[4]" != (shuba_contract_get app.application_id); or test "$shuba_historical_packet_test_validation_arguments[5]" != 1; or test "$shuba_historical_packet_test_validation_arguments[6]" != 1.0.0; or test "$shuba_historical_packet_test_validation_arguments[9]" != arm64-v8a; or test "$shuba_historical_packet_test_validation_arguments[11]" != Shuba
         shuba_historical_packet_test_fail 'did not reach the historical APK validator with complete evidence'
         return 1
     end
 
-    set shuba_directory (shuba_historical_packet_test_prepare extra-file); or return 1
+    set shuba_directory (shuba_historical_packet_test_prepare extra-file legacy); or return 1
     printf '%s\n' forbidden >$shuba_directory/extra
     shuba_historical_packet_test_require_rejection extra-file $shuba_directory 'unexpected four-file inventory'; or return 1
 
-    set shuba_directory (shuba_historical_packet_test_prepare symlink); or return 1
+    set shuba_directory (shuba_historical_packet_test_prepare symlink legacy); or return 1
     ln -s Shuba-1.0.0-arm64-v8a.apk $shuba_directory/forbidden-link; or return 1
     shuba_historical_packet_test_require_rejection symbolic-link $shuba_directory 'contains a symbolic link'; or return 1
 
-    set shuba_directory (shuba_historical_packet_test_prepare checksum); or return 1
+    set shuba_directory (shuba_historical_packet_test_prepare checksum legacy); or return 1
     printf '%s\n' '0000000000000000000000000000000000000000000000000000000000000000  Shuba-1.0.0-arm64-v8a.apk' >$shuba_directory/Shuba-1.0.0-arm64-v8a.apk.sha256
     shuba_historical_packet_test_require_rejection checksum $shuba_directory 'checksum sidecar does not match'; or return 1
 
-    set shuba_directory (shuba_historical_packet_test_prepare provenance-digest); or return 1
+    set shuba_directory (shuba_historical_packet_test_prepare provenance-digest legacy); or return 1
     sed -i 's/^artifact.generated_apk_sha256=.*/artifact.generated_apk_sha256=0000000000000000000000000000000000000000000000000000000000000000/' $shuba_directory/*.provenance.txt
     shuba_historical_packet_test_require_rejection provenance-digest $shuba_directory 'APK bytes differ from retained provenance'; or return 1
 
-    set shuba_directory (shuba_historical_packet_test_prepare duplicate-provenance); or return 1
+    set shuba_directory (shuba_historical_packet_test_prepare duplicate-provenance legacy); or return 1
     sed -i '/^release_state_begin/i app.version_code=1' $shuba_directory/*.provenance.txt
     shuba_historical_packet_test_require_rejection duplicate-provenance $shuba_directory 'repeats record: app.version_code'; or return 1
 
-    set shuba_directory (shuba_historical_packet_test_prepare application-id); or return 1
+    set shuba_directory (shuba_historical_packet_test_prepare application-id legacy); or return 1
     sed -i 's/^app.application_id=.*/app.application_id=example.invalid/' $shuba_directory/*.provenance.txt
     shuba_historical_packet_test_require_rejection application-id $shuba_directory 'application ID differs from the successor contract'; or return 1
 
-    set shuba_directory (shuba_historical_packet_test_prepare abi); or return 1
+    set shuba_directory (shuba_historical_packet_test_prepare abi legacy); or return 1
     sed -i 's/^android.abi=.*/android.abi=x86_64/' $shuba_directory/*.provenance.txt
     shuba_historical_packet_test_require_rejection abi $shuba_directory 'ABI differs from the successor contract'; or return 1
 
-    set shuba_directory (shuba_historical_packet_test_prepare certificate); or return 1
+    set shuba_directory (shuba_historical_packet_test_prepare certificate legacy); or return 1
     sed -i 's/^signing.certificate_sha256=.*/signing.certificate_sha256=0000000000000000000000000000000000000000000000000000000000000000/' $shuba_directory/*.provenance.txt
     shuba_historical_packet_test_require_rejection certificate $shuba_directory 'signing certificate differs from the successor contract'; or return 1
 
-    set shuba_directory (shuba_historical_packet_test_prepare version-code); or return 1
+    set shuba_directory (shuba_historical_packet_test_prepare version-code legacy); or return 1
     sed -i 's/^app.version_code=.*/app.version_code=2/' $shuba_directory/*.provenance.txt
     shuba_historical_packet_test_require_rejection version-code $shuba_directory 'version code is not lower'; or return 1
 
-    set shuba_directory (shuba_historical_packet_test_prepare verification); or return 1
+    set shuba_directory (shuba_historical_packet_test_prepare verification legacy); or return 1
     sed -i 's/code 1/code 9/' $shuba_directory/*.verification.txt
     shuba_historical_packet_test_require_rejection verification $shuba_directory 'verification evidence does not bind'; or return 1
 
-    set shuba_directory (shuba_historical_packet_test_prepare probe); or return 1
+    set shuba_directory (shuba_historical_packet_test_prepare probe legacy); or return 1
     for shuba_path in $shuba_directory/Shuba-1.0.0-arm64-v8a.apk*
         mv $shuba_path (string replace Shuba-1.0.0-arm64-v8a Shuba-1.0.0-arm64-v8a-upgrade -- $shuba_path); or return 1
     end
     sed -i 's/Shuba-1.0.0-arm64-v8a.apk/Shuba-1.0.0-arm64-v8a-upgrade.apk/g' $shuba_directory/*.provenance.txt $shuba_directory/*.sha256
     shuba_historical_packet_test_require_rejection upgrade-probe $shuba_directory 'must not be an upgrade probe'; or return 1
+
+    set shuba_directory (shuba_historical_packet_test_prepare native-policy current); or return 1
+    shuba_validate_historical_release_packet $shuba_directory; or return 1
+
+    set shuba_directory (shuba_historical_packet_test_prepare incomplete-native-policy current); or return 1
+    sed -i '/^android.release_optimization=/d' $shuba_directory/*.provenance.txt
+    shuba_historical_packet_test_require_rejection incomplete-native-policy $shuba_directory \
+        'must retain either all or none of the Android native-policy records'; or return 1
+
+    set shuba_directory (shuba_historical_packet_test_prepare wrong-native-cpu current); or return 1
+    sed -i 's/^android.native_cpu=.*/android.native_cpu=cortex-a78/' $shuba_directory/*.provenance.txt
+    shuba_historical_packet_test_require_rejection wrong-native-cpu $shuba_directory \
+        'unsupported Android native CPU policy'; or return 1
+
+    set shuba_directory (shuba_historical_packet_test_prepare missing-objdump current); or return 1
+    sed -i '/^tool.llvm_objdump.sha256=/d' $shuba_directory/*.provenance.txt
+    shuba_historical_packet_test_require_rejection missing-objdump $shuba_directory \
+        'missing native-disassembly tool evidence'; or return 1
 
     printf '%s\n' 'R12F historical packet provenance, successor continuity, and mutation probes: passed'
 end

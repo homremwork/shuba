@@ -8,7 +8,7 @@ Shuba — локальное Android-приложение для учёта ли
 
 ### Текущее состояние
 
-В [`release/release.properties`](release/release.properties:1) задан следующий кандидат: версия `1.0.1`, Android version code `2`, Android 14/API 34 и только `arm64-v8a`. Более ранняя проверка на репрезентативном устройстве подтвердила основной путь для хранилищ, предметов, фотографий, экспорта JPEG, резервного копирования, восстановления и обновления тем же ключом, но **не** разрешает выпуск изменённого текущего исходного кода. До публикации необходимы новый подписанный кандидат и Android-проверка затронутой функциональности. Перед сборкой или распространением APK прочитайте [`docs/release.md`](docs/release.md).
+В [`release/release.properties`](release/release.properties:1) задан следующий кандидат: версия `1.0.1`, Android version code `2`, Android 14/API 34 и только `arm64-v8a`. Нативная политика собирает приложение и статические зависимости для `cortex-a73`; требуемый нижний набор возможностей — Armv8-A с NEON, AES, SHA2 и CRC32. Это **не** политика Armv8.2-A: такой минимальный ISA противоречил бы заявленной совместимости с классом Cortex-A73/A53 и совместимыми Snapdragon 680/685 Kryo 265. Debug использует `-O0`, Release — безопасный `-O3`; `-Ofast`, fast-math и LTO не используются. Более ранняя проверка на репрезентативном устройстве подтвердила основной путь для хранилищ, предметов, фотографий, экспорта JPEG, резервного копирования, восстановления и обновления тем же ключом, но **не** разрешает выпуск изменённого текущего исходного кода. До публикации необходимы новый подписанный кандидат и Android-проверка затронутой функциональности. Перед сборкой или распространением APK прочитайте [`docs/release.md`](docs/release.md).
 
 ### Граница продукта
 
@@ -60,7 +60,7 @@ Shuba is a local-first Android catalog for people who store, find, and sell pers
 
 ### Current state
 
-The tracked application authority identifies the next candidate as version `1.0.1`, Android version code `2`, Android 14/API 34, and `arm64-v8a` only in [`release/release.properties`](release/release.properties:1). Earlier representative-device acceptance proved the core storage, item, photo, JPEG export, backup, recovery, and same-key upgrade paths, but it does **not** authorize the changed current source as a release. A new signed candidate and affected Android acceptance remain required before publication. Read [`docs/release.md`](docs/release.md) before building or distributing an APK.
+The tracked application authority identifies the next candidate as version `1.0.1`, Android version code `2`, Android 14/API 34, and `arm64-v8a` only in [`release/release.properties`](release/release.properties:1). The native policy builds both the app and static dependencies for `cortex-a73`, with an Armv8-A + NEON + AES + SHA2 + CRC32 feature floor. It is explicitly **not** an Armv8.2-A minimum: that ISA would contradict the advertised Cortex-A73/A53 and compatible Snapdragon 680/685 Kryo 265 device class. Debug uses `-O0`; Release uses safe `-O3`; `-Ofast`, fast-math, and LTO are not used. Earlier representative-device acceptance proved the core storage, item, photo, JPEG export, backup, recovery, and same-key upgrade paths, but it does **not** authorize the changed current source as a release. A new signed candidate and affected Android acceptance remain required before publication. Read [`docs/release.md`](docs/release.md) before building or distributing an APK.
 
 ### Product boundary
 

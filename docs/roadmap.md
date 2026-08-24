@@ -4,6 +4,8 @@
 
 Shuba has a working local catalog implementation with automated host coverage and previous representative Android acceptance of the core flow. The tracked source has since advanced to the next release identity in [`release/release.properties`](../release/release.properties:1): `1.0.1` and Android code `2`.
 
+The current Android native policy is `arm64-v8a`, `-mcpu=cortex-a73`, and safe Release `-O3` with an Armv8-A + NEON + AES + SHA2 + CRC32 feature floor. It intentionally does not require Armv8.2-A and uses no LTO, `-Ofast`, or fast-math. The attempted ThinLTO gate was rejected because JUCE's bare Android `-flto` output becomes full LTO under the pinned NDK, not ThinLTO. No runtime, host-dependent, or generated-file fallback is permitted.
+
 The current source also contains the post-acceptance corrections that:
 
 - make the item-detail storage destination an explicit localized action rather than a duplicate edit route;
@@ -12,19 +14,20 @@ The current source also contains the post-acceptance corrections that:
 
 Those corrections have focused regression coverage, complete host/localization validation, generated-project validation, Android Debug build evidence, and manual UI verification. They have not yet been packaged into a new signed release candidate. Previous acceptance remains historical evidence for its exact source/artifact only.
 
-## Next required block: signed `1.0.1` candidate and affected acceptance
+## Next required block: representative-device acceptance and release-identity decision
 
 This is the immediate project gate. Its owner is the release boundary defined by [`docs/release.md`](release.md) and [`release/release.properties`](../release/release.properties:1), not the UI implementation layer.
 
 ### Scope
 
-1. Re-run host, localization, release-contract, release-tool, generation, and artifact-preparation gates against the current source.
-2. Build one new signed final candidate through [`build-android-release.fish`](../tools/release/build-android-release.fish:12).
-3. Verify its final packet and record non-secret provenance for its exact bytes.
-4. On an Android 14 arm64 device, confirm the corrected item-detail actions, English/Russian text, fullscreen safe-area behavior in gesture and three-button navigation modes, rotation/runtime inset changes, and assigned/unassigned feedback behavior.
-5. Repeat the affected core persistence/photo/backup smoke flow.
-6. Build a non-final adjacent-code upgrade probe only after the final candidate passes its baseline flow; prove same-key upgrade and backup restoration as described in [`docs/release.md`](release.md).
-7. Make an explicit freeze/publication decision only after the candidate-specific evidence is complete.
+1. On a Snapdragon 680/685 Kryo 265 Android 14 device, capture CPU feature evidence and cold-launch the exact `cortex-a73`/`-O3`, non-LTO APK.
+2. Confirm the corrected item-detail actions, English/Russian text, fullscreen safe-area behavior in gesture and three-button navigation modes, rotation/runtime inset changes, and assigned/unassigned feedback behavior.
+3. Repeat catalog/search, JPEG XL import/preview/export, persistence, backup, restore, and same-key upgrade validation.
+4. Compare artifact size and representative workload performance against the pre-change baseline; classify any regression before changing tuning again.
+5. A Jelly Max Android 14 smoke launch is compatibility-only evidence. It does not replace the required Snapdragon 680/685 Kryo 265 gate because its MediaTek Cortex-A55/A78 CPU topology differs.
+6. Before a final packet can replace the existing historical packet, select a successor release identity with a higher version code, then rebuild, verify, and run the full acceptance matrix through [`build-android-release.fish`](../tools/release/build-android-release.fish:12).
+7. Build a non-final adjacent-code upgrade probe only after the final candidate passes its baseline flow; prove same-key upgrade and backup restoration as described in [`docs/release.md`](release.md).
+8. Make an explicit freeze/publication decision only after the candidate-specific evidence is complete.
 
 ### Completion evidence
 

@@ -158,13 +158,15 @@ function shuba_generated_check_project_authority --argument-names shuba_root shu
 
     set --local shuba_configurations "$shuba_exporter/CONFIGURATIONS/CONFIGURATION"
     shuba_generated_require_xml_value $shuba_project "count($shuba_configurations)" 2 'expected Debug and Release Android configurations'; or return 1
-    for shuba_record in 'Debug|1' 'Release|0'
+    for shuba_record in 'Debug|1|1' 'Release|0|3'
         set --local shuba_fields (string split '|' -- $shuba_record)
         set --local shuba_configuration (string join '' -- $shuba_configurations "[@name='" $shuba_fields[1] "']")
         shuba_generated_require_xml_value $shuba_project "count($shuba_configuration)" 1 "missing or duplicate $shuba_fields[1] Android configuration"; or return 1
         shuba_generated_require_xml_value $shuba_project "string($shuba_configuration/@isDebug)" $shuba_fields[2] "$shuba_fields[1] debug classification is wrong"; or return 1
         shuba_generated_require_xml_value $shuba_project "string($shuba_configuration/@targetName)" (shuba_contract_get app.name) "$shuba_fields[1] target name is wrong"; or return 1
         shuba_generated_require_xml_value $shuba_project "string($shuba_configuration/@androidArchitectures)" (shuba_contract_get android.abi) "$shuba_fields[1] ABI is wrong"; or return 1
+        shuba_generated_require_xml_value $shuba_project "string($shuba_configuration/@optimisation)" $shuba_fields[3] "$shuba_fields[1] optimization level is wrong"; or return 1
+        shuba_generated_require_xml_value $shuba_project "string($shuba_configuration/@extraCompilerFlags)" '-mcpu='(shuba_contract_get android.native_cpu) "$shuba_fields[1] native CPU flag is wrong"; or return 1
         shuba_generated_require_xml_value $shuba_project "string($shuba_configuration/@libraryPath)" '../../build/libjxl-android-arm64/lib;../../build/libjxl-android-arm64/third_party/brotli;../../build/libjxl-android-arm64/third_party/highway' "$shuba_fields[1] library paths are incomplete or reordered"; or return 1
     end
     set --local shuba_resources '//FILE[@resource="1"]'
@@ -286,6 +288,10 @@ function shuba_generated_check_gradle --argument-names shuba_root
         "$shuba_app_gradle|ndkVersion = \""(shuba_contract_get android.ndk_version)"\"|1" \
         "$shuba_app_gradle|buildToolsVersion = \""(shuba_contract_get android.build_tools_version)"\"|1" \
         "$shuba_app_gradle|abiFilters(\""(shuba_contract_get android.abi)"\")|2" \
+        "$shuba_app_gradle|cFlags(\"-O0\")|1" \
+        "$shuba_app_gradle|cppFlags(\"-O0\")|1" \
+        "$shuba_app_gradle|cFlags(\"-"(shuba_contract_get android.release_optimization)"\")|1" \
+        "$shuba_app_gradle|cppFlags(\"-"(shuba_contract_get android.release_optimization)"\")|1" \
         "$shuba_app_gradle|\"-DCMAKE_CXX_STANDARD=23\"|1" \
         "$shuba_app_gradle|\"-DCMAKE_CXX_EXTENSIONS=OFF\"|1" \
         "$shuba_app_gradle|arguments(\"-DJUCE_BUILD_CONFIGURATION=DEBUG\")|1" \
@@ -299,6 +305,9 @@ function shuba_generated_check_gradle --argument-names shuba_root
         shuba_generated_require_fixed_count $shuba_fields[1] $shuba_fields[2] $shuba_fields[3] "generated Gradle contract check failed for $shuba_fields[2]"; or return 1
     end
     shuba_generated_require_fixed_count $shuba_app_gradle 'abiFilters("' 2 'unexpected generated ABI filter inventory'; or return 1
+    for shuba_forbidden in -Ofast -ffast-math -funsafe-math-optimizations
+        shuba_generated_require_fixed_count $shuba_app_gradle $shuba_forbidden 0 "generated Gradle enables forbidden aggressive math flag $shuba_forbidden"; or return 1
+    end
     if test (cat $shuba_android_root/gradle.properties | string collect) != 'android.useAndroidX=true'
         shuba_fail 'generated gradle.properties changed unexpectedly'
         return 1
@@ -357,9 +366,13 @@ function shuba_generated_check_native_cmake --argument-names shuba_root shuba_st
         'JUCE_PROJUCER_VERSION=0x90001|2' \
         '[[-DNDEBUG=1]]|1' \
         '[[-DDEBUG=1]]|1' \
-        'if(JUCE_BUILD_CONFIGURATION MATCHES "RELEASE")|1'
+        'if(JUCE_BUILD_CONFIGURATION MATCHES "RELEASE")|1' \
+        'target_compile_options( ${BINARY_NAME} PRIVATE "-fsigned-char" [[-mcpu='(shuba_contract_get android.native_cpu)']] )|2'
         set --local shuba_fields (string split --max 1 '|' -- $shuba_record)
         shuba_generated_require_fixed_count $shuba_cmake $shuba_fields[1] $shuba_fields[2] "generated native CMake contract failed for $shuba_fields[1]"; or return 1
+    end
+    for shuba_forbidden in -Ofast -ffast-math -funsafe-math-optimizations
+        shuba_generated_require_fixed_count $shuba_cmake $shuba_forbidden 0 "generated native CMake enables forbidden aggressive math flag $shuba_forbidden"; or return 1
     end
     sed -n 's@^[[:space:]]*"\.\./\.\./\.\./Source/\([^"[:cntrl:]]*\)"[[:space:]]*$@Source/\1@p' $shuba_cmake | sort --unique >$shuba_state_root/cmake-sources
     set --local shuba_source_statuses $pipestatus

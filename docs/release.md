@@ -14,13 +14,17 @@ The current release contract enforces:
 
 - Android 14/API 34 minimum, target, and compile SDK;
 - `arm64-v8a` as the only supported ABI;
+- `cortex-a73` code generation for the application and Android static dependencies, with an Armv8-A + NEON + AES + SHA2 + CRC32 feature floor;
+- safe Release `-O3` and Debug `-O0`; no Armv8.2-A minimum, `-Ofast`, fast-math, or LTO;
 - JDK 17, NDK, build-tools, CMake, Gradle, Android Gradle Plugin, and command-line-tool versions as declared in [`release/release.properties`](../release/release.properties:8);
 - generated JUCE Android output from [`Shuba.jucer`](../Shuba.jucer:3), not hand-maintained Gradle/CMake files;
 - static Android libjxl built from the pinned recursive submodule graph;
 - a private PKCS12 signing key whose public SHA-256 certificate fingerprint matches the contract; and
 - no network, broad-media, camera, microphone, storage, Bluetooth, billing, notification, boot, or other denied permissions.
 
-Update a release identity atomically. If the version, package ID, signing certificate, SDK/ABI policy, or artifact name changes, update the contract and every authoritative project input, regenerate, and let the identity/generated-project checks prove alignment. Never update only an artifact filename or a generated Gradle constant.
+`cortex-a73` is the deterministic Clang CPU model, not a claim that every accepted device has that marketing name. Snapdragon 680/685 Kryo 265-class hardware is within the intended compatibility class, but only exact-device evidence can close device acceptance. Armv8.2-A is deliberately not selected because it would be unsafe to claim compatibility with Cortex-A53/A73-era implementations. The rejected ThinLTO experiment must not be revived as a bare `-flto` shortcut: the pinned NDK resolves that spelling to full LTO, not ThinLTO.
+
+Update a release identity atomically. If the version, package ID, signing certificate, SDK/ABI policy, CPU/optimization policy, or artifact name changes, update the contract and every authoritative project input, regenerate, and let the identity/generated-project checks prove alignment. Never update only an artifact filename or a generated Gradle constant.
 
 ## Signing boundary
 
@@ -48,7 +52,7 @@ tools/release/build-android-release.fish
 1. validates the release contract, structured tools, Android toolchain, SDK layout, JDK, submodules, and ignored owned-output locations;
 2. validates the signing boundary without exposing secrets;
 3. records immutable source/submodule/build-input state;
-4. builds or validates fingerprinted Android libjxl and pinned Projucer outputs;
+4. probes the exact Android CPU/optimization policy, then builds or validates fingerprinted `cortex-a73`/`-O3` Android libjxl and pinned Projucer outputs without LTO;
 5. regenerates Android/JUCE output and runs identity/generated-project assertions;
 6. builds only the explicit signed `:app:assembleRelease_Release` variant;
 7. finds exactly one output matching contract identity, then verifies the generated APK;
@@ -92,6 +96,10 @@ Before a release can be frozen or published, retain evidence for the exact final
 6. same-key upgrade using a separately built non-final adjacent-code probe, with catalog/photo preservation confirmed;
 7. fresh final installation followed by staged, explicitly confirmed restore of the retained backup; and
 8. safe evidence for device/API, package/signature identity, steps, expected/actual behavior, screenshots/logs, and any failure classification.
+
+The current non-LTO tuning additionally requires proof that the final native library is AArch64, the generated project and dependency builder use `cortex-a73` and `-O3`, no prohibited fast-math or LTO flag is present, and the pinned NDK capability probe exposes the required Armv8-A feature floor. A successful Jelly Max / MediaTek Android 14 cold-start smoke test is useful compatibility evidence only; it is not representative acceptance because that device has Cortex-A55/A78 cores rather than the required Snapdragon 680/685 Kryo 265 target class.
+
+For the representative-device gate, retain the exact APK identity and verify on a Snapdragon 680/685 Kryo 265 Android 14 device: supported feature evidence, cold launch, catalog/search, JPEG XL import/preview/export, backup/restore, and same-key upgrade. Compare the complete workload, artifact size, and measured performance against the pre-change baseline. A regression, SIGILL, crash, ANR, corruption, unsupported feature result, or unacceptable performance regression blocks acceptance.
 
 A crash, ANR, signature/install failure, lost/corrupted data, unexpected permission/component/network behavior, inability to complete the core path, failed upgrade/restore, private-material exposure, or mismatch between delivered bytes and accepted evidence is a release blocker.
 

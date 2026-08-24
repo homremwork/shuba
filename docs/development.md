@@ -121,6 +121,27 @@ tools/release/check-generated-android.fish
 
 The tooling enforces the current contract: JDK 17, API 34, pinned NDK/build-tools/CMake/Gradle values, C++23 without GNU extensions, `arm64-v8a`, the complete source/resource inventory, and the permission denylist. Android command-line tools use the ordered bounded allowlist in [`release/release.properties`](../release/release.properties:19): the resolver selects `20.0` before `12.0`, accepting `cmdline-tools/latest` only when its installed metadata names an allowed revision. The selected tool path, revision, and hash are recorded in release evidence. It owns dependency builds and generated output checks. Do not substitute a manual generated-file edit for a failed assertion.
 
+The Android native policy is deliberately narrow and must remain uniform across JUCE/application code and Android libjxl, Brotli, and Highway archives:
+
+- only `arm64-v8a` is produced;
+- `-mcpu=cortex-a73` supplies the CPU model and the Armv8-A + NEON + AES + SHA2 + CRC32 feature floor;
+- this is not an Armv8.2-A baseline, because that would exclude the stated Cortex-A73/A53-compatible device class;
+- Debug is generated with `-O0`, Release with safe `-O3`; and
+- `-Ofast`, `-ffast-math`, `-funsafe-math-optimizations`, and all LTO flags are prohibited from the generated Android project and release dependency build.
+
+The exact pinned NDK policy probe compiles, archives, links, and inspects an AArch64 native sample. Run it through [`check-release-contract.fish`](../tools/release/check-release-contract.fish:1); validate/rebuild the dependency tree with [`build-libjxl-android.fish`](../tools/release/build-libjxl-android.fish:1); then regenerate and validate the disposable project. A useful local sequence is:
+
+```sh
+tools/release/check-release-contract.fish
+tools/release/build-libjxl-android.fish --check
+tools/release/generate-android.fish
+tools/release/check-generated-android.fish
+fish --no-config tools/ci/run-release-tool-tests.fish --hermetic
+fish --no-config tools/ci/run-release-tool-tests.fish --generated
+```
+
+ThinLTO is not an active fallback or optional local switch. JUCE 9.0.1's Android exporter emits bare `-flto`; the pinned NDK Clang 21 lowers that spelling to full LTO rather than ThinLTO. Do not label it ThinLTO, add generated-file patches, or re-enable it without a new authority decision and complete pinned-toolchain evidence.
+
 A host test pass cannot prove Android picker behavior, provider behavior, media responsiveness, safe-area layout, install/upgrade behavior, or runtime resource rendering. Device validation is required for a change that touches those boundaries; record device/API, tested APK identity, steps, expected/actual outcome, and safe screenshots/logs.
 
 ## Documentation and planning boundary

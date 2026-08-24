@@ -9,6 +9,9 @@ function shuba_contract_required_keys
         android.target_sdk \
         android.compile_sdk \
         android.abi \
+        android.native_cpu \
+        android.native_feature_floor \
+        android.release_optimization \
         android.ndk_version \
         android.build_tools_version \
         android.cmake_version \
@@ -45,7 +48,7 @@ end
 function shuba_contract_validate
     set --local shuba_required_keys (shuba_contract_required_keys); or return 1
     if test (count $shuba_release_contract_keys) -ne (count $shuba_required_keys)
-        shuba_fail 'release contract key count differs from schema version 3'
+        shuba_fail 'release contract key count differs from schema version 4'
         return 1
     end
     for shuba_key in $shuba_required_keys
@@ -61,7 +64,7 @@ function shuba_contract_validate
         end
     end
 
-    if test (shuba_contract_get contract.schema_version) != 3
+    if test (shuba_contract_get contract.schema_version) != 4
         shuba_fail 'unsupported release contract schema version'
         return 1
     end
@@ -86,6 +89,24 @@ function shuba_contract_validate
     end
 
     shuba_contract_require_pattern android.abi '^[A-Za-z0-9_-]+$'; or return 1
+    if test (shuba_contract_get android.abi) != arm64-v8a
+        shuba_fail 'android native CPU policy supports only arm64-v8a'
+        return 1
+    end
+    shuba_contract_require_pattern android.native_cpu '^[a-z0-9]+([._+-][a-z0-9]+)*$'; or return 1
+    if test (shuba_contract_get android.native_cpu) != cortex-a73
+        shuba_fail 'unsupported android.native_cpu; the validated policy requires cortex-a73'
+        return 1
+    end
+    shuba_contract_require_pattern android.native_feature_floor '^[a-z0-9]+([.+_-][a-z0-9]+)*$'; or return 1
+    if test (shuba_contract_get android.native_feature_floor) != armv8-a+neon+aes+sha2+crc32
+        shuba_fail 'android.native_feature_floor differs from the cortex-a73 Clang policy'
+        return 1
+    end
+    if test (shuba_contract_get android.release_optimization) != O3
+        shuba_fail 'android.release_optimization must use safe O3 optimization'
+        return 1
+    end
     for shuba_key in \
         android.ndk_version \
         android.build_tools_version \

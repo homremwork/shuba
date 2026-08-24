@@ -294,6 +294,19 @@ function shuba_apk_check_elf_icons --argument-names shuba_apk_path shuba_state_r
         shuba_fail 'APK native library contains unstripped sections'
         return 1
     end
+    shuba_apk_capture 'APK native AArch64 disassembly' $shuba_state_root/elf-disassembly \
+        $shuba_ndk_objdump_path --arch-name=aarch64 --disassemble --no-show-raw-insn \
+        $shuba_apk_extracted_library; or return 1
+    grep --extended-regexp --quiet '^[[:space:]]*[0-9a-f]+:[[:space:]]+[^[:space:]]+' \
+        $shuba_state_root/elf-disassembly; or begin
+        shuba_fail 'APK native library has no decodable AArch64 instruction evidence'
+        return 1
+    end
+    if grep --extended-regexp --quiet '(<unknown>|unknown instruction|invalid instruction|unrecognized instruction)' \
+            $shuba_state_root/elf-disassembly
+        shuba_fail 'APK native library contains undecodable AArch64 instruction evidence'
+        return 1
+    end
     set --local shuba_configurations ($shuba_apkanalyzer_path resources configs --type drawable --package $shuba_apk_expected_application_id $shuba_apk_path 2>/dev/null); or return 1
     for shuba_configuration in ldpi mdpi hdpi xhdpi anydpi
         contains -- $shuba_configuration $shuba_configurations; or begin
@@ -328,7 +341,7 @@ function shuba_validate_android_apk --argument-names shuba_project_root shuba_ap
     if test $shuba_validation_status -ne 0
         return $shuba_validation_status
     end
-    printf 'Android APK verification: %s %s code %s (%s) is signed, aligned, contract-consistent, and stripped.\n' \
+    printf 'Android APK verification: %s %s code %s (%s) is signed, aligned, contract-consistent, stripped, and AArch64-disassembled.\n' \
         $shuba_apk_expected_application_label $shuba_apk_expected_version_name $shuba_apk_expected_version_code $shuba_apk_expected_abi
 end
 
@@ -351,6 +364,6 @@ function shuba_validate_historical_android_apk --argument-names \
     if test $shuba_validation_status -ne 0
         return $shuba_validation_status
     end
-    printf 'Historical Android APK verification: %s %s code %s (%s) is signed, aligned, evidence-consistent, and stripped.\n' \
+    printf 'Historical Android APK verification: %s %s code %s (%s) is signed, aligned, evidence-consistent, stripped, and AArch64-disassembled.\n' \
         $shuba_apk_expected_application_label $shuba_apk_expected_version_name $shuba_apk_expected_version_code $shuba_apk_expected_abi
 end

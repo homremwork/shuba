@@ -38,15 +38,17 @@ function shuba_apk_test_write_manifest --argument-names shuba_path shuba_extra_a
         '</manifest>' >$shuba_path
 end
 
-function shuba_apk_test_use_fakes --argument-names shuba_manifest shuba_apksigner_mode shuba_readelf_mode shuba_config_mode
+function shuba_apk_test_use_fakes --argument-names shuba_manifest shuba_apksigner_mode shuba_readelf_mode shuba_objdump_mode shuba_config_mode
     set --global shuba_apkanalyzer_path $shuba_apk_test_root/apkanalyzer
     set --global shuba_aapt2_path $shuba_apk_test_root/aapt2
     set --global shuba_apksigner_path $shuba_apk_test_root/apksigner
     set --global shuba_zipalign_path $shuba_apk_test_root/zipalign
     set --global shuba_ndk_readelf_path $shuba_apk_test_root/readelf
+    set --global shuba_ndk_objdump_path $shuba_apk_test_root/objdump
     set --global --export SHUBA_APK_TEST_MANIFEST $shuba_manifest
     set --global --export SHUBA_APK_TEST_APKSIGNER_MODE $shuba_apksigner_mode
     set --global --export SHUBA_APK_TEST_READELF_MODE $shuba_readelf_mode
+    set --global --export SHUBA_APK_TEST_OBJDUMP_MODE $shuba_objdump_mode
     set --global --export SHUBA_APK_TEST_CONFIG_MODE $shuba_config_mode
 end
 
@@ -72,6 +74,14 @@ printf "%s\n" "Verified using v2 scheme (APK Signature Scheme v2): true" "Number
 else
     printf "%s\n" "Section Headers:"
     if [ "$SHUBA_APK_TEST_READELF_MODE" = unstripped ]; then printf "%s\n" "  [ 1] .symtab SYMTAB"; fi
+ fi'; or return 1
+    shuba_apk_test_write_executable $shuba_apk_test_root/objdump \
+        'if [ "$SHUBA_APK_TEST_OBJDUMP_MODE" = no-instructions ]; then
+    printf "%s\n" "Disassembly of section .text:"
+elif [ "$SHUBA_APK_TEST_OBJDUMP_MODE" = undecodable ]; then
+    printf "%s\n" "Disassembly of section .text:" "    42a0:       <unknown>"
+else
+    printf "%s\n" "Disassembly of section .text:" "    42a0:       add x0, x0, #0x7" "    42a4:       ret"
 fi'; or return 1
 end
 
@@ -113,30 +123,34 @@ function shuba_apk_test_main
     end
 
     shuba_apk_test_prepare_fakes; or return 1
-    shuba_apk_test_use_fakes $shuba_valid_manifest valid valid valid
+    shuba_apk_test_use_fakes $shuba_valid_manifest valid valid valid valid
     set --local shuba_fixture_apk $shuba_apk_test_root/(shuba_contract_get artifact.basename)
     shuba_apk_test_make_archive $shuba_fixture_apk (shuba_contract_get artifact.native_library_path) ''; or return 1
     shuba_validate_android_apk $shuba_project_root $shuba_fixture_apk final >/dev/null; or return 1
 
-    shuba_apk_test_use_fakes $shuba_valid_manifest wrong valid valid
+    shuba_apk_test_use_fakes $shuba_valid_manifest wrong valid valid valid
     shuba_apk_test_require_rejection wrong-signer shuba_validate_android_apk $shuba_project_root $shuba_fixture_apk final; or return 1
 
     set --local shuba_debug_manifest $shuba_apk_test_root/debug-manifest.xml
     shuba_apk_test_write_manifest $shuba_debug_manifest 'android:debuggable="true"'; or return 1
-    shuba_apk_test_use_fakes $shuba_debug_manifest valid valid valid
+    shuba_apk_test_use_fakes $shuba_debug_manifest valid valid valid valid
     shuba_apk_test_require_rejection debuggable-manifest shuba_validate_android_apk $shuba_project_root $shuba_fixture_apk final; or return 1
 
-    shuba_apk_test_use_fakes $shuba_valid_manifest valid wrong-machine valid
+    shuba_apk_test_use_fakes $shuba_valid_manifest valid wrong-machine valid valid
     shuba_apk_test_require_rejection wrong-ELF-machine shuba_validate_android_apk $shuba_project_root $shuba_fixture_apk final; or return 1
-    shuba_apk_test_use_fakes $shuba_valid_manifest valid unstripped valid
+    shuba_apk_test_use_fakes $shuba_valid_manifest valid unstripped valid valid
     shuba_apk_test_require_rejection unstripped-ELF shuba_validate_android_apk $shuba_project_root $shuba_fixture_apk final; or return 1
-    shuba_apk_test_use_fakes $shuba_valid_manifest valid valid missing
+    shuba_apk_test_use_fakes $shuba_valid_manifest valid valid no-instructions valid
+    shuba_apk_test_require_rejection missing-AArch64-disassembly shuba_validate_android_apk $shuba_project_root $shuba_fixture_apk final; or return 1
+    shuba_apk_test_use_fakes $shuba_valid_manifest valid valid undecodable valid
+    shuba_apk_test_require_rejection undecodable-AArch64-disassembly shuba_validate_android_apk $shuba_project_root $shuba_fixture_apk final; or return 1
+    shuba_apk_test_use_fakes $shuba_valid_manifest valid valid valid missing
     shuba_apk_test_require_rejection missing-icon-qualifier shuba_validate_android_apk $shuba_project_root $shuba_fixture_apk final; or return 1
 
     set --local shuba_wrong_abi $shuba_apk_test_root/wrong-abi.apk
     shuba_apk_test_make_archive $shuba_wrong_abi lib/x86_64/libjuce_jni.so ''; or return 1
     cp -- $shuba_wrong_abi $shuba_fixture_apk
-    shuba_apk_test_use_fakes $shuba_valid_manifest valid valid valid
+    shuba_apk_test_use_fakes $shuba_valid_manifest valid valid valid valid
     shuba_apk_test_require_rejection wrong-ABI-payload shuba_validate_android_apk $shuba_project_root $shuba_fixture_apk final; or return 1
 
     set --local shuba_link_archive $shuba_apk_test_root/link.apk
