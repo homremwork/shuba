@@ -1,6 +1,6 @@
 #pragma once
 
-#include "JuceHeader.h"
+#include <juce_gui_basics/juce_gui_basics.h>
 #include "UI/View/Primitives/TouchGuards.hpp"
 
 namespace shuba::ui {

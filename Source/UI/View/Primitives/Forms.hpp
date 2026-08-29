@@ -1,7 +1,8 @@
 #pragma once
 
 #include "Domain/Domain.hpp"
-#include "JuceHeader.h"
+
+#include <juce_gui_basics/juce_gui_basics.h>
 
 #include <cstddef>
 #include <functional>

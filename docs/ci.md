@@ -14,6 +14,8 @@ This document describes the hosted execution of the same contracts used locally.
 
 All jobs use GitHub-hosted `ubuntu-24.04`, read-only repository permissions, recursive submodules, shallow checkout, and no persisted checkout credentials. Third-party actions must be pinned to full commit SHAs; [`lint-ci.fish`](../tools/ci/lint-ci.fish:8) enforces this and runs Actionlint/ShellCheck plus the repository CI-format/source-size checks.
 
+Host/test UI sources must include the required JUCE module headers directly rather than the ignored Projucer-generated `JuceLibraryCode/JuceHeader.h`. The repository lint rejects a tracked UI or test source dependency on that disposable header, while the Projucer application entry point retains the generated-header contract owned by Android regeneration.
+
 The CI lanes deliberately separate responsibilities:
 
 | Job | Contract |
@@ -28,7 +30,7 @@ Host JPEG XL coverage must not silently use an older distribution libjxl package
 
 ## Signed Android rehearsal
 
-[`android-release-rehearsal.yml`](../.github/workflows/android-release-rehearsal.yml:1) is manual-only. Before enabling it, create the protected GitHub Environment `android-release-rehearsal`, configure appropriate required reviewers, and provide these environment secrets:
+[`android-release-rehearsal.yml`](../.github/workflows/android-release-rehearsal.yml:1) is manual-only. For the reviewer-free first-publication contract, create the GitHub Environment `android-release-rehearsal` solely to scope these environment secrets; do not configure required reviewers or deployment-branch restrictions:
 
 - `SHUBA_ANDROID_KEYSTORE_BASE64`;
 - `SHUBA_ANDROID_KEY_ALIAS`;

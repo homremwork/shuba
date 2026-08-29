@@ -107,6 +107,8 @@ jobs:
           catch2 gettext libasound2-dev libfontconfig1-dev libfreetype-dev
           libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev
           libxrandr-dev libxrender-dev ninja-build pkg-config
+      - name: Install Fish 4
+        uses: fish-actions/install-fish@4bb37a71daebb76c6fb7d83771cff31b8a78c28e # v1.2.0
       - name: Restore host libjxl
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
@@ -142,6 +144,8 @@ jobs:
           catch2 gettext libasound2-dev libfontconfig1-dev libfreetype-dev
           libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev
           libxrandr-dev libxrender-dev ninja-build pkg-config
+      - name: Install Fish 4
+        uses: fish-actions/install-fish@4bb37a71daebb76c6fb7d83771cff31b8a78c28e # v1.2.0
       - name: Restore host libjxl
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
@@ -173,6 +177,8 @@ jobs:
           catch2 clang-tidy cppcheck gettext libasound2-dev libfontconfig1-dev
           libfreetype-dev libx11-dev libxcomposite-dev libxcursor-dev libxext-dev
           libxinerama-dev libxrandr-dev libxrender-dev ninja-build pkg-config
+      - name: Install Fish 4
+        uses: fish-actions/install-fish@4bb37a71daebb76c6fb7d83771cff31b8a78c28e # v1.2.0
       - name: Restore host libjxl
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:

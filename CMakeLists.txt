@@ -61,6 +61,7 @@ set(SHUBA_CPPCHECK_COMMON_ARGS
 	"--suppress=preprocessorErrorDirective:third_party/JUCE/modules/juce_core/system/juce_TargetPlatform.h:224"
 	"--suppress=syntaxError:third_party/glaze/include/glaze/tuplet/tuple.hpp:16"
 	"--suppress=syntaxError:*/tests/B27LocalizationLanguageTests.cpp:23"
+	"--suppress=syntaxError:*/tests/C30LocalizationPresentationLayoutTests.cpp:40"
 	"--suppress=passedByValue:*/Source/Localization/CatalogDefinition.cpp:65"
 	"--suppress=uninitMemberVarNoCtor:*/Source/Localization/PhotoWorkflowLocalization.cpp:13"
 	"--suppress=uninitMemberVarNoCtor:*/Source/UI/AppShell/PhotoCoordinator.hpp:48"
@@ -271,8 +272,7 @@ add_library(shuba_juce_platform STATIC
 target_compile_features(shuba_juce_platform PUBLIC cxx_std_23)
 target_include_directories(shuba_juce_platform
 	PUBLIC
-		"${CMAKE_CURRENT_SOURCE_DIR}/Source"
-		"${CMAKE_CURRENT_SOURCE_DIR}/JuceLibraryCode")
+		"${CMAKE_CURRENT_SOURCE_DIR}/Source")
 target_compile_definitions(shuba_juce_platform PUBLIC
 	JUCE_USE_CURL=0
 	JUCE_WEB_BROWSER=0
@@ -348,7 +348,6 @@ if(SHUBA_CLANG_TIDY_EXECUTABLE AND SHUBA_RUN_CLANG_TIDY_EXECUTABLE)
 			-clang-tidy-binary "${SHUBA_CLANG_TIDY_EXECUTABLE}"
 			-checks=${SHUBA_CLANG_TIDY_CHECKS}
 			-header-filter=${SHUBA_ANALYZER_SOURCE_FILTER}
-			-source-filter=${SHUBA_ANALYZER_SOURCE_FILTER}
 			-warnings-as-errors=${SHUBA_CLANG_TIDY_WARNINGS_AS_ERRORS}
 			${SHUBA_ANALYZER_FILE_REGEX}
 		WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"

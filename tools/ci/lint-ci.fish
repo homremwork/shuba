@@ -49,6 +49,18 @@ function shuba_ci_lint_main
     $shuba_actionlint -shellcheck $shuba_shellcheck $shuba_workflows/*.yml; or return 1
     jq --exit-status '.version >= 6 and (.configurePresets | length) == 4' \
         $shuba_root/CMakePresets.json >/dev/null; or return 1
+    set --local shuba_generated_header_includes (grep --recursive --line-number \
+        --include='*.cpp' --include='*.hpp' --extended-regexp \
+        '#include[[:space:]]*[<"]JuceHeader[.]h[>"]' \
+        $shuba_root/Source/UI $shuba_root/tests 2>/dev/null)
+    set --local shuba_generated_header_status $status
+    if test $shuba_generated_header_status -eq 0
+        shuba_ci_lint_fail "tracked host/test source includes ignored generated JuceHeader.h: $shuba_generated_header_includes"
+        return 1
+    else if test $shuba_generated_header_status -gt 1
+        shuba_ci_lint_fail 'could not inspect tracked host source for generated JuceHeader.h dependencies'
+        return 1
+    end
     set --local shuba_diff_paths \
         .github \
         CMakeLists.txt \

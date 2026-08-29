@@ -376,7 +376,10 @@ function shuba_exact_source_normalize_tree --argument-names shuba_tree
     end <$shuba_paths
     set --local shuba_normalize_status $status
     rm -f -- $shuba_paths
-    return $shuba_normalize_status
+    if test $shuba_normalize_status -ne 0
+        return $shuba_normalize_status
+    end
+    find -P $shuba_tree -exec touch --no-dereference --date=@$shuba_exact_source_tagger_timestamp -- {} +
 end
 
 function shuba_exact_source_validate_materialized_tree --argument-names shuba_parent shuba_top
@@ -405,6 +408,11 @@ function shuba_exact_source_validate_materialized_tree --argument-names shuba_pa
         set --local shuba_relative (string replace -- "$shuba_parent/" '' $shuba_path)
         shuba_exact_source_validate_public_path $shuba_relative $shuba_top; or begin
             rm -f -- $shuba_paths
+            return 1
+        end
+        if test (stat --format %Y -- $shuba_path) != $shuba_exact_source_tagger_timestamp
+            rm -f -- $shuba_paths
+            shuba_exact_source_fail "source path does not use the release-tag timestamp: $shuba_relative"
             return 1
         end
         if test -d $shuba_path
@@ -555,12 +563,8 @@ function shuba_exact_source_create_archive --argument-names shuba_archive_path s
             return 1
         end
     end
-    set --local shuba_mtime (env LC_ALL=C TZ=UTC date --date=@$shuba_exact_source_tagger_timestamp '+%Y-%m-%d %H:%M:%S UTC'); or begin
-        rm -f -- $shuba_archive_paths
-        return 1
-    end
     env LC_ALL=C TZ=UTC $shuba_tar_path -c --zstd --format=ustar --no-recursion --uid 0 --gid 0 --uname root --gname root \
-        --mtime $shuba_mtime --no-xattrs --no-acls --no-fflags --null -C $shuba_parent -T $shuba_archive_paths \
+        --no-xattrs --no-acls --no-fflags --null -C $shuba_parent -T $shuba_archive_paths \
         -f $shuba_archive_path
     set --local shuba_archive_status $status
     rm -f -- $shuba_archive_paths

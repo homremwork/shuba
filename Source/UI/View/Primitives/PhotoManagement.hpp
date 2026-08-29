@@ -1,9 +1,10 @@
 #pragma once
 
 #include "Core/Identifier.hpp"
-#include "JuceHeader.h"
 #include "UI/Session/PhotoSessionTypes.hpp"
 #include "UI/View/Primitives/Previews.hpp"
+
+#include <juce_gui_basics/juce_gui_basics.h>
 
 #include <cstddef>
 #include <functional>
