@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="ShubaB01" name="Shuba" projectType="guiapp" bundleIdentifier="com.shuba.catalog"
-              version="1.0.1" companyName="Shuba" companyWebsite="" companyEmail=""
+              version="1.0.2" companyName="Shuba" companyWebsite="" companyEmail=""
               displaySplashScreen="0" reportAppUsage="0" splashScreenColour="Dark"
               useAppConfig="0" addUsingNamespaceToJuceHeader="1" jucerFormatVersion="1"
               binaryDataNamespace="ShubaBinaryData" cppLanguageStandard="23"
@@ -282,7 +282,7 @@
     </GROUP>
   </MAINGROUP>
   <EXPORTFORMATS>
-    <ANDROIDSTUDIO targetFolder="Builds/Android" androidVersionCode="2" androidMinimumSDK="34"
+    <ANDROIDSTUDIO targetFolder="Builds/Android" androidVersionCode="3" androidMinimumSDK="34"
                    androidTargetSDK="34" androidInternetNeeded="0" microphonePermissionNeeded="0"
                    cameraPermissionNeeded="0" androidBluetoothScanNeeded="0" androidBluetoothAdvertiseNeeded="0"
                    androidBluetoothConnectNeeded="0" androidReadMediaAudioPermission="0"

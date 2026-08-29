@@ -150,7 +150,7 @@ function shuba_historical_packet_test_main
     shuba_historical_packet_test_require_rejection certificate $shuba_directory 'signing certificate differs from the successor contract'; or return 1
 
     set shuba_directory (shuba_historical_packet_test_prepare version-code legacy); or return 1
-    sed -i 's/^app.version_code=.*/app.version_code=2/' $shuba_directory/*.provenance.txt
+    sed -i 's/^app.version_code=.*/app.version_code=3/' $shuba_directory/*.provenance.txt
     shuba_historical_packet_test_require_rejection version-code $shuba_directory 'version code is not lower'; or return 1
 
     set shuba_directory (shuba_historical_packet_test_prepare verification legacy); or return 1
