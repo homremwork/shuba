@@ -64,8 +64,13 @@ jobs:
         id: fingerprints
         shell: fish {0}
         run: |
-          echo "libjxl="(tools/release/build-libjxl-android.fish --print-fingerprint) >>$GITHUB_OUTPUT
-          echo "projucer="(tools/release/build-projucer.fish --print-fingerprint) >>$GITHUB_OUTPUT
+          set -l libjxl_fingerprint (tools/release/build-libjxl-android.fish --print-fingerprint)
+          test (count $libjxl_fingerprint) -eq 1
+          string match --regex --quiet '^[0-9a-f]{64}$' -- $libjxl_fingerprint
+          set -l projucer_fingerprint (tools/release/build-projucer.fish --print-fingerprint)
+          test (count $projucer_fingerprint) -eq 1
+          string match --regex --quiet '^[0-9a-f]{64}$' -- $projucer_fingerprint
+          printf 'libjxl=%s\nprojucer=%s\n' $libjxl_fingerprint $projucer_fingerprint >>$GITHUB_OUTPUT
       - name: Restore Android libjxl
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:

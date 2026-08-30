@@ -67,6 +67,13 @@ function shuba_test_main
     shuba_validate_structured_tools; or return 1
     if test $shuba_with_android = true
         shuba_validate_android_toolchain; or return 1
+        set --local shuba_libjxl_fingerprint_output \
+            ($shuba_project_root/tools/release/build-libjxl-android.fish --print-fingerprint); or return 1
+        if test (count $shuba_libjxl_fingerprint_output) -ne 1; or not string match --regex --quiet \
+                '^[0-9a-f]{64}$' -- $shuba_libjxl_fingerprint_output[1]
+            shuba_test_fail 'Android libjxl fingerprint mode did not emit exactly one SHA-256 line'
+            return 1
+        end
     end
 
     set --local shuba_version_code (shuba_contract_get app.version_code); or return 1

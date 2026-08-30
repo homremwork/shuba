@@ -462,7 +462,15 @@ function shuba_libjxl_main
     shuba_validate_structured_tools; or return 1
     shuba_validate_android_toolchain; or return 1
     shuba_validate_android_sdk_layout; or return 1
-    shuba_validate_android_native_policy; or return 1
+    if test $shuba_mode = print-fingerprint
+        # This mode is consumed directly by GitHub output/cache-key plumbing and
+        # therefore owns a strict stdout contract: exactly one SHA-256 line.
+        # Keep running the capability probe, but suppress its informational
+        # success record while preserving diagnostics and failures on stderr.
+        shuba_validate_android_native_policy >/dev/null; or return 1
+    else
+        shuba_validate_android_native_policy; or return 1
+    end
     shuba_libjxl_initialize_configuration
     shuba_libjxl_prepare_tools; or return 1
     shuba_require_regular_file $shuba_libjxl_source_root/CMakeLists.txt; or return 1
