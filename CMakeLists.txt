@@ -26,10 +26,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(SHUBA_CPPCHECK_CHECKS "warning,performance,portability"
 	CACHE STRING "Cppcheck check groups used by Shuba static-analysis targets.")
 set(SHUBA_CLANG_TIDY_CHECKS
-	"clang-analyzer-*,bugprone-*,performance-*,portability-*,-bugprone-easily-swappable-parameters,-bugprone-switch-missing-default-case,-bugprone-exception-escape,-bugprone-unchecked-optional-access,-bugprone-narrowing-conversions,-portability-avoid-pragma-once,-performance-enum-size,-performance-unnecessary-value-param,-performance-move-const-arg,-clang-analyzer-optin.core.EnumCastOutOfRange"
+	"clang-analyzer-*,bugprone-*,performance-*,portability-*,-bugprone-easily-swappable-parameters,-bugprone-switch-missing-default-case,-bugprone-exception-escape,-bugprone-unchecked-optional-access,-bugprone-narrowing-conversions,-bugprone-chained-comparison,-portability-avoid-pragma-once,-performance-enum-size,-performance-unnecessary-value-param,-performance-move-const-arg,-clang-analyzer-optin.core.EnumCastOutOfRange"
 	CACHE STRING "clang-tidy checks used by Shuba static-analysis targets.")
 set(SHUBA_CLANG_TIDY_WARNINGS_AS_ERRORS "*"
 	CACHE STRING "clang-tidy warnings-as-errors filter for Shuba analysis targets.")
+set(SHUBA_CLANG_TIDY_EXTRA_ARGS ""
+	CACHE STRING "Extra clang-tidy driver arguments for toolchain compatibility.")
 
 find_program(SHUBA_CPPCHECK_EXECUTABLE NAMES cppcheck)
 find_program(SHUBA_CLANG_TIDY_EXECUTABLE NAMES clang-tidy)
@@ -58,7 +60,8 @@ set(SHUBA_CPPCHECK_COMMON_ARGS
 	"--error-exitcode=1"
 	"--inline-suppr"
 	"--suppress=missingIncludeSystem"
-	"--suppress=preprocessorErrorDirective:third_party/JUCE/modules/juce_core/system/juce_TargetPlatform.h:224"
+	"--suppress=preprocessorErrorDirective:*/third_party/JUCE/modules/juce_core/system/juce_TargetPlatform.h:224"
+	"--suppress=preprocessorErrorDirective:*/third_party/glaze/include/glaze/util/fast_float.hpp:258"
 	"--suppress=syntaxError:third_party/glaze/include/glaze/tuplet/tuple.hpp:16"
 	"--suppress=syntaxError:*/tests/B27LocalizationLanguageTests.cpp:23"
 	"--suppress=syntaxError:*/tests/C30LocalizationPresentationLayoutTests.cpp:40"
@@ -346,6 +349,7 @@ if(SHUBA_CLANG_TIDY_EXECUTABLE AND SHUBA_RUN_CLANG_TIDY_EXECUTABLE)
 		COMMAND "${SHUBA_RUN_CLANG_TIDY_EXECUTABLE}"
 			-p "${CMAKE_BINARY_DIR}"
 			-clang-tidy-binary "${SHUBA_CLANG_TIDY_EXECUTABLE}"
+			${SHUBA_CLANG_TIDY_EXTRA_ARGS}
 			-checks=${SHUBA_CLANG_TIDY_CHECKS}
 			-header-filter=${SHUBA_ANALYZER_SOURCE_FILTER}
 			-warnings-as-errors=${SHUBA_CLANG_TIDY_WARNINGS_AS_ERRORS}

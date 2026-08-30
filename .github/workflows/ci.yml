@@ -106,7 +106,7 @@ jobs:
           sudo apt-get update && sudo apt-get install --yes --no-install-recommends
           catch2 gettext libasound2-dev libfontconfig1-dev libfreetype-dev
           libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev
-          libxrandr-dev libxrender-dev ninja-build pkg-config
+          libxi-dev libxrandr-dev libxrender-dev ninja-build pkg-config
       - name: Install Fish 4
         uses: fish-actions/install-fish@4bb37a71daebb76c6fb7d83771cff31b8a78c28e # v1.2.0
       - name: Restore host libjxl
@@ -143,7 +143,7 @@ jobs:
           sudo apt-get update && sudo apt-get install --yes --no-install-recommends
           catch2 gettext libasound2-dev libfontconfig1-dev libfreetype-dev
           libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev
-          libxrandr-dev libxrender-dev ninja-build pkg-config
+          libxi-dev libxrandr-dev libxrender-dev ninja-build pkg-config
       - name: Install Fish 4
         uses: fish-actions/install-fish@4bb37a71daebb76c6fb7d83771cff31b8a78c28e # v1.2.0
       - name: Restore host libjxl
@@ -174,9 +174,9 @@ jobs:
       - name: Install analyzer dependencies
         run: >-
           sudo apt-get update && sudo apt-get install --yes --no-install-recommends
-          catch2 clang-tidy cppcheck gettext libasound2-dev libfontconfig1-dev
+          catch2 clang-tidy-18 cppcheck gettext libasound2-dev libfontconfig1-dev
           libfreetype-dev libx11-dev libxcomposite-dev libxcursor-dev libxext-dev
-          libxinerama-dev libxrandr-dev libxrender-dev ninja-build pkg-config
+          libxi-dev libxinerama-dev libxrandr-dev libxrender-dev ninja-build pkg-config
       - name: Install Fish 4
         uses: fish-actions/install-fish@4bb37a71daebb76c6fb7d83771cff31b8a78c28e # v1.2.0
       - name: Restore host libjxl
@@ -188,6 +188,11 @@ jobs:
           key: host-libjxl-ubuntu-24.04-${{ needs.host-libjxl.outputs.fingerprint }}
           fail-on-cache-miss: true
       - name: Configure compile database and generated resources
-        run: cmake --preset ci-static && cmake --build --preset ci-static
+        run: >-
+          cmake --preset ci-static
+          -DSHUBA_CLANG_TIDY_EXECUTABLE=/usr/bin/clang-tidy-18
+          -DSHUBA_RUN_CLANG_TIDY_EXECUTABLE=/usr/bin/run-clang-tidy-18
+          -DSHUBA_CLANG_TIDY_EXTRA_ARGS=-extra-arg=-D__cpp_concepts=202002L
+          && cmake --build --preset ci-static
       - name: Run standalone analyzers
         run: cmake --build build/ci/ci-static --target shuba_static_checks
