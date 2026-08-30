@@ -32,7 +32,7 @@ jobs:
           jq libarchive-tools libasound2-dev libfontconfig1-dev libfreetype-dev
           libcurl4-openssl-dev libglu1-mesa-dev mesa-common-dev
           libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev
-          libxrandr-dev libxrender-dev ninja-build pkg-config xmlstarlet
+          libxi-dev libxrandr-dev libxrender-dev ninja-build pkg-config xmlstarlet
       - name: Install Fish 4
         uses: fish-actions/install-fish@4bb37a71daebb76c6fb7d83771cff31b8a78c28e # v1.2.0
       - name: Enforce Fish release contract
