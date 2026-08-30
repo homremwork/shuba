@@ -64,8 +64,8 @@ constexpr std::string_view omitted_clause_marker{"\x1fshuba-omit-clause\x1f"};
 		const std::size_t separator = text.find(';', clause_start);
 		const std::size_t clause_end =
 			separator == std::string::npos ? text.size() : separator;
-		std::string_view clause{text.data() + clause_start,
-								clause_end - clause_start};
+		std::string_view clause{text};
+		clause = clause.substr(clause_start, clause_end - clause_start);
 		while (!clause.empty() && clause.front() == ' ')
 			clause.remove_prefix(1U);
 		while (!clause.empty() && clause.back() == ' ')
