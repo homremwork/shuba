@@ -192,7 +192,7 @@ jobs:
           cmake --preset ci-static
           -DSHUBA_CLANG_TIDY_EXECUTABLE=/usr/bin/clang-tidy-18
           -DSHUBA_RUN_CLANG_TIDY_EXECUTABLE=/usr/bin/run-clang-tidy-18
-          -DSHUBA_CLANG_TIDY_EXTRA_ARGS=-extra-arg=-D__cpp_concepts=202002L
+          '-DSHUBA_CLANG_TIDY_EXTRA_ARGS=-extra-arg=-D__cpp_concepts=202002L;-extra-arg=-Wno-builtin-macro-redefined;-extra-arg=-Xclang;-extra-arg=-analyzer-config;-extra-arg=-Xclang;-extra-arg=c++-allocator-inlining=false'
           && cmake --build --preset ci-static
       - name: Run standalone analyzers
         run: cmake --build build/ci/ci-static --target shuba_static_checks
