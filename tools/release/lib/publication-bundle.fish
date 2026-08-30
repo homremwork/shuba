@@ -148,7 +148,12 @@ function shuba_publication_bundle_validate_packet --argument-names shuba_project
     set --global shuba_publication_bundle_packet_root_commit $shuba_root_commit
 end
 
-function shuba_publication_bundle_verify_manifest --argument-names shuba_manifest_path shuba_bundle_directory shuba_expected_names
+function shuba_publication_bundle_verify_manifest --argument-names shuba_manifest_path shuba_bundle_directory
+    set --local shuba_expected_names $argv[3..]
+    if test (count $shuba_expected_names) -eq 0
+        shuba_publication_bundle_fail 'overall SHA-256 manifest has no expected public assets'
+        return 1
+    end
     shuba_require_regular_file $shuba_manifest_path; or return 1
     if test (stat --format %a -- $shuba_manifest_path) != 644
         shuba_publication_bundle_fail 'overall SHA-256 manifest mode is not public-safe'
@@ -245,7 +250,12 @@ function shuba_publication_bundle_verify --argument-names shuba_project_root shu
         $shuba_bundle_directory $shuba_publication_bundle_expected_names
 end
 
-function shuba_publication_bundle_write_manifest --argument-names shuba_manifest_path shuba_bundle_directory shuba_expected_names
+function shuba_publication_bundle_write_manifest --argument-names shuba_manifest_path shuba_bundle_directory
+    set --local shuba_expected_names $argv[3..]
+    if test (count $shuba_expected_names) -eq 0
+        shuba_publication_bundle_fail 'overall SHA-256 manifest has no expected public assets'
+        return 1
+    end
     for shuba_name in $shuba_expected_names
         if string match --quiet '*-SHA256SUMS' -- $shuba_name
             continue

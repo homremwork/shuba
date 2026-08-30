@@ -242,11 +242,29 @@ function shuba_publication_assets_test_bundle --argument-names shuba_project
     shuba_publication_bundle_verify $shuba_project v1.0.2 $shuba_outputs/bundle; or return 1
     set --local shuba_stem (shuba_publication_bundle_stem); or return 1
     set --local shuba_apk_name (shuba_contract_get artifact.basename); or return 1
-    for shuba_name in (shuba_publication_bundle_expected_names $shuba_stem $shuba_apk_name)
+    set --local shuba_expected_names (shuba_publication_bundle_expected_names $shuba_stem $shuba_apk_name)
+    for shuba_name in $shuba_expected_names
         test (stat --format %a -- $shuba_outputs/bundle/$shuba_name) = 644; or begin
             shuba_publication_assets_test_fail "bundle output mode is not public-safe: $shuba_name"
             return 1
         end
+    end
+    set --local shuba_manifest $shuba_outputs/bundle/$shuba_stem-SHA256SUMS
+    set --local shuba_manifest_names (awk '{ print $2 }' $shuba_manifest | sort); or return 1
+    set --local shuba_expected_manifest_names
+    for shuba_name in $shuba_expected_names
+        if not string match --quiet '*-SHA256SUMS' -- $shuba_name
+            set --append shuba_expected_manifest_names $shuba_name
+        end
+    end
+    set shuba_expected_manifest_names (printf '%s\n' $shuba_expected_manifest_names | sort)
+    if test (string join , -- $shuba_manifest_names) != (string join , -- $shuba_expected_manifest_names)
+        shuba_publication_assets_test_fail 'bundle manifest does not name every other public asset exactly once'
+        return 1
+    end
+    if test (wc --lines <$shuba_manifest) -ne (math (count $shuba_expected_names) - 1)
+        shuba_publication_assets_test_fail 'bundle manifest row count differs from the non-manifest asset count'
+        return 1
     end
     cmp --silent $shuba_outputs/packet/$shuba_apk_name $shuba_outputs/bundle/$shuba_apk_name; or return 1
     cmp --silent $shuba_outputs/source/$shuba_stem-source.tar.zst $shuba_outputs/bundle/$shuba_stem-source.tar.zst; or return 1
