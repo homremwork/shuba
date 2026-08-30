@@ -415,7 +415,12 @@ function shuba_exact_source_validate_materialized_tree --argument-names shuba_pa
             shuba_exact_source_fail "source path does not use the release-tag timestamp: $shuba_relative"
             return 1
         end
-        if test -d $shuba_path
+        if test -L $shuba_path
+            shuba_exact_source_validate_link_target $shuba_relative (readlink -- $shuba_path) $shuba_top; or begin
+                rm -f -- $shuba_paths
+                return 1
+            end
+        else if test -d $shuba_path
             if test (stat --format %a -- $shuba_path) != 755
                 rm -f -- $shuba_paths
                 shuba_exact_source_fail "source directory mode is not public-safe: $shuba_relative"
@@ -426,11 +431,6 @@ function shuba_exact_source_validate_materialized_tree --argument-names shuba_pa
             if not contains -- $shuba_mode 644 755
                 rm -f -- $shuba_paths
                 shuba_exact_source_fail "source file mode is not public-safe: $shuba_relative"
-                return 1
-            end
-        else if test -L $shuba_path
-            shuba_exact_source_validate_link_target $shuba_relative (readlink -- $shuba_path) $shuba_top; or begin
-                rm -f -- $shuba_paths
                 return 1
             end
         end
@@ -467,13 +467,13 @@ function shuba_exact_source_write_tree_inventory --argument-names shuba_inventor
     end
     while read --null shuba_path
         set --local shuba_relative (string replace -- "$shuba_parent/" '' $shuba_path)
-        if test -d $shuba_path
+        if test -L $shuba_path
+            printf 'symlink|777|%s|%s\n' (readlink -- $shuba_path) $shuba_relative >>$shuba_rows
+        else if test -d $shuba_path
             printf 'directory|%s|-|%s\n' (stat --format %a -- $shuba_path) $shuba_relative >>$shuba_rows
         else if test -f $shuba_path
             printf 'file|%s|%s|%s\n' (stat --format %a -- $shuba_path) \
                 (shuba_sha256_file $shuba_path) $shuba_relative >>$shuba_rows
-        else if test -L $shuba_path
-            printf 'symlink|777|%s|%s\n' (readlink -- $shuba_path) $shuba_relative >>$shuba_rows
         else
             rm -f -- $shuba_paths $shuba_rows
             shuba_exact_source_fail 'source package inventory found an unsupported entry'

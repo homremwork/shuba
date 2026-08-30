@@ -58,6 +58,7 @@ function shuba_publication_assets_make_project
     printf '%s\n' 'License fixture.' >$shuba_project/LICENSE; or return 1
     printf '%s\n' 'Third-party notices fixture.' >$shuba_project/THIRD_PARTY_NOTICES.md; or return 1
     printf '%s\n' 'project source fixture' >$shuba_project/source.txt; or return 1
+    ln -s source.txt $shuba_project/source-link.txt; or return 1
     shuba_publication_assets_commit $shuba_project root; or return 1
     git -C $shuba_project -c protocol.file.allow=always submodule add --quiet $shuba_child third_party/dependency; or return 1
     git -C $shuba_project -c protocol.file.allow=always submodule update --init --recursive >/dev/null 2>&1; or return 1
@@ -157,6 +158,17 @@ function shuba_publication_assets_test_source --argument-names shuba_project
         end
     end
     shuba_exact_source_verify $shuba_project v1.0.2 $shuba_outputs/first false; or return 1
+    set --local shuba_inventory $shuba_outputs/first/$shuba_stem.inventory.txt
+    grep --fixed-strings --line-regexp --quiet \
+        'symlink|777|source.txt|Shuba-1.0.2-source/source-link.txt' $shuba_inventory; or begin
+        shuba_publication_assets_test_fail 'safe symlink to a packaged regular file was not retained as a symlink'
+        return 1
+    end
+    if grep --extended-regexp --quiet \
+            '^(file|directory)\|[^|]+\|[^|]+\|Shuba-1[.]0[.]2-source/source-link[.]txt$' $shuba_inventory
+        shuba_publication_assets_test_fail 'safe symlink was misclassified through its packaged target'
+        return 1
+    end
 
     cp -a -- $shuba_outputs/first $shuba_outputs/checksum
     printf '%s\n' '0000000000000000000000000000000000000000000000000000000000000000  '$shuba_stem.tar.zst >$shuba_outputs/checksum/$shuba_stem.tar.zst.sha256
