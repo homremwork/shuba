@@ -12,23 +12,6 @@ function shuba_projucer_usage
         '  --help                show this help'
 end
 
-function shuba_projucer_validate_source --argument-names shuba_project_root shuba_source_root
-    set --local shuba_expected_commit e18f7f506c0b96f2c738a0bcd7fe6467a5005ad8
-    set --local shuba_submodule_line ($shuba_git_path -C $shuba_project_root submodule status -- third_party/JUCE); or return 1
-    if not string match --regex --quiet '^ e18f7f506c0b96f2c738a0bcd7fe6467a5005ad8 third_party/JUCE([ (]|$)' -- $shuba_submodule_line
-        shuba_fail 'JUCE is absent, conflicted, dirty at the gitlink level, or not at the required commit'
-        return 1
-    end
-    test ($shuba_git_path -C $shuba_source_root rev-parse HEAD) = $shuba_expected_commit; or begin
-        shuba_fail 'JUCE HEAD differs from the required release commit'
-        return 1
-    end
-    test ($shuba_git_path -C $shuba_source_root rev-list -n 1 '9.0.1^{commit}') = $shuba_expected_commit; or begin
-        shuba_fail 'JUCE 9.0.1 tag differs from the required release commit'
-        return 1
-    end
-end
-
 function shuba_projucer_validate_outputs --argument-names shuba_source_root shuba_build_root shuba_executable
     set --local shuba_cache $shuba_build_root/CMakeCache.txt
     shuba_require_regular_file $shuba_cache; or return 1
@@ -64,6 +47,7 @@ function shuba_projucer_write_descriptor --argument-names shuba_project_root shu
         $shuba_project_root/tools/release/lib/core.fish \
         $shuba_project_root/tools/release/lib/release-contract.fish \
         $shuba_project_root/tools/release/lib/android-toolchain.fish \
+        $shuba_project_root/tools/release/lib/projucer-source.fish \
         $shuba_project_root/tools/release/lib/repository-state.fish \
         $shuba_project_root/tools/release/lib/fingerprint.fish; or return 1
     begin
@@ -209,6 +193,7 @@ set --local shuba_script_directory (status dirname)
 source $shuba_script_directory/lib/core.fish
 source $shuba_script_directory/lib/release-contract.fish
 source $shuba_script_directory/lib/android-toolchain.fish
+source $shuba_script_directory/lib/projucer-source.fish
 source $shuba_script_directory/lib/repository-state.fish
 source $shuba_script_directory/lib/fingerprint.fish
 
