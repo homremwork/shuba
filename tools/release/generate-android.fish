@@ -52,7 +52,8 @@ function shuba_generate_android_main
     end
 
     set --local shuba_flock_path (shuba_resolve_command flock); or return 1
-    set --local shuba_project_hash_before (shuba_sha256_file $shuba_project_file); or return 1
+    set --local shuba_project_hash_before \
+        (shuba_project_authority_canonical_sha256 $shuba_project_file); or return 1
     $shuba_flock_path --exclusive $shuba_lock_file $shuba_fish_path --no-config -c \
         'set -l tools_root $argv[1]
          set -l project_root $argv[2]
@@ -82,7 +83,8 @@ function shuba_generate_android_main
         shuba_fail 'Android generation failed'
         return $shuba_generation_status
     end
-    set --local shuba_project_hash_after (shuba_sha256_file $shuba_project_file); or return 1
+    set --local shuba_project_hash_after \
+        (shuba_project_authority_canonical_sha256 $shuba_project_file); or return 1
     if test "$shuba_project_hash_after" != "$shuba_project_hash_before"
         shuba_fail 'Projucer resave changed tracked Shuba.jucer authority'
         return 1
@@ -95,6 +97,7 @@ set --local shuba_script_directory (status dirname)
 source $shuba_script_directory/lib/core.fish
 source $shuba_script_directory/lib/release-contract.fish
 source $shuba_script_directory/lib/android-toolchain.fish
+source $shuba_script_directory/lib/project-authority.fish
 
 shuba_generate_android_main $argv
 set --local shuba_main_status $status
