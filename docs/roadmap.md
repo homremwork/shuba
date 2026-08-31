@@ -2,40 +2,37 @@
 
 ## Current position
 
-Shuba has a working local catalog implementation with automated host coverage and prior Android acceptance evidence for the core flow. The tracked source has advanced to the publication identity in [`release/release.properties`](../release/release.properties:1): `1.0.2` and Android code `3`. Local Android 14 base/smoke testing is accepted; existing external testing remains candidate evidence until it is compared against the exact hosted APK bytes.
+Shuba `1.0.2`, Android code `3`, is the current [public GitHub Release](https://github.com/homremwork/shuba/releases/tag/v1.0.2). Its exact Android artifact, recursive corresponding source, license, notices, checksums, provenance, hosted CI, and device acceptance are complete. The annotated `v1.0.2` tag and its Release assets are fixed evidence for that accepted source and those exact bytes; later `master` changes are post-release work and do not modify or inherit that acceptance.
 
 The current Android native policy is `arm64-v8a`, `-mcpu=cortex-a73`, and safe Release `-O3` with an Armv8-A + NEON + AES + SHA2 + CRC32 feature floor. It intentionally does not require Armv8.2-A and uses no LTO, `-Ofast`, or fast-math. The attempted ThinLTO gate was rejected because JUCE's bare Android `-flto` output becomes full LTO under the pinned NDK, not ThinLTO. No runtime, host-dependent, or generated-file fallback is permitted.
 
-The current source also contains the post-acceptance corrections that:
+The published release contains the corrections that:
 
 - make the item-detail storage destination an explicit localized action rather than a duplicate edit route;
 - apply all four Android/JUCE safe-area insets to interactive shell layout; and
 - clear stale edit feedback without suppressing a genuine unassigned-item acknowledgement.
 
-Those corrections have focused regression coverage, complete host/localization validation, generated-project validation, Android Debug build evidence, and manual UI verification. They have not yet been packaged into a new signed release candidate. Previous acceptance remains historical evidence for its exact source/artifact only.
+Those corrections have focused regression coverage, complete host/localization validation, generated-project validation, signed artifact evidence, and accepted Android verification. Any new source change still creates a new candidate obligation before distribution.
 
-## Next required block: publication-candidate construction and Android acceptance
+## Next required block: post-release triage and narrow maintenance
 
-This is the immediate project gate. Its owner is the release boundary defined by [`docs/release.md`](release.md) and [`release/release.properties`](../release/release.properties:1), not the UI implementation layer.
+The `1.0.2` publication block is closed. No implementation block is selected automatically by publication completion. The next task must be chosen from observed post-release behavior, routine dependency maintenance, or an explicitly approved product change and must retain one clear owner.
 
 ### Scope
 
-1. On a Snapdragon 680/685 Kryo 265 Android 14 device, capture CPU feature evidence and cold-launch the exact `cortex-a73`/`-O3`, non-LTO APK.
-2. Confirm the corrected item-detail actions, English/Russian text, fullscreen safe-area behavior in gesture and three-button navigation modes, rotation/runtime inset changes, and assigned/unassigned feedback behavior.
-3. Repeat catalog/search, JPEG XL import/preview/export, persistence, backup, restore, and same-key upgrade validation.
-4. Compare artifact size and representative workload performance against the pre-change baseline; classify any regression before changing tuning again.
-5. A local Android 14 smoke launch is compatibility-only evidence. It does not replace the required Snapdragon 680/685 Kryo 265 gate when its CPU topology differs.
-6. Build and verify the `1.0.2` / code `3` signed candidate through [`build-android-release.fish`](../tools/release/build-android-release.fish:12). It must validate the historical packet against its retained provenance before atomically replacing it.
-7. Build a non-final adjacent-code upgrade probe only after the final candidate passes its baseline flow; prove same-key upgrade and backup restoration as described in [`docs/release.md`](release.md).
-8. Complete the publication gates only after candidate-specific evidence is complete, including comparison of existing external evidence with the exact hosted APK bytes.
+1. Triage new reports and maintenance updates without treating them as automatic feature work.
+2. Select one owning subsystem and one observable problem or maintenance obligation.
+3. Preserve the accepted `v1.0.2` tag, Release assets, and evidence unchanged.
+4. Define focused tests and the smallest sufficient wider validation for the selected boundary.
+5. If a change is to be distributed, advance release identity first and complete a new candidate, hosted verification, and affected Android acceptance under [`docs/release.md`](release.md).
 
 ### Completion evidence
 
-- the final directory contains only a verified APK, checksum, non-secret provenance, and verification evidence;
-- the delivered APK’s identity matches [`release/release.properties`](../release/release.properties:1);
-- the device evidence identifies the exact APK and confirms no release-blocking crash, ANR, data loss, signature mismatch, unexpected permission, or unsafe overlap;
-- the non-final probe remains isolated below [`dist/non-final`](../dist/non-final); and
-- a later source change creates a new candidate obligation rather than modifying accepted artifact history.
+- the task records one owner, evidence-backed scope, preserved invariant, and stop condition;
+- focused tests cover the changed behavior or maintenance contract;
+- wider validation is proportional to the affected shared, platform, persistence, or release boundary;
+- released tags and assets remain unchanged; and
+- a distributed change has a new identity and evidence rather than reusing `v1.0.2` acceptance.
 
 ## Deliberate limitations and deferred scope
 
@@ -50,13 +47,13 @@ These are intentional boundaries, not silent defects. Reopen one only with evide
 | Deletion | Archive is the visible lifecycle action; hard deletion remains guarded by multi-file safety behavior. | A use case and deterministic metadata/media/recovery proof define safe owner deletion. |
 | Search | In-memory global item/storage search with simple filters; no persisted index/cache. | Target-scale measurement shows a real UX/performance problem. |
 | Android scope | Android 14/API 34, arm64-v8a, app-private local data, picker grants only. | A separate compatibility or distribution decision funds ABI/API/permission expansion. |
-| Publication | No store publishing or public distribution process is defined. | A release decision defines distribution, corresponding source, notices, and release communications. |
+| Publication | GitHub Release distribution is defined with an exact APK, recursive corresponding source, license, notices, provenance, and checksums; no store channel is defined. | A new version, another distribution channel, or a changed publication policy is explicitly approved. |
 
 Cloud synchronization, shared/multi-device catalogs, marketplace automation, image recognition, direct camera capture, broad-media access, SQL migration, and advanced accounting remain outside the first-version product boundary.
 
-## Discovery after the candidate gate
+## Discovery after publication
 
-After the current candidate is accepted, conduct discovery as observation and triage—not automatic feature work. Explore provider diversity, multiple photo sources, damaged archives/catalogs, low-storage/interruption recovery, preview responsiveness/memory, localization layout breadth, target-scale behavior, and future publication readiness.
+Conduct post-release discovery as observation and triage—not automatic feature work. Explore provider diversity, multiple photo sources, damaged archives/catalogs, low-storage/interruption recovery, preview responsiveness/memory, localization layout breadth, target-scale behavior, and future release readiness.
 
 For every finding, preserve the candidate identity, device/runtime context where relevant, exact reproduction, expected/actual behavior, severity, and safe evidence. Classify it before implementation:
 

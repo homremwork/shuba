@@ -4,7 +4,7 @@
 
 [`release/release.properties`](../release/release.properties:1) is the sole non-secret machine-readable release contract. Every release helper parses it rather than duplicating identity values. It defines the application ID, version name/code, Android API/ABI/toolchain requirements, final artifact basename, expected native library, pinned public signing-certificate fingerprint, and forbidden permissions.
 
-The current tracked source identifies the publication candidate as `1.0.2` / Android code `3`. Local Android 14 base and smoke testing is accepted. Existing external testing is candidate evidence for the current final runtime source until its APK identity and outcome are compared with the exact hosted `1.0.2` packet. Neither evidence set authorizes a changed source or different APK for release or publication. The candidate must be independently built, verified, and accepted against the current contract.
+The current public GitHub Release is [`v1.0.2`](https://github.com/homremwork/shuba/releases/tag/v1.0.2), Android code `3`. Its annotated tag is fixed to the accepted source; its checksum manifest, APK provenance, and verification assets own exact artifact evidence. Later `master` changes are not part of that release and do not inherit its acceptance. Any later distribution requires an atomically advanced release identity, a newly built and independently verified candidate, and acceptance against the resulting contract.
 
 Do not copy historical APK hashes, rejected candidates, prior tags, password locations, or device-specific process details into release instructions. The generated provenance and verification sidecars own exact artifact evidence for a particular candidate.
 

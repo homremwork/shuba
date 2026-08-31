@@ -30,7 +30,7 @@ Host JPEG XL coverage must not silently use an older distribution libjxl package
 
 ## Signed Android rehearsal
 
-[`android-release-rehearsal.yml`](../.github/workflows/android-release-rehearsal.yml:1) is manual-only. For the reviewer-free first-publication contract, create the GitHub Environment `android-release-rehearsal` solely to scope these environment secrets; do not configure required reviewers or deployment-branch restrictions:
+[`android-release-rehearsal.yml`](../.github/workflows/android-release-rehearsal.yml:1) is manual-only. The reviewer-free GitHub Environment `android-release-rehearsal` scopes these environment secrets under the current repository contract; do not configure required reviewers or deployment-branch restrictions:
 
 - `SHUBA_ANDROID_KEYSTORE_BASE64`;
 - `SHUBA_ANDROID_KEY_ALIAS`;
