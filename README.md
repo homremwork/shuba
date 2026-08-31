@@ -1,5 +1,7 @@
 # Shuba
 
+[Latest stable release](https://github.com/homremwork/shuba/releases/latest) · [Releases and release candidates](https://github.com/homremwork/shuba/releases)
+
 [English version below](#english)
 
 ## Русский
@@ -27,7 +29,7 @@ Shuba — локальное Android-приложение для учёта ли
 | [`docs/architecture.md`](docs/architecture.md) | Нужны границы системы, неизменяемые правила, модель данных/восстановления и правила владения. |
 | [`docs/development.md`](docs/development.md) | Нужны правила локальной разработки, владения генерируемыми файлами, проверки хоста и сопровождение локализации. |
 | [`docs/release.md`](docs/release.md) | Нужны граница подписи, процедура получения проверенного артефакта, доказательства приёмки и стоп-условия выпуска. |
-| [`docs/ci.md`](docs/ci.md) | Нужны обязательные GitHub-проверки, границы кэшей и защищённый сценарий подписанной репетиции. |
+| [`docs/ci.md`](docs/ci.md) | Нужны обязательные GitHub-проверки, границы кэшей и защищённые сценарии подписанной репетиции, кандидата и продвижения выпуска. |
 | [`docs/roadmap.md`](docs/roadmap.md) | Нужны текущий контекст следующей задачи, сознательные ограничения и правила определения малого последующего блока. |
 
 ### Карта источников истины
@@ -83,7 +85,7 @@ The executable contract and the code take precedence over prose when they differ
 | [`docs/architecture.md`](docs/architecture.md) | System boundaries, durable invariants, data/recovery model, and ownership rules. |
 | [`docs/development.md`](docs/development.md) | Local development rules, generated-file ownership, host validation, and localization maintenance. |
 | [`docs/release.md`](docs/release.md) | Signing boundary, verified-artifact procedure, acceptance evidence, and release stop conditions. |
-| [`docs/ci.md`](docs/ci.md) | Required GitHub checks, cache boundaries, and the protected signed-rehearsal workflow. |
+| [`docs/ci.md`](docs/ci.md) | Required GitHub checks, cache boundaries, and the protected signed rehearsal, candidate, and promotion workflows. |
 | [`docs/roadmap.md`](docs/roadmap.md) | Current next-task context, deliberate limitations, and how to define a small follow-up block. |
 
 ### Repository authority map

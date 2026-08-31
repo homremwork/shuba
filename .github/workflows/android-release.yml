@@ -1,0 +1,700 @@
+name: Android release
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Release operation
+        required: true
+        default: rehearsal
+        type: choice
+        options:
+          - rehearsal
+          - candidate
+          - promotion
+      tag:
+        description: Exact final-form release tag for candidate publication or promotion
+        required: false
+        type: string
+      ci_run_id:
+        description: Successful tag CI run ID supplied by the CI dispatcher
+        required: false
+        type: string
+      tag_commit:
+        description: Peeled tag commit supplied by the CI dispatcher
+        required: false
+        type: string
+      tag_object:
+        description: Annotated tag object supplied by the CI dispatcher
+        required: false
+        type: string
+      confirm_tag:
+        description: Retype the exact tag to confirm manual promotion
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+
+jobs:
+  signed-build:
+    name: Signed Android release build
+    if: inputs.operation == 'rehearsal' || inputs.operation == 'candidate'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    environment: android-release-rehearsal
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Validate the successful tag CI dispatch
+        if: inputs.operation == 'candidate'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHUBA_CI_RUN_ID: ${{ inputs.ci_run_id }}
+          SHUBA_TAG: ${{ inputs.tag }}
+          SHUBA_TAG_COMMIT: ${{ inputs.tag_commit }}
+          SHUBA_TAG_OBJECT: ${{ inputs.tag_object }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ $SHUBA_CI_RUN_ID =~ ^[1-9][0-9]*$ ]]
+          [[ $SHUBA_TAG =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          [[ $SHUBA_TAG_COMMIT =~ ^[0-9a-f]{40,64}$ ]]
+          [[ $SHUBA_TAG_OBJECT =~ ^[0-9a-f]{40,64}$ ]]
+          [[ $GITHUB_REF == refs/heads/master ]]
+
+          ci_run=
+          for _ in {1..30}; do
+            ci_run=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SHUBA_CI_RUN_ID}")
+            if [[ $(jq -r '.status' <<<"$ci_run") == completed ]]; then
+              break
+            fi
+            sleep 2
+          done
+          jq --exit-status \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg tag "$SHUBA_TAG" \
+            --arg sha "$SHUBA_TAG_COMMIT" \
+            --argjson run_id "$SHUBA_CI_RUN_ID" \
+            '.id == $run_id and .name == "CI" and .path == ".github/workflows/ci.yml" and
+             .event == "push" and .status == "completed" and .conclusion == "success" and
+             .head_branch == $tag and .head_sha == $sha and .repository.full_name == $repository' \
+            <<<"$ci_run" >/dev/null
+
+          tag_ref=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${SHUBA_TAG}")
+          jq --exit-status \
+            --arg object "$SHUBA_TAG_OBJECT" \
+            '.object.type == "tag" and .object.sha == $object' \
+            <<<"$tag_ref" >/dev/null
+          tag_data=$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${SHUBA_TAG_OBJECT}")
+          jq --exit-status \
+            --arg object "$SHUBA_TAG_OBJECT" \
+            --arg commit "$SHUBA_TAG_COMMIT" \
+            '.sha == $object and .object.type == "commit" and .object.sha == $commit' \
+            <<<"$tag_data" >/dev/null
+
+          comparison=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/compare/${SHUBA_TAG_COMMIT}...master")
+          jq --exit-status \
+            --arg commit "$SHUBA_TAG_COMMIT" \
+            '(.status == "ahead" or .status == "identical") and
+             .base_commit.sha == $commit and .merge_base_commit.sha == $commit' \
+            <<<"$comparison" >/dev/null
+
+          releases=$(gh api --paginate --slurp \
+            "repos/${GITHUB_REPOSITORY}/releases?per_page=100")
+          jq --exit-status --arg tag "$SHUBA_TAG" \
+            '[.[][] | select(.tag_name == $tag)] | length == 0' <<<"$releases" >/dev/null
+      - name: Check out recursive sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ inputs.operation == 'candidate' && inputs.tag || github.ref }}
+          submodules: recursive
+          fetch-depth: 1
+          fetch-tags: true
+          persist-credentials: false
+      - name: Install release host dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install --yes --no-install-recommends
+          jq libarchive-tools libasound2-dev libfontconfig1-dev libfreetype-dev
+          libcurl4-openssl-dev libglu1-mesa-dev mesa-common-dev
+          libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev
+          libxi-dev libxrandr-dev libxrender-dev ninja-build pkg-config xmlstarlet
+      - name: Install Fish 4
+        uses: fish-actions/install-fish@4bb37a71daebb76c6fb7d83771cff31b8a78c28e # v1.2.0
+      - name: Enforce Fish release contract
+        shell: fish {0}
+        run: |
+          source tools/release/lib/core.fish
+          source tools/release/lib/release-contract.fish
+          shuba_contract_load release/release.properties
+          shuba_require_fish_version (shuba_contract_get tool.fish_min_version)
+      - name: Validate the checked-out candidate identity
+        if: inputs.operation == 'candidate'
+        env:
+          SHUBA_TAG: ${{ inputs.tag }}
+          SHUBA_TAG_COMMIT: ${{ inputs.tag_commit }}
+          SHUBA_TAG_OBJECT: ${{ inputs.tag_object }}
+        shell: fish {0}
+        run: |
+          source tools/release/lib/core.fish
+          source tools/release/lib/release-contract.fish
+          source tools/release/lib/exact-source.fish
+          shuba_contract_load release/release.properties
+          shuba_exact_source_resolve_tag $PWD $SHUBA_TAG
+          test "$shuba_exact_source_commit" = "$SHUBA_TAG_COMMIT"
+          test (git rev-parse HEAD) = "$SHUBA_TAG_COMMIT"
+          test (git rev-parse refs/tags/$SHUBA_TAG) = "$SHUBA_TAG_OBJECT"
+      - name: Select JDK 17
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >>"$GITHUB_ENV"
+          echo "$JAVA_HOME_17_X64/bin" >>"$GITHUB_PATH"
+      - name: Install exact Android SDK CMake with contract-selected tools
+        shell: fish {0}
+        run: |
+          source tools/release/lib/core.fish
+          source tools/release/lib/release-contract.fish
+          source tools/release/lib/android-toolchain.fish
+          shuba_contract_load release/release.properties
+          set -gx shuba_android_sdk_root (shuba_resolve_android_sdk_root)
+          set -l sdkmanager (shuba_resolve_android_command_line_tools_root)/bin/sdkmanager
+          yes | $sdkmanager --licenses >/dev/null
+          $sdkmanager "cmake;3.22.1"
+          test -x "$shuba_android_sdk_root/cmake/3.22.1/bin/cmake"
+      - name: Validate Android command-line tools and SDK contract
+        run: tools/release/check-release-contract.fish
+      - name: Calculate Android dependency fingerprints
+        id: fingerprints
+        shell: fish {0}
+        run: |
+          set -l libjxl_fingerprint (tools/release/build-libjxl-android.fish --print-fingerprint)
+          test (count $libjxl_fingerprint) -eq 1
+          string match --regex --quiet '^[0-9a-f]{64}$' -- $libjxl_fingerprint
+          set -l projucer_fingerprint (tools/release/build-projucer.fish --print-fingerprint)
+          test (count $projucer_fingerprint) -eq 1
+          string match --regex --quiet '^[0-9a-f]{64}$' -- $projucer_fingerprint
+          printf 'libjxl=%s\nprojucer=%s\n' $libjxl_fingerprint $projucer_fingerprint >>$GITHUB_OUTPUT
+      - name: Restore Android libjxl
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: build/libjxl-android-arm64
+          key: android-libjxl-ubuntu-24.04-${{ steps.fingerprints.outputs.libjxl }}
+      - name: Restore Projucer
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: build/projucer-release
+          key: projucer-ubuntu-24.04-${{ steps.fingerprints.outputs.projucer }}
+      - name: Build and validate cached native dependencies
+        env:
+          SHUBA_BUILD_JOBS: '2'
+        run: |
+          tools/release/build-libjxl-android.fish
+          tools/release/build-projucer.fish
+      - name: Restore secret-free Gradle dependency cache
+        id: gradle-cache
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-ubuntu-24.04-${{ hashFiles('release/release.properties', 'Shuba.jucer', 'tools/release/*.gradle') }}
+          restore-keys: gradle-ubuntu-24.04-
+      - name: Regenerate and validate disposable Android project
+        run: |
+          tools/release/generate-android.fish
+          tools/release/check-generated-android.fish
+          tools/ci/run-release-tool-tests.fish --generated
+      - name: Save secret-free Gradle dependency cache
+        if: steps.gradle-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-ubuntu-24.04-${{ hashFiles('release/release.properties', 'Shuba.jucer', 'tools/release/*.gradle') }}
+      - name: Require protected signing configuration
+        env:
+          SHUBA_ANDROID_KEYSTORE_BASE64: ${{ secrets.SHUBA_ANDROID_KEYSTORE_BASE64 }}
+          SHUBA_ANDROID_KEY_ALIAS: ${{ secrets.SHUBA_ANDROID_KEY_ALIAS }}
+          SHUBA_ANDROID_STORE_PASSWORD: ${{ secrets.SHUBA_ANDROID_STORE_PASSWORD }}
+          SHUBA_ANDROID_KEY_PASSWORD: ${{ secrets.SHUBA_ANDROID_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in SHUBA_ANDROID_KEYSTORE_BASE64 SHUBA_ANDROID_KEY_ALIAS SHUBA_ANDROID_STORE_PASSWORD SHUBA_ANDROID_KEY_PASSWORD; do
+            if [[ -z "${!name:-}" ]]; then
+              printf 'Missing protected environment secret: %s\n' "$name" >&2
+              exit 1
+            fi
+          done
+      - name: Decode temporary signing keystore
+        env:
+          SHUBA_ANDROID_KEYSTORE_BASE64: ${{ secrets.SHUBA_ANDROID_KEYSTORE_BASE64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          keystore="$RUNNER_TEMP/shuba-release.p12"
+          umask 077
+          printf '%s' "$SHUBA_ANDROID_KEYSTORE_BASE64" | base64 --decode >"$keystore"
+          test -s "$keystore"
+          chmod 0600 "$keystore"
+          echo "SHUBA_ANDROID_KEYSTORE_FILE=$keystore" >>"$GITHUB_ENV"
+      - name: Build and verify signed release artifact
+        env:
+          SHUBA_ANDROID_KEY_ALIAS: ${{ secrets.SHUBA_ANDROID_KEY_ALIAS }}
+          SHUBA_ANDROID_STORE_PASSWORD: ${{ secrets.SHUBA_ANDROID_STORE_PASSWORD }}
+          SHUBA_ANDROID_KEY_PASSWORD: ${{ secrets.SHUBA_ANDROID_KEY_PASSWORD }}
+          SHUBA_BUILD_JOBS: '2'
+        run: tools/release/build-android-release.fish
+      - name: Validate signed release evidence
+        env:
+          SHUBA_ANDROID_KEY_ALIAS: ${{ secrets.SHUBA_ANDROID_KEY_ALIAS }}
+          SHUBA_ANDROID_STORE_PASSWORD: ${{ secrets.SHUBA_ANDROID_STORE_PASSWORD }}
+          SHUBA_ANDROID_KEY_PASSWORD: ${{ secrets.SHUBA_ANDROID_KEY_PASSWORD }}
+        run: tools/ci/run-release-tool-tests.fish --rehearsal
+      - name: Build and verify the complete public candidate bundle
+        if: inputs.operation == 'candidate'
+        env:
+          SHUBA_TAG: ${{ inputs.tag }}
+        shell: fish {0}
+        run: |
+          source tools/release/lib/core.fish
+          source tools/release/lib/release-contract.fish
+          source tools/release/lib/exact-source.fish
+          shuba_contract_load release/release.properties
+          shuba_exact_source_write_tag_notes $PWD $SHUBA_TAG $RUNNER_TEMP/release-notes.md
+          tools/release/build-exact-source.fish --tag $SHUBA_TAG --output dist/public-source
+          tools/release/build-publication-bundle.fish \
+              --tag $SHUBA_TAG \
+              --packet-dir dist/release \
+              --source-dir dist/public-source \
+              --release-notes $RUNNER_TEMP/release-notes.md \
+              --output dist/public-bundle
+          tools/release/verify-publication-bundle.fish --tag $SHUBA_TAG --bundle-dir dist/public-bundle
+      - name: Remove temporary signing material
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${SHUBA_ANDROID_KEYSTORE_FILE:-}" && -f "$SHUBA_ANDROID_KEYSTORE_FILE" ]]; then
+            rm -f -- "$SHUBA_ANDROID_KEYSTORE_FILE"
+          fi
+      - name: Upload private rehearsal artifact
+        if: inputs.operation == 'rehearsal'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: shuba-signed-android-rehearsal-${{ github.run_id }}
+          path: dist/release/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+          include-hidden-files: false
+      - name: Upload verified public candidate bundle
+        if: inputs.operation == 'candidate'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: shuba-public-bundle-${{ github.run_id }}
+          path: dist/public-bundle/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+          include-hidden-files: false
+
+  verify-candidate:
+    name: Verify public release candidate
+    if: inputs.operation == 'candidate'
+    needs: signed-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    outputs:
+      release-title: ${{ steps.release-identity.outputs.release-title }}
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Check out the exact recursive tag
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ inputs.tag }}
+          submodules: recursive
+          fetch-depth: 1
+          fetch-tags: true
+          persist-credentials: false
+      - name: Install publication verification dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install --yes --no-install-recommends
+          jq libarchive-tools xmlstarlet
+      - name: Install Fish 4
+        uses: fish-actions/install-fish@4bb37a71daebb76c6fb7d83771cff31b8a78c28e # v1.2.0
+      - name: Select JDK 17
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >>"$GITHUB_ENV"
+          echo "$JAVA_HOME_17_X64/bin" >>"$GITHUB_PATH"
+      - name: Install exact Android SDK CMake with contract-selected tools
+        shell: fish {0}
+        run: |
+          source tools/release/lib/core.fish
+          source tools/release/lib/release-contract.fish
+          source tools/release/lib/android-toolchain.fish
+          shuba_contract_load release/release.properties
+          shuba_require_fish_version (shuba_contract_get tool.fish_min_version)
+          set -gx shuba_android_sdk_root (shuba_resolve_android_sdk_root)
+          set -l sdkmanager (shuba_resolve_android_command_line_tools_root)/bin/sdkmanager
+          yes | $sdkmanager --licenses >/dev/null
+          $sdkmanager "cmake;3.22.1"
+      - name: Download the immutable workflow artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p dist/public-bundle
+          gh run download "$GITHUB_RUN_ID" \
+            --name "shuba-public-bundle-${GITHUB_RUN_ID}" \
+            --dir dist/public-bundle
+      - name: Revalidate tag, Android tools, and complete public bundle
+        env:
+          SHUBA_TAG: ${{ inputs.tag }}
+          SHUBA_TAG_COMMIT: ${{ inputs.tag_commit }}
+          SHUBA_TAG_OBJECT: ${{ inputs.tag_object }}
+        shell: fish {0}
+        run: |
+          source tools/release/lib/core.fish
+          source tools/release/lib/release-contract.fish
+          source tools/release/lib/exact-source.fish
+          shuba_contract_load release/release.properties
+          shuba_exact_source_resolve_tag $PWD $SHUBA_TAG
+          test "$shuba_exact_source_commit" = "$SHUBA_TAG_COMMIT"
+          test (git rev-parse HEAD) = "$SHUBA_TAG_COMMIT"
+          test (git rev-parse refs/tags/$SHUBA_TAG) = "$SHUBA_TAG_OBJECT"
+          tools/release/check-release-contract.fish
+          tools/release/verify-publication-bundle.fish --tag $SHUBA_TAG --bundle-dir dist/public-bundle
+      - name: Export the verified release title
+        id: release-identity
+        shell: fish {0}
+        run: |
+          source tools/release/lib/core.fish
+          source tools/release/lib/release-contract.fish
+          shuba_contract_load release/release.properties
+          printf 'release-title=%s %s release candidate\n' \
+              (shuba_contract_get app.name) (shuba_contract_get app.version_name) >>$GITHUB_OUTPUT
+
+  publish-candidate:
+    name: Publish GitHub release candidate
+    if: inputs.operation == 'candidate'
+    needs: verify-candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Download the verified immutable workflow artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p dist/public-bundle
+          gh run download "$GITHUB_RUN_ID" \
+            --name "shuba-public-bundle-${GITHUB_RUN_ID}" \
+            --dir dist/public-bundle
+      - name: Publish and validate the non-draft prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHUBA_RELEASE_TITLE: ${{ needs.verify-candidate.outputs.release-title }}
+          SHUBA_TAG: ${{ inputs.tag }}
+          SHUBA_TAG_COMMIT: ${{ inputs.tag_commit }}
+          SHUBA_TAG_OBJECT: ${{ inputs.tag_object }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          releases=$(gh api --paginate --slurp \
+            "repos/${GITHUB_REPOSITORY}/releases?per_page=100")
+          jq --exit-status --arg tag "$SHUBA_TAG" \
+            '[.[][] | select(.tag_name == $tag)] | length == 0' <<<"$releases" >/dev/null
+
+          [[ $SHUBA_TAG =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          [[ $SHUBA_TAG_COMMIT =~ ^[0-9a-f]{40,64}$ ]]
+          [[ $SHUBA_TAG_OBJECT =~ ^[0-9a-f]{40,64}$ ]]
+          [[ $SHUBA_RELEASE_TITLE =~ ^[A-Za-z0-9][A-Za-z0-9._\ -]*\ release\ candidate$ ]]
+          tag_ref=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${SHUBA_TAG}")
+          jq --exit-status --arg object "$SHUBA_TAG_OBJECT" \
+            '.object.type == "tag" and .object.sha == $object' <<<"$tag_ref" >/dev/null
+          tag_data=$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${SHUBA_TAG_OBJECT}")
+          jq --exit-status --arg object "$SHUBA_TAG_OBJECT" --arg commit "$SHUBA_TAG_COMMIT" \
+            '.sha == $object and .object.type == "commit" and .object.sha == $commit' \
+            <<<"$tag_data" >/dev/null
+          mapfile -t notes_files < <(find -P dist/public-bundle -maxdepth 1 -type f \
+            -name '*-release-notes.md' -print)
+          [[ ${#notes_files[@]} -eq 1 ]]
+          notes_file=${notes_files[0]}
+
+          expected_lines=$(mktemp)
+          find -P dist/public-bundle -maxdepth 1 -type f -printf '%f\n' | sort | while IFS= read -r name; do
+            path="dist/public-bundle/$name"
+            jq --null-input --compact-output \
+              --arg name "$name" \
+              --arg digest "sha256:$(sha256sum "$path" | awk '{print $1}')" \
+              --argjson size "$(stat --format %s "$path")" \
+              '{name: $name, size: $size, digest: $digest, state: "uploaded"}'
+          done >"$expected_lines"
+          jq --slurp 'sort_by(.name)' "$expected_lines" >"$RUNNER_TEMP/expected-assets.json"
+          [[ $(jq 'length' "$RUNNER_TEMP/expected-assets.json") -eq 12 ]]
+
+          gh release create "$SHUBA_TAG" dist/public-bundle/* \
+            --verify-tag \
+            --prerelease \
+            --latest=false \
+            --title "$SHUBA_RELEASE_TITLE" \
+            --notes-file "$notes_file"
+
+          release_json="$RUNNER_TEMP/published-release.json"
+          for _ in {1..10}; do
+            gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${SHUBA_TAG}" >"$release_json"
+            if jq --exit-status \
+              '(.assets | length == 12) and
+               all(.assets[]; .state == "uploaded" and .digest != null)' \
+              "$release_json" >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          jq --exit-status \
+            --arg tag "$SHUBA_TAG" \
+            --arg title "$SHUBA_RELEASE_TITLE" \
+            --rawfile notes "$notes_file" \
+            '.tag_name == $tag and .name == $title and .body == $notes and
+             .draft == false and .prerelease == true' \
+            "$release_json" >/dev/null
+          jq '[.assets[] | {name, size, digest, state}] | sort_by(.name)' \
+            "$release_json" >"$RUNNER_TEMP/published-assets.json"
+          cmp --silent "$RUNNER_TEMP/expected-assets.json" "$RUNNER_TEMP/published-assets.json"
+
+          tag_ref=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${SHUBA_TAG}")
+          jq --exit-status --arg object "$SHUBA_TAG_OBJECT" \
+            '.object.type == "tag" and .object.sha == $object' <<<"$tag_ref" >/dev/null
+          tag_data=$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${SHUBA_TAG_OBJECT}")
+          jq --exit-status --arg commit "$SHUBA_TAG_COMMIT" \
+            '.object.type == "commit" and .object.sha == $commit' <<<"$tag_data" >/dev/null
+
+  verify-promotion:
+    name: Verify candidate for promotion
+    if: inputs.operation == 'promotion'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    steps:
+      - name: Require explicit promotion confirmation
+        env:
+          SHUBA_CONFIRM_TAG: ${{ inputs.confirm_tag }}
+          SHUBA_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ $SHUBA_TAG =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          [[ $SHUBA_CONFIRM_TAG == "$SHUBA_TAG" ]]
+          [[ $GITHUB_REF == refs/heads/master ]]
+      - name: Check out the exact recursive tag
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ inputs.tag }}
+          submodules: recursive
+          fetch-depth: 1
+          fetch-tags: true
+          persist-credentials: false
+      - name: Install publication verification dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install --yes --no-install-recommends
+          jq libarchive-tools xmlstarlet
+      - name: Install Fish 4
+        uses: fish-actions/install-fish@4bb37a71daebb76c6fb7d83771cff31b8a78c28e # v1.2.0
+      - name: Select JDK 17
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >>"$GITHUB_ENV"
+          echo "$JAVA_HOME_17_X64/bin" >>"$GITHUB_PATH"
+      - name: Install exact Android SDK CMake with contract-selected tools
+        shell: fish {0}
+        run: |
+          source tools/release/lib/core.fish
+          source tools/release/lib/release-contract.fish
+          source tools/release/lib/android-toolchain.fish
+          shuba_contract_load release/release.properties
+          shuba_require_fish_version (shuba_contract_get tool.fish_min_version)
+          set -gx shuba_android_sdk_root (shuba_resolve_android_sdk_root)
+          set -l sdkmanager (shuba_resolve_android_command_line_tools_root)/bin/sdkmanager
+          yes | $sdkmanager --licenses >/dev/null
+          $sdkmanager "cmake;3.22.1"
+      - name: Snapshot the exact prerelease and download its assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHUBA_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_name=$(sed -n 's/^app.name=//p' release/release.properties)
+          version=$(sed -n 's/^app.version_name=//p' release/release.properties)
+          candidate_title="$app_name $version release candidate"
+          stable_title="$app_name $version"
+
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${SHUBA_TAG}" \
+            >"$RUNNER_TEMP/before-release.json"
+          jq --exit-status \
+            --arg tag "$SHUBA_TAG" \
+            --arg title "$candidate_title" \
+            '.tag_name == $tag and .name == $title and .draft == false and
+             .prerelease == true and (.assets | length == 12)' \
+            "$RUNNER_TEMP/before-release.json" >/dev/null
+          jq '[.assets[] | {id, name, size, digest, state, created_at, updated_at}] | sort_by(.name)' \
+            "$RUNNER_TEMP/before-release.json" >"$RUNNER_TEMP/before-assets.json"
+          jq '{id, tag_name, name, body, draft, prerelease}' \
+            "$RUNNER_TEMP/before-release.json" >"$RUNNER_TEMP/before-release-identity.json"
+          jq --exit-status 'all(.[]; .state == "uploaded" and .digest != null)' \
+            "$RUNNER_TEMP/before-assets.json" >/dev/null
+          jq --null-input \
+            --arg stable_title "$stable_title" \
+            '{stable_title: $stable_title}' >"$RUNNER_TEMP/promotion-plan.json"
+
+          tag_ref=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${SHUBA_TAG}")
+          jq --exit-status '.object.type == "tag"' <<<"$tag_ref" >/dev/null
+          tag_object=$(jq --raw-output '.object.sha' <<<"$tag_ref")
+          tag_data=$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object}")
+          jq --exit-status '.object.type == "commit"' <<<"$tag_data" >/dev/null
+          jq --null-input \
+            --arg object "$tag_object" \
+            --arg commit "$(jq --raw-output '.object.sha' <<<"$tag_data")" \
+            '{object: $object, commit: $commit}' >"$RUNNER_TEMP/before-tag.json"
+          [[ $(jq --raw-output '.object' "$RUNNER_TEMP/before-tag.json") == \
+             "$(git rev-parse "refs/tags/${SHUBA_TAG}")" ]]
+          [[ $(jq --raw-output '.commit' "$RUNNER_TEMP/before-tag.json") == \
+             "$(git rev-parse HEAD)" ]]
+
+          mkdir -p dist/promotion-bundle
+          gh release download "$SHUBA_TAG" --dir dist/promotion-bundle
+      - name: Reverify the downloaded candidate against its unchanged tag
+        env:
+          SHUBA_TAG: ${{ inputs.tag }}
+        shell: fish {0}
+        run: |
+          source tools/release/lib/core.fish
+          source tools/release/lib/release-contract.fish
+          source tools/release/lib/exact-source.fish
+          shuba_contract_load release/release.properties
+          shuba_exact_source_write_tag_notes $PWD $SHUBA_TAG $RUNNER_TEMP/release-notes.md
+          jq --exit-status --rawfile notes $RUNNER_TEMP/release-notes.md \
+              '.body == $notes' $RUNNER_TEMP/before-release.json >/dev/null
+          tools/release/check-release-contract.fish
+          tools/release/verify-publication-bundle.fish \
+              --tag $SHUBA_TAG --bundle-dir dist/promotion-bundle
+      - name: Upload immutable promotion evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: shuba-promotion-evidence-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/before-assets.json
+            ${{ runner.temp }}/before-release-identity.json
+            ${{ runner.temp }}/before-tag.json
+            ${{ runner.temp }}/promotion-plan.json
+            ${{ runner.temp }}/release-notes.md
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+          include-hidden-files: false
+
+  promote-release:
+    name: Promote verified candidate
+    if: inputs.operation == 'promotion'
+    needs: verify-promotion
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: android-release-promotion
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Download immutable promotion evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/promotion-evidence"
+          gh run download "$GITHUB_RUN_ID" \
+            --name "shuba-promotion-evidence-${GITHUB_RUN_ID}" \
+            --dir "$RUNNER_TEMP/promotion-evidence"
+      - name: Recheck live identity and promote only the existing release record
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHUBA_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/promotion-evidence"
+          [[ $SHUBA_TAG =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          environment=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/environments/android-release-promotion")
+          jq --exit-status \
+            'any(.protection_rules[]?;
+                 .type == "required_reviewers" and (.reviewers | length) > 0)' \
+            <<<"$environment" >/dev/null
+          release_id=$(jq --raw-output '.id' "$evidence/before-release-identity.json")
+          stable_title=$(jq --raw-output '.stable_title' "$evidence/promotion-plan.json")
+          [[ $release_id =~ ^[1-9][0-9]*$ ]]
+          [[ $stable_title =~ ^[A-Za-z0-9][A-Za-z0-9._\ -]*$ ]]
+
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${SHUBA_TAG}" \
+            >"$RUNNER_TEMP/current-release.json"
+          jq '{id, tag_name, name, body, draft, prerelease}' \
+            "$RUNNER_TEMP/current-release.json" >"$RUNNER_TEMP/current-release-identity.json"
+          jq '[.assets[] | {id, name, size, digest, state, created_at, updated_at}] | sort_by(.name)' \
+            "$RUNNER_TEMP/current-release.json" >"$RUNNER_TEMP/current-assets.json"
+          cmp --silent "$evidence/before-release-identity.json" \
+            "$RUNNER_TEMP/current-release-identity.json"
+          cmp --silent "$evidence/before-assets.json" "$RUNNER_TEMP/current-assets.json"
+          jq --exit-status --rawfile notes "$evidence/release-notes.md" \
+            '.body == $notes' "$RUNNER_TEMP/current-release.json" >/dev/null
+
+          tag_ref=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${SHUBA_TAG}")
+          jq --exit-status '.object.type == "tag"' <<<"$tag_ref" >/dev/null
+          tag_object=$(jq --raw-output '.object.sha' <<<"$tag_ref")
+          tag_data=$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object}")
+          jq --exit-status '.object.type == "commit"' <<<"$tag_data" >/dev/null
+          jq --null-input \
+            --arg object "$tag_object" \
+            --arg commit "$(jq --raw-output '.object.sha' <<<"$tag_data")" \
+            '{object: $object, commit: $commit}' >"$RUNNER_TEMP/current-tag.json"
+          cmp --silent "$evidence/before-tag.json" "$RUNNER_TEMP/current-tag.json"
+
+          gh api --method PATCH \
+            "repos/${GITHUB_REPOSITORY}/releases/${release_id}" \
+            -f "name=${stable_title}" \
+            -F prerelease=false \
+            -f make_latest=true >"$RUNNER_TEMP/promoted-release.json"
+
+          jq --exit-status \
+            --argjson id "$release_id" \
+            --arg tag "$SHUBA_TAG" \
+            --arg title "$stable_title" \
+            --rawfile notes "$evidence/release-notes.md" \
+            '.id == $id and .tag_name == $tag and .name == $title and .body == $notes and
+             .draft == false and .prerelease == false' \
+            "$RUNNER_TEMP/promoted-release.json" >/dev/null
+          jq '[.assets[] | {id, name, size, digest, state, created_at, updated_at}] | sort_by(.name)' \
+            "$RUNNER_TEMP/promoted-release.json" >"$RUNNER_TEMP/promoted-assets.json"
+          cmp --silent "$evidence/before-assets.json" "$RUNNER_TEMP/promoted-assets.json"
+
+          tag_ref=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${SHUBA_TAG}")
+          jq --exit-status '.object.type == "tag"' <<<"$tag_ref" >/dev/null
+          tag_object=$(jq --raw-output '.object.sha' <<<"$tag_ref")
+          tag_data=$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object}")
+          jq --exit-status '.object.type == "commit"' <<<"$tag_data" >/dev/null
+          jq --null-input \
+            --arg object "$tag_object" \
+            --arg commit "$(jq --raw-output '.object.sha' <<<"$tag_data")" \
+            '{object: $object, commit: $commit}' >"$RUNNER_TEMP/promoted-tag.json"
+          cmp --silent "$evidence/before-tag.json" "$RUNNER_TEMP/promoted-tag.json"
+
+          latest=$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest")
+          jq --exit-status --argjson id "$release_id" '.id == $id' <<<"$latest" >/dev/null

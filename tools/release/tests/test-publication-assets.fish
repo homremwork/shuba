@@ -68,6 +68,44 @@ function shuba_publication_assets_make_project
     printf '%s\n' $shuba_project
 end
 
+function shuba_publication_assets_test_tag_notes --argument-names shuba_project
+    set --local shuba_outputs $shuba_publication_assets_root/tag-notes
+    mkdir -p -- $shuba_outputs; or return 1
+    printf '%s\n' 'Shuba 1.0.2 publication fixture' >$shuba_outputs/expected.md; or return 1
+    shuba_exact_source_write_tag_notes $shuba_project v1.0.2 $shuba_outputs/release-notes.md; or return 1
+    cmp --silent $shuba_outputs/expected.md $shuba_outputs/release-notes.md; or begin
+        shuba_publication_assets_test_fail 'annotated tag notes were not extracted exactly'
+        return 1
+    end
+    if test (stat --format %a -- $shuba_outputs/release-notes.md) != 644
+        shuba_publication_assets_test_fail 'annotated tag notes mode is not public-safe'
+        return 1
+    end
+
+    ln -s release-notes.md $shuba_outputs/linked-notes.md; or return 1
+    shuba_publication_assets_expect_rejection linked-notes-output \
+        'must not be a directory or symbolic link' \
+        shuba_exact_source_write_tag_notes $shuba_project v1.0.2 $shuba_outputs/linked-notes.md; or return 1
+
+    git -C $shuba_project tag --delete v1.0.2 >/dev/null; or return 1
+    git -C $shuba_project tag v1.0.2; or return 1
+    shuba_publication_assets_expect_rejection lightweight-tag 'must exist and be annotated' \
+        shuba_exact_source_write_tag_notes $shuba_project v1.0.2 $shuba_outputs/lightweight.md; or return 1
+
+    git -C $shuba_project tag --delete v1.0.2 >/dev/null; or return 1
+    printf '%s\n' '   ' >$shuba_outputs/blank-message; or return 1
+    env GIT_COMMITTER_DATE='2026-08-28T00:00:00Z' GIT_AUTHOR_DATE='2026-08-28T00:00:00Z' \
+        git -C $shuba_project tag --annotate v1.0.2 --cleanup=verbatim \
+        --file $shuba_outputs/blank-message; or return 1
+    shuba_publication_assets_expect_rejection blank-tag-notes 'must contain non-empty release notes' \
+        shuba_exact_source_write_tag_notes $shuba_project v1.0.2 $shuba_outputs/blank.md; or return 1
+
+    git -C $shuba_project tag --delete v1.0.2 >/dev/null; or return 1
+    env GIT_COMMITTER_DATE='2026-08-28T00:00:00Z' GIT_AUTHOR_DATE='2026-08-28T00:00:00Z' \
+        git -C $shuba_project tag --annotate v1.0.2 \
+        --message 'Shuba 1.0.2 publication fixture'; or return 1
+end
+
 function shuba_publication_assets_write_packet_provenance --argument-names shuba_path shuba_basename shuba_digest shuba_bytes shuba_root_commit
     begin
         printf '%s\n' provenance_schema_version=value
@@ -303,6 +341,7 @@ function shuba_publication_assets_test_main
         (mktemp --directory /tmp/shuba-r12f-publication-assets.XXXXXX); or return 1
     shuba_contract_load $shuba_publication_assets_workspace/release/release.properties; or return 1
     set --local shuba_project (shuba_publication_assets_make_project); or return 1
+    shuba_publication_assets_test_tag_notes $shuba_project; or return 1
     shuba_publication_assets_test_source $shuba_project; or return 1
     shuba_publication_assets_test_bundle $shuba_project; or return 1
     printf '%s\n' 'R12F deterministic corresponding-source and public-bundle mutation probes: passed'

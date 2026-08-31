@@ -207,6 +207,49 @@ function shuba_exact_source_resolve_tag --argument-names shuba_project_root shub
     set --global shuba_exact_source_top_name (shuba_exact_source_top_directory); or return 1
 end
 
+function shuba_exact_source_write_tag_notes --argument-names shuba_project_root shuba_tag shuba_requested_path
+    shuba_exact_source_resolve_tag $shuba_project_root $shuba_tag; or return 1
+    set --local shuba_parent (realpath --canonicalize-existing -- (path dirname -- $shuba_requested_path)); or begin
+        shuba_exact_source_fail "release-notes output parent is unavailable: $shuba_requested_path"
+        return 1
+    end
+    set --local shuba_name (path basename -- $shuba_requested_path)
+    shuba_exact_source_validate_component $shuba_name; or return 1
+    set --local shuba_output $shuba_parent/$shuba_name
+    if test -d $shuba_output; or test -L $shuba_output
+        shuba_exact_source_fail 'release-notes output must not be a directory or symbolic link'
+        return 1
+    end
+    set --local shuba_notes (mktemp $shuba_parent/.shuba-tag-notes.XXXXXX); or return 1
+    set --local shuba_git_path (shuba_resolve_command git); or begin
+        rm -f -- $shuba_notes
+        return 1
+    end
+    $shuba_git_path -C $shuba_project_root cat-file tag refs/tags/$shuba_tag \
+        | sed '1,/^$/d' >$shuba_notes
+    set --local shuba_extract_statuses $pipestatus
+    for shuba_status in $shuba_extract_statuses
+        if test $shuba_status -ne 0
+            rm -f -- $shuba_notes
+            shuba_exact_source_fail 'could not extract the annotated release-tag message'
+            return 1
+        end
+    end
+    if not grep --quiet '[^[:space:]]' $shuba_notes
+        rm -f -- $shuba_notes
+        shuba_exact_source_fail 'annotated release tag must contain non-empty release notes'
+        return 1
+    end
+    chmod 0644 -- $shuba_notes; or begin
+        rm -f -- $shuba_notes
+        return 1
+    end
+    mv --force -- $shuba_notes $shuba_output; or begin
+        rm -f -- $shuba_notes
+        return 1
+    end
+end
+
 function shuba_exact_source_validate_git_tree --argument-names shuba_repository shuba_commit shuba_project_root shuba_source_prefix shuba_rows_path
     set --local shuba_git_path (shuba_resolve_command git); or return 1
     set --local shuba_records (mktemp /tmp/shuba-exact-source-tree.XXXXXX); or return 1
