@@ -8,10 +8,6 @@
 
 Shuba — локальное Android-приложение для учёта личных вещей, которые хранятся, ищутся или продаются на вторичном рынке. Оно хранит предметы, места хранения, фотографии, заметки, метки, статус продажи, сведения об объявлении и базовые данные о покупке или продаже на одном устройстве. Это целевой каталог, а не складская платформа, облачный сервис, клиент маркетплейса или бухгалтерская система.
 
-### Текущее состояние
-
-Текущий публичный выпуск — [Shuba 1.0.2](https://github.com/homremwork/shuba/releases/tag/v1.0.2), Android version code `3`, для Android 14/API 34 и только `arm64-v8a`; его несекретный контракт находится в [`release/release.properties`](release/release.properties:1). Нативная политика собирает приложение и статические зависимости для `cortex-a73`; требуемый нижний набор возможностей — Armv8-A с NEON, AES, SHA2 и CRC32. Это **не** политика Armv8.2-A: такой минимальный ISA противоречил бы заявленной совместимости с классом Cortex-A73/A53 и совместимыми Snapdragon 680/685 Kryo 265. Debug использует `-O0`, Release — безопасный `-O3`; `-Ofast`, fast-math и LTO не используются. Для полного соответствующего исходного кода используйте именованный рекурсивный source-asset выпуска, а не автоматически созданный GitHub-архив без содержимого подмодулей. Тег и доказательства `v1.0.2` относятся только к принятым исходникам и точным байтам APK; любое последующее изменение требует нового идентифицированного кандидата перед распространением. Перед сборкой или распространением APK прочитайте [`docs/release.md`](docs/release.md).
-
 ### Граница продукта
 
 - Канонические данные каталога и внутренние фотографии находятся в приватном хранилище приложения на одном Android-устройстве.
@@ -59,14 +55,6 @@ Shuba — локальное Android-приложение для учёта ли
 ## English
 
 Shuba is a local-first Android catalog for people who store, find, and sell personal resale items. It keeps items, storage locations, photos, notes, tags, sale state, listing details, and basic acquisition or sale figures on one device. It is a focused catalog, not an inventory platform, cloud service, marketplace client, or accounting system.
-
-### Current state
-
-The current public release is [Shuba 1.0.2](https://github.com/homremwork/shuba/releases/tag/v1.0.2), Android version code `3`, for Android 14/API 34 and `arm64-v8a` only; its non-secret contract is [`release/release.properties`](release/release.properties:1). The native policy builds both the app and static dependencies for `cortex-a73`, with an Armv8-A + NEON + AES + SHA2 + CRC32 feature floor. It is explicitly **not** an Armv8.2-A minimum: that ISA would contradict the advertised Cortex-A73/A53 and compatible Snapdragon 680/685 Kryo 265 device class. Debug uses `-O0`; Release uses safe `-O3`; `-Ofast`, fast-math, and LTO are not used. Use the Release's named recursive source asset for complete corresponding source, not GitHub's automatically generated archive without submodule contents. The `v1.0.2` tag and evidence apply only to the accepted source and exact APK bytes; any later change requires a newly identified candidate before distribution. Read [`docs/release.md`](docs/release.md) before building or distributing an APK.
-
-### License and corresponding source
-
-Project-owned code, documentation, tests, tooling, localization, and artwork are `AGPL-3.0-or-later`, copyright © 2026 homremwork; see [`LICENSE`](LICENSE:1). Incorporated third-party material retains its own terms and notices, identified in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md:1). A public Android release is accompanied by a checked recursive corresponding-source asset built from the exact annotated tag and pinned submodule commits—not by GitHub’s automatic source archive, which omits submodule content. The executable packaging and verification contract is documented in [`docs/release.md`](docs/release.md:108).
 
 ### Product boundary
 
