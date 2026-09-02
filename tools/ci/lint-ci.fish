@@ -5,6 +5,15 @@ function shuba_ci_lint_fail
     return 1
 end
 
+function shuba_ci_lint_require_occurrence --argument-names shuba_path shuba_text shuba_description
+    set --local shuba_count (grep --fixed-strings --count -- $shuba_text $shuba_path)
+    set --local shuba_grep_status $status
+    if test $shuba_grep_status -gt 1; or test "$shuba_count" != 1
+        shuba_ci_lint_fail "$shuba_description must occur exactly once in $shuba_path"
+        return 1
+    end
+end
+
 function shuba_ci_lint_main
     if test (count $argv) -ne 0
         shuba_ci_lint_fail 'lint-ci.fish accepts no arguments'
@@ -12,6 +21,20 @@ function shuba_ci_lint_main
     end
     set --local shuba_root (realpath --canonicalize-existing -- (status dirname)/../..); or return 1
     set --local shuba_workflows $shuba_root/.github/workflows
+    shuba_contract_load $shuba_root/release/release.properties; or return 1
+    set --local shuba_apk_name (shuba_contract_get artifact.basename); or return 1
+    set --local shuba_latest_apk_url \
+        "https://github.com/homremwork/shuba/releases/latest/download/$shuba_apk_name"
+    set --local shuba_tagged_apk_url \
+        "https://github.com/homremwork/shuba/releases/download/v<version>/$shuba_apk_name"
+    shuba_ci_lint_require_occurrence $shuba_root/README.md $shuba_latest_apk_url \
+        'contract-derived README latest-stable APK URL'; or return 1
+    for shuba_document in $shuba_root/docs/release.md $shuba_root/docs/ci.md
+        shuba_ci_lint_require_occurrence $shuba_document $shuba_latest_apk_url \
+            'contract-derived documented latest-stable APK URL'; or return 1
+        shuba_ci_lint_require_occurrence $shuba_document $shuba_tagged_apk_url \
+            'contract-derived documented tag-specific APK URL'; or return 1
+    end
     set --local shuba_uses (grep --recursive --extended-regexp \
         '^[[:space:]]*uses:[[:space:]]*[^[:space:]]+' $shuba_workflows); or return 1
     for shuba_use in $shuba_uses
@@ -80,5 +103,8 @@ function shuba_ci_lint_main
     printf '%s\n' 'CI lint: immutable actions, workflows, presets, whitespace, and source-size gates passed.'
 end
 
+set --local shuba_script_directory (status dirname)
+source $shuba_script_directory/../release/lib/core.fish
+source $shuba_script_directory/../release/lib/release-contract.fish
 shuba_ci_lint_main $argv
 exit $status

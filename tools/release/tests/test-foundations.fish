@@ -79,6 +79,10 @@ function shuba_test_main
     set --local shuba_version_code (shuba_contract_get app.version_code); or return 1
     shuba_test_mutated_contract $shuba_contract '^contract.schema_version=4$' 'contract.schema_version=3' 'unsupported release contract schema'; or return 1
     shuba_test_mutated_contract $shuba_contract "^app.version_code=$shuba_version_code\$" 'app.version_code=0' 'invalid value for app.version_code'; or return 1
+    shuba_test_mutated_contract $shuba_contract '^artifact.basename=Shuba-arm64-v8a[.]apk$' 'artifact.basename=Shuba-1.0.2-arm64-v8a.apk' 'artifact.basename must be derived from app name and ABI'; or return 1
+    shuba_test_mutated_contract $shuba_contract '^artifact.basename=Shuba-arm64-v8a[.]apk$' 'artifact.basename=Other-arm64-v8a.apk' 'artifact.basename must be derived from app name and ABI'; or return 1
+    shuba_test_mutated_contract $shuba_contract '^artifact.basename=Shuba-arm64-v8a[.]apk$' 'artifact.basename=Shuba-x86_64.apk' 'artifact.basename must be derived from app name and ABI'; or return 1
+    shuba_test_mutated_contract $shuba_contract '^artifact.basename=Shuba-arm64-v8a[.]apk$' 'artifact.basename=../Shuba-arm64-v8a.apk' 'artifact.basename must be derived from app name and ABI'; or return 1
     shuba_test_mutated_contract $shuba_contract '^tool.jq_min_version=1.7.0$' 'tool.jq_min_version=01.7.0' 'invalid value for tool.jq_min_version'; or return 1
     shuba_test_mutated_contract $shuba_contract '^android.command_line_tools_versions=20.0,12.0$' 'android.command_line_tools_versions=20.0,20.0' 'duplicate Android command-line tools version'; or return 1
     shuba_test_mutated_contract $shuba_contract '^android.command_line_tools_versions=20.0,12.0$' 'android.command_line_tools_versions=20.0,12.0,' 'invalid Android command-line tools version'; or return 1

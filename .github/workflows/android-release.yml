@@ -315,6 +315,7 @@ jobs:
     timeout-minutes: 35
     outputs:
       release-title: ${{ steps.release-identity.outputs.release-title }}
+      apk-name: ${{ steps.release-identity.outputs.apk-name }}
     permissions:
       actions: read
       contents: read
@@ -383,6 +384,7 @@ jobs:
           shuba_contract_load release/release.properties
           printf 'release-title=%s %s release candidate\n' \
               (shuba_contract_get app.name) (shuba_contract_get app.version_name) >>$GITHUB_OUTPUT
+          printf 'apk-name=%s\n' (shuba_contract_get artifact.basename) >>$GITHUB_OUTPUT
 
   publish-candidate:
     name: Publish GitHub release candidate
@@ -405,6 +407,7 @@ jobs:
       - name: Publish and validate the non-draft prerelease
         env:
           GH_TOKEN: ${{ github.token }}
+          SHUBA_APK_NAME: ${{ needs.verify-candidate.outputs.apk-name }}
           SHUBA_RELEASE_TITLE: ${{ needs.verify-candidate.outputs.release-title }}
           SHUBA_TAG: ${{ inputs.tag }}
           SHUBA_TAG_COMMIT: ${{ inputs.tag_commit }}
@@ -420,6 +423,7 @@ jobs:
           [[ $SHUBA_TAG =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
           [[ $SHUBA_TAG_COMMIT =~ ^[0-9a-f]{40,64}$ ]]
           [[ $SHUBA_TAG_OBJECT =~ ^[0-9a-f]{40,64}$ ]]
+          [[ $SHUBA_APK_NAME =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*[.]apk$ ]]
           [[ $SHUBA_RELEASE_TITLE =~ ^[A-Za-z0-9][A-Za-z0-9._\ -]*\ release\ candidate$ ]]
           tag_ref=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${SHUBA_TAG}")
           jq --exit-status --arg object "$SHUBA_TAG_OBJECT" \
@@ -444,6 +448,10 @@ jobs:
           done >"$expected_lines"
           jq --slurp 'sort_by(.name)' "$expected_lines" >"$RUNNER_TEMP/expected-assets.json"
           [[ $(jq 'length' "$RUNNER_TEMP/expected-assets.json") -eq 12 ]]
+          jq --exit-status --arg apk "$SHUBA_APK_NAME" \
+            '([.[] | select(.name == $apk)] | length) == 1 and
+             ([.[] | select(.name | endswith(".apk"))] | length) == 1' \
+            "$RUNNER_TEMP/expected-assets.json" >/dev/null
 
           gh release create "$SHUBA_TAG" dist/public-bundle/* \
             --verify-tag \
@@ -538,16 +546,21 @@ jobs:
           set -euo pipefail
           app_name=$(sed -n 's/^app.name=//p' release/release.properties)
           version=$(sed -n 's/^app.version_name=//p' release/release.properties)
+          apk_name=$(sed -n 's/^artifact.basename=//p' release/release.properties)
           candidate_title="$app_name $version release candidate"
           stable_title="$app_name $version"
+          [[ $apk_name =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*[.]apk$ ]]
 
           gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${SHUBA_TAG}" \
             >"$RUNNER_TEMP/before-release.json"
           jq --exit-status \
             --arg tag "$SHUBA_TAG" \
             --arg title "$candidate_title" \
+            --arg apk "$apk_name" \
             '.tag_name == $tag and .name == $title and .draft == false and
-             .prerelease == true and (.assets | length == 12)' \
+             .prerelease == true and (.assets | length == 12) and
+             ([.assets[] | select(.name == $apk)] | length) == 1 and
+             ([.assets[] | select(.name | endswith(".apk"))] | length) == 1' \
             "$RUNNER_TEMP/before-release.json" >/dev/null
           jq '[.assets[] | {id, name, size, digest, state, created_at, updated_at}] | sort_by(.name)' \
             "$RUNNER_TEMP/before-release.json" >"$RUNNER_TEMP/before-assets.json"
@@ -557,7 +570,9 @@ jobs:
             "$RUNNER_TEMP/before-assets.json" >/dev/null
           jq --null-input \
             --arg stable_title "$stable_title" \
-            '{stable_title: $stable_title}' >"$RUNNER_TEMP/promotion-plan.json"
+            --arg apk_name "$apk_name" \
+            '{stable_title: $stable_title, apk_name: $apk_name}' \
+            >"$RUNNER_TEMP/promotion-plan.json"
 
           tag_ref=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${SHUBA_TAG}")
           jq --exit-status '.object.type == "tag"' <<<"$tag_ref" >/dev/null
@@ -641,8 +656,10 @@ jobs:
             <<<"$environment" >/dev/null
           release_id=$(jq --raw-output '.id' "$evidence/before-release-identity.json")
           stable_title=$(jq --raw-output '.stable_title' "$evidence/promotion-plan.json")
+          apk_name=$(jq --raw-output '.apk_name' "$evidence/promotion-plan.json")
           [[ $release_id =~ ^[1-9][0-9]*$ ]]
           [[ $stable_title =~ ^[A-Za-z0-9][A-Za-z0-9._\ -]*$ ]]
+          [[ $apk_name =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*[.]apk$ ]]
 
           gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${SHUBA_TAG}" \
             >"$RUNNER_TEMP/current-release.json"
@@ -697,4 +714,8 @@ jobs:
           cmp --silent "$evidence/before-tag.json" "$RUNNER_TEMP/promoted-tag.json"
 
           latest=$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest")
-          jq --exit-status --argjson id "$release_id" '.id == $id' <<<"$latest" >/dev/null
+          jq --exit-status --argjson id "$release_id" --arg apk "$apk_name" \
+            '.id == $id and
+             ([.assets[] | select(.name == $apk)] | length) == 1 and
+             ([.assets[] | select(.name | endswith(".apk"))] | length) == 1' \
+            <<<"$latest" >/dev/null

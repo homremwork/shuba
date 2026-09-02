@@ -1,6 +1,6 @@
 # Shuba
 
-[Latest stable release](https://github.com/homremwork/shuba/releases/latest) · [Releases and release candidates](https://github.com/homremwork/shuba/releases)
+[![Download latest APK](https://img.shields.io/badge/Download-latest%20APK-3DDC84?logo=android&logoColor=white)](https://github.com/homremwork/shuba/releases/latest/download/Shuba-arm64-v8a.apk)
 
 [English version below](#english)
 

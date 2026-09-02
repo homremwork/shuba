@@ -138,9 +138,9 @@ function shuba_contract_validate
     end
 
     set --local shuba_app_name (string replace --all ' ' - -- (shuba_contract_get app.name))
-    set --local shuba_expected_basename "$shuba_app_name-"(shuba_contract_get app.version_name)"-"(shuba_contract_get android.abi)'.apk'
+    set --local shuba_expected_basename "$shuba_app_name-"(shuba_contract_get android.abi)'.apk'
     if test (shuba_contract_get artifact.basename) != $shuba_expected_basename
-        shuba_fail "artifact.basename must be derived from app name, version, and ABI: $shuba_expected_basename"
+        shuba_fail "artifact.basename must be derived from app name and ABI: $shuba_expected_basename"
         return 1
     end
 
