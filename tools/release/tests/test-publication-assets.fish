@@ -333,7 +333,11 @@ function shuba_publication_assets_test_bundle --argument-names shuba_project
         shuba_publication_bundle_verify $shuba_project v1.0.2 $shuba_outputs/notes; or return 1
 
     cp -a -- $shuba_outputs/bundle $shuba_outputs/manifest
-    sed -i '1s/^[0-9a-f]/0/' $shuba_outputs/manifest/$shuba_stem-SHA256SUMS
+    sed -i '1{s/^0/1/;t;s/^[1-9a-f]/0/;}' $shuba_outputs/manifest/$shuba_stem-SHA256SUMS; or return 1
+    if cmp --silent $shuba_manifest $shuba_outputs/manifest/$shuba_stem-SHA256SUMS
+        shuba_publication_assets_test_fail 'bundle manifest mutation did not change the checksum'
+        return 1
+    end
     shuba_publication_assets_expect_rejection bundle-manifest 'overall SHA-256 manifest' \
         shuba_publication_bundle_verify $shuba_project v1.0.2 $shuba_outputs/manifest; or return 1
 end
