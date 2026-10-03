@@ -149,9 +149,13 @@ function shuba_historical_packet_test_main
     sed -i 's/^signing.certificate_sha256=.*/signing.certificate_sha256=0000000000000000000000000000000000000000000000000000000000000000/' $shuba_directory/*.provenance.txt
     shuba_historical_packet_test_require_rejection certificate $shuba_directory 'signing certificate differs from the successor contract'; or return 1
 
-    set shuba_directory (shuba_historical_packet_test_prepare version-code legacy); or return 1
-    sed -i 's/^app.version_code=.*/app.version_code=3/' $shuba_directory/*.provenance.txt
-    shuba_historical_packet_test_require_rejection version-code $shuba_directory 'version code is not lower'; or return 1
+    set --local shuba_successor_version_code (shuba_contract_get app.version_code); or return 1
+    for shuba_version_code in $shuba_successor_version_code (math $shuba_successor_version_code + 1)
+        set --local shuba_case version-code-$shuba_version_code
+        set shuba_directory (shuba_historical_packet_test_prepare $shuba_case legacy); or return 1
+        sed -i "s/^app.version_code=.*/app.version_code=$shuba_version_code/" $shuba_directory/*.provenance.txt; or return 1
+        shuba_historical_packet_test_require_rejection $shuba_case $shuba_directory 'version code is not lower'; or return 1
+    end
 
     set shuba_directory (shuba_historical_packet_test_prepare verification legacy); or return 1
     sed -i 's/code 1/code 9/' $shuba_directory/*.verification.txt

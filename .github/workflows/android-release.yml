@@ -114,7 +114,7 @@ jobs:
           jq --exit-status --arg tag "$SHUBA_TAG" \
             '[.[][] | select(.tag_name == $tag)] | length == 0' <<<"$releases" >/dev/null
       - name: Check out recursive sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ inputs.operation == 'candidate' && inputs.tag || github.ref }}
           submodules: recursive
@@ -183,12 +183,12 @@ jobs:
           string match --regex --quiet '^[0-9a-f]{64}$' -- $projucer_fingerprint
           printf 'libjxl=%s\nprojucer=%s\n' $libjxl_fingerprint $projucer_fingerprint >>$GITHUB_OUTPUT
       - name: Restore Android libjxl
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: build/libjxl-android-arm64
           key: android-libjxl-ubuntu-24.04-${{ steps.fingerprints.outputs.libjxl }}
       - name: Restore Projucer
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: build/projucer-release
           key: projucer-ubuntu-24.04-${{ steps.fingerprints.outputs.projucer }}
@@ -200,7 +200,7 @@ jobs:
           tools/release/build-projucer.fish
       - name: Restore secret-free Gradle dependency cache
         id: gradle-cache
-        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             ~/.gradle/caches
@@ -214,7 +214,7 @@ jobs:
           tools/ci/run-release-tool-tests.fish --generated
       - name: Save secret-free Gradle dependency cache
         if: steps.gradle-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             ~/.gradle/caches
@@ -321,7 +321,7 @@ jobs:
       contents: read
     steps:
       - name: Check out the exact recursive tag
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ inputs.tag }}
           submodules: recursive
@@ -508,7 +508,7 @@ jobs:
           [[ $SHUBA_CONFIRM_TAG == "$SHUBA_TAG" ]]
           [[ $GITHUB_REF == refs/heads/master ]]
       - name: Check out the exact recursive tag
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ inputs.tag }}
           submodules: recursive

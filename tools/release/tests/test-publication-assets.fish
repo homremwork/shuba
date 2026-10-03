@@ -22,6 +22,10 @@ end
 function shuba_publication_assets_write_project_contract --argument-names shuba_project
     mkdir -p -- $shuba_project/release; or return 1
     cp -- $shuba_publication_assets_workspace/release/release.properties $shuba_project/release/release.properties; or return 1
+    # Synthetic tags and source inventories use a fixed fixture identity,
+    # independent of the next application release in the workspace contract.
+    sed -i -e 's/^app.version_name=.*/app.version_name=1.0.2/' \
+        -e 's/^app.version_code=.*/app.version_code=3/' $shuba_project/release/release.properties; or return 1
 end
 
 function shuba_publication_assets_initialize_repository --argument-names shuba_repository
@@ -339,8 +343,8 @@ function shuba_publication_assets_test_main
         (realpath --canonicalize-existing -- (status dirname)/../../..); or return 1
     set --global shuba_publication_assets_root \
         (mktemp --directory /tmp/shuba-r12f-publication-assets.XXXXXX); or return 1
-    shuba_contract_load $shuba_publication_assets_workspace/release/release.properties; or return 1
     set --local shuba_project (shuba_publication_assets_make_project); or return 1
+    shuba_contract_load $shuba_project/release/release.properties; or return 1
     shuba_publication_assets_test_tag_notes $shuba_project; or return 1
     shuba_publication_assets_test_source $shuba_project; or return 1
     shuba_publication_assets_test_bundle $shuba_project; or return 1

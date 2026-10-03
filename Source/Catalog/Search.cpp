@@ -1,6 +1,7 @@
 #include "Catalog/Search.hpp"
 
 #include <algorithm>
+#include <map>
 #include <set>
 #include <string>
 #include <utility>
@@ -215,29 +216,13 @@ void append_finance_text(std::string& target,
 		.full_text	  = normalize_search_text(full_text)};
 }
 
-[[nodiscard]] const ItemSearchProjection* find_item_search_projection(
-	const SearchRebuildProjection& projection,
-	const core::StableIdentifier& id) {
-	const std::vector<ItemSearchProjection>::const_iterator found =
-		std::ranges::find_if(
-			projection.items,
-			[id](const ItemSearchProjection& item) { return item.id == id; });
-	if (found == projection.items.end())
-		return nullptr;
-	return &*found;
-}
-
-[[nodiscard]] const StorageSearchProjection* find_storage_search_projection(
-	const SearchRebuildProjection& projection,
-	const core::StableIdentifier& id) {
-	const std::vector<StorageSearchProjection>::const_iterator found =
-		std::ranges::find_if(projection.storages,
-							 [id](const StorageSearchProjection& storage) {
-		return storage.id == id;
-	});
-	if (found == projection.storages.end())
-		return nullptr;
-	return &*found;
+template<typename Projection>
+[[nodiscard]] std::map<std::string_view, const Projection*>
+index_search_projections(const std::vector<Projection>& projections) {
+	std::map<std::string_view, const Projection*> by_id;
+	for (const Projection& projection : projections)
+		by_id.try_emplace(projection.id.value(), &projection);
+	return by_id;
 }
 
 [[nodiscard]] std::string item_location_text(
@@ -700,7 +685,7 @@ void sort_storage_results(std::vector<ScoredSearchResult>& results,
 }
 
 [[nodiscard]] std::vector<SearchResult> strip_scores(
-	std::vector<ScoredSearchResult> scored_results) {
+	std::vector<ScoredSearchResult>&& scored_results) {
 	std::vector<SearchResult> results;
 	results.reserve(scored_results.size());
 	for (ScoredSearchResult& scored_result : scored_results)
@@ -820,6 +805,15 @@ SearchIndex build_search_index(const CatalogRepositoryState& state) {
 	SearchIndex index{
 		.tag_key_hints			= state.search_projection.tag_key_hints,
 		.normalization_decision = search_normalization_decision()};
+	// Borrow only for this rebuild; the repository owns the keys and
+	// projections. try_emplace retains the first projection when identifiers
+	// are duplicated.
+	const auto item_projections =
+		index_search_projections(state.search_projection.items);
+	const auto storage_projections =
+		index_search_projections(state.search_projection.storages);
+	index.items.reserve(state.items.size());
+	index.storages.reserve(state.storages.size());
 
 	for (const std::pair<const std::string, StorageProjection>& entry :
 		 state.storage_projections) {
@@ -828,18 +822,17 @@ SearchIndex build_search_index(const CatalogRepositoryState& state) {
 	}
 
 	for (const persistence::ItemEnvelope& item : state.items) {
-		const ItemSearchProjection* projection = find_item_search_projection(
-			state.search_projection, item.record.id);
-		if (projection == nullptr)
+		const auto projection = item_projections.find(item.record.id.value());
+		if (projection == item_projections.end())
 			continue;
-		index.items.push_back(make_item_document(state, item, *projection));
+		index.items.push_back(
+			make_item_document(state, item, *projection->second));
 	}
 
 	for (const persistence::StorageEnvelope& storage : state.storages) {
-		const StorageSearchProjection* projection =
-			find_storage_search_projection(state.search_projection,
-										   storage.record.id);
-		if (projection == nullptr)
+		const auto projection =
+			storage_projections.find(storage.record.id.value());
+		if (projection == storage_projections.end())
 			continue;
 		domain::ReferenceState parent_reference_state =
 			domain::ReferenceState::Absent;
@@ -849,8 +842,8 @@ SearchIndex build_search_index(const CatalogRepositoryState& state) {
 		if (storage_projection != state.storage_projections.end())
 			parent_reference_state =
 				storage_projection->second.parent_reference_state;
-		index.storages.push_back(make_storage_document(storage, *projection,
-													   parent_reference_state));
+		index.storages.push_back(make_storage_document(
+			storage, *projection->second, parent_reference_state));
 	}
 
 	return index;
@@ -903,8 +896,8 @@ CatalogSearchResultSet search_catalog(const SearchIndex& index,
 	sort_storage_results(storage_results, false);
 
 	CatalogSearchResultSet result{
-		.item_results	 = strip_scores(item_results),
-		.storage_results = strip_scores(storage_results),
+		.item_results	 = strip_scores(std::move(item_results)),
+		.storage_results = strip_scores(std::move(storage_results)),
 		.query_is_empty	 = query_is_empty};
 	result.total_count =
 		result.item_results.size() + result.storage_results.size();
@@ -935,7 +928,7 @@ CatalogSearchResultSet search_storages(const SearchIndex& index,
 	sort_storage_results(storage_results, false);
 
 	CatalogSearchResultSet result{
-		.storage_results = strip_scores(storage_results),
+		.storage_results = strip_scores(std::move(storage_results)),
 		.query_is_empty	 = normalized_query.empty()};
 	result.total_count = result.storage_results.size();
 	return result;

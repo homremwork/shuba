@@ -229,6 +229,55 @@ struct SearchFixture final {
 }
 }	 // namespace
 
+TEST_CASE("B09 search index joins projections by identifier in record order",
+		  "[b09][search][index]") {
+	SearchFixture fixture					   = make_search_fixture();
+	const shuba::catalog::SearchIndex expected = fixture.index;
+	std::ranges::reverse(fixture.repository.search_projection.items);
+	std::ranges::reverse(fixture.repository.search_projection.storages);
+
+	REQUIRE(shuba::catalog::build_search_index(fixture.repository) == expected);
+}
+
+TEST_CASE(
+	"B09 search index skips missing projections and keeps the first match",
+	"[b09][search][index]") {
+	using namespace shuba::catalog;
+
+	SearchFixture fixture = make_search_fixture();
+	SearchIndex expected  = fixture.index;
+	const shuba::core::StableIdentifier missing_item_id =
+		fixture.repository.search_projection.items.back().id;
+	const shuba::core::StableIdentifier missing_storage_id =
+		fixture.repository.search_projection.storages.back().id;
+	fixture.repository.search_projection.items.pop_back();
+	fixture.repository.search_projection.storages.pop_back();
+	std::erase_if(expected.items, [&](const ItemSearchDocument& document) {
+		return document.projection.id == missing_item_id;
+	});
+	std::erase_if(expected.storages,
+				  [&](const StorageSearchDocument& document) {
+		return document.projection.id == missing_storage_id;
+	});
+
+	ItemSearchProjection duplicate_item =
+		fixture.repository.search_projection.items.front();
+	duplicate_item.display_name = "Later duplicate item";
+	fixture.repository.search_projection.items.push_back(duplicate_item);
+	duplicate_item.id = make_id("projection-only-item");
+	fixture.repository.search_projection.items.push_back(duplicate_item);
+	StorageSearchProjection duplicate_storage =
+		fixture.repository.search_projection.storages.front();
+	duplicate_storage.display_name = "Later duplicate storage";
+	fixture.repository.search_projection.storages.push_back(duplicate_storage);
+	duplicate_storage.id = make_id("projection-only-storage");
+	fixture.repository.search_projection.storages.push_back(duplicate_storage);
+
+	REQUIRE(build_search_index(fixture.repository) == expected);
+	REQUIRE(build_search_index(CatalogRepositoryState{}).items.empty());
+	REQUIRE(build_search_index(CatalogRepositoryState{}).storages.empty());
+}
+
 TEST_CASE("B09 normalizes representative Russian and English search text",
 		  "[b09][search][normalization]") {
 	using namespace shuba::catalog;
