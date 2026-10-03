@@ -70,6 +70,7 @@ function shuba_ci_lint_main
         return 1
     end
     $shuba_actionlint -shellcheck $shuba_shellcheck $shuba_workflows/*.yml; or return 1
+    fish --no-config $shuba_root/tools/ci/tests/test-android-release-workflow.fish; or return 1
     jq --exit-status '.version >= 6 and (.configurePresets | length) == 4' \
         $shuba_root/CMakePresets.json >/dev/null; or return 1
     set --local shuba_generated_header_includes (grep --recursive --line-number \

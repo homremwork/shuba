@@ -32,6 +32,7 @@ function shuba_publication_assets_initialize_repository --argument-names shuba_r
     git -C $shuba_repository init --quiet; or return 1
     git -C $shuba_repository config user.name 'Shuba Publication Test'; or return 1
     git -C $shuba_repository config user.email 'shuba-publication-test@example.invalid'; or return 1
+    git -C $shuba_repository config core.autocrlf false; or return 1
 end
 
 function shuba_publication_assets_commit --argument-names shuba_repository shuba_message
@@ -62,6 +63,8 @@ function shuba_publication_assets_make_project
     printf '%s\n' 'License fixture.' >$shuba_project/LICENSE; or return 1
     printf '%s\n' 'Third-party notices fixture.' >$shuba_project/THIRD_PARTY_NOTICES.md; or return 1
     printf '%s\n' 'project source fixture' >$shuba_project/source.txt; or return 1
+    printf '%s\n' '<JUCERPROJECT version="1.0.2"/>' >$shuba_project/Shuba.jucer; or return 1
+    printf '%s\n' /build/ /dist/ >$shuba_project/.gitignore; or return 1
     ln -s source.txt $shuba_project/source-link.txt; or return 1
     shuba_publication_assets_commit $shuba_project root; or return 1
     git -C $shuba_project -c protocol.file.allow=always submodule add --quiet $shuba_child third_party/dependency; or return 1
@@ -342,6 +345,48 @@ function shuba_publication_assets_test_bundle --argument-names shuba_project
         shuba_publication_bundle_verify $shuba_project v1.0.2 $shuba_outputs/manifest; or return 1
 end
 
+function shuba_publication_assets_test_clean_publication_checkout --argument-names shuba_project
+    set --local shuba_outputs $shuba_project/dist
+    mkdir -p -- $shuba_outputs $shuba_project/build; or return 1
+    set --local shuba_commit (git -C $shuba_project rev-parse HEAD); or return 1
+    set --local shuba_tag_object (git -C $shuba_project rev-parse refs/tags/v1.0.2); or return 1
+    shuba_publication_assets_write_packet $shuba_outputs/release $shuba_commit; or return 1
+    shuba_exact_source_build $shuba_project v1.0.2 $shuba_outputs/before-generation; or return 1
+    set --local shuba_project_digest (shuba_project_authority_canonical_sha256 $shuba_project/Shuba.jucer); or return 1
+    sed 's/$/\r/' $shuba_project/Shuba.jucer >$shuba_outputs/resaved.jucer; or return 1
+    cp -- $shuba_outputs/resaved.jucer $shuba_project/Shuba.jucer; or return 1
+    test (shuba_project_authority_canonical_sha256 $shuba_project/Shuba.jucer) = $shuba_project_digest; or return 1
+    shuba_publication_assets_expect_rejection resaved-build-checkout 'project root checkout is dirty' \
+        shuba_exact_source_build $shuba_project v1.0.2 $shuba_outputs/dirty-build; or return 1
+
+    set --local shuba_clean_project $shuba_project/build/publication-source
+    git -c protocol.file.allow=always clone --quiet --no-hardlinks --branch v1.0.2 \
+        --recurse-submodules $shuba_project $shuba_clean_project >/dev/null 2>&1; or return 1
+    test (git -C $shuba_clean_project rev-parse HEAD) = $shuba_commit; or return 1
+    test (git -C $shuba_clean_project rev-parse refs/tags/v1.0.2) = $shuba_tag_object; or return 1
+    shuba_exact_source_write_tag_notes $shuba_clean_project v1.0.2 $shuba_outputs/release-notes.md; or return 1
+    shuba_exact_source_build $shuba_clean_project v1.0.2 $shuba_outputs/public-source; or return 1
+    for shuba_name in (shuba_exact_source_expected_names (shuba_exact_source_stem))
+        cmp --silent $shuba_outputs/before-generation/$shuba_name $shuba_outputs/public-source/$shuba_name; or begin
+            shuba_publication_assets_test_fail "isolated publication checkout changed $shuba_name"
+            return 1
+        end
+    end
+    shuba_publication_bundle_build $shuba_clean_project v1.0.2 $shuba_outputs/release \
+        $shuba_outputs/public-source $shuba_outputs/release-notes.md $shuba_outputs/public-bundle; or return 1
+    shuba_publication_bundle_verify $shuba_clean_project v1.0.2 $shuba_outputs/public-bundle; or return 1
+    for shuba_name in (shuba_artifact_expected_names (shuba_contract_get artifact.basename))
+        cmp --silent $shuba_outputs/release/$shuba_name $shuba_outputs/public-bundle/$shuba_name; or begin
+            shuba_publication_assets_test_fail "isolated publication changed signed packet asset $shuba_name"
+            return 1
+        end
+    end
+    # Publication must not reset the original build checkout or hide its mutation.
+    shuba_publication_assets_expect_rejection retained-build-mutation 'project root checkout is dirty' \
+        shuba_exact_source_build $shuba_project v1.0.2 $shuba_outputs/still-dirty; or return 1
+    git -C $shuba_project checkout -- Shuba.jucer; or return 1
+end
+
 function shuba_publication_assets_test_main
     set --global shuba_publication_assets_workspace \
         (realpath --canonicalize-existing -- (status dirname)/../../..); or return 1
@@ -349,6 +394,7 @@ function shuba_publication_assets_test_main
         (mktemp --directory /tmp/shuba-r12f-publication-assets.XXXXXX); or return 1
     set --local shuba_project (shuba_publication_assets_make_project); or return 1
     shuba_contract_load $shuba_project/release/release.properties; or return 1
+    shuba_publication_assets_test_clean_publication_checkout $shuba_project; or return 1
     shuba_publication_assets_test_tag_notes $shuba_project; or return 1
     shuba_publication_assets_test_source $shuba_project; or return 1
     shuba_publication_assets_test_bundle $shuba_project; or return 1
@@ -367,6 +413,7 @@ source $shuba_script_directory/../lib/core.fish
 source $shuba_script_directory/../lib/release-contract.fish
 source $shuba_script_directory/../lib/atomic-publication.fish
 source $shuba_script_directory/../lib/release-artifact.fish
+source $shuba_script_directory/../lib/project-authority.fish
 source $shuba_script_directory/../lib/exact-source.fish
 source $shuba_script_directory/../lib/publication-bundle.fish
 

@@ -133,10 +133,10 @@ jobs:
       - name: Enforce Fish release contract
         shell: fish {0}
         run: |
-          source tools/release/lib/core.fish
-          source tools/release/lib/release-contract.fish
-          shuba_contract_load release/release.properties
-          shuba_require_fish_version (shuba_contract_get tool.fish_min_version)
+          source tools/release/lib/core.fish; or exit 1
+          source tools/release/lib/release-contract.fish; or exit 1
+          shuba_contract_load release/release.properties; or exit 1
+          shuba_require_fish_version (shuba_contract_get tool.fish_min_version); or exit 1
       - name: Validate the checked-out candidate identity
         if: inputs.operation == 'candidate'
         env:
@@ -145,14 +145,14 @@ jobs:
           SHUBA_TAG_OBJECT: ${{ inputs.tag_object }}
         shell: fish {0}
         run: |
-          source tools/release/lib/core.fish
-          source tools/release/lib/release-contract.fish
-          source tools/release/lib/exact-source.fish
-          shuba_contract_load release/release.properties
-          shuba_exact_source_resolve_tag $PWD $SHUBA_TAG
-          test "$shuba_exact_source_commit" = "$SHUBA_TAG_COMMIT"
-          test (git rev-parse HEAD) = "$SHUBA_TAG_COMMIT"
-          test (git rev-parse refs/tags/$SHUBA_TAG) = "$SHUBA_TAG_OBJECT"
+          source tools/release/lib/core.fish; or exit 1
+          source tools/release/lib/release-contract.fish; or exit 1
+          source tools/release/lib/exact-source.fish; or exit 1
+          shuba_contract_load release/release.properties; or exit 1
+          shuba_exact_source_resolve_tag $PWD $SHUBA_TAG; or exit 1
+          test "$shuba_exact_source_commit" = "$SHUBA_TAG_COMMIT"; or exit 1
+          test (git rev-parse HEAD) = "$SHUBA_TAG_COMMIT"; or exit 1
+          test (git rev-parse refs/tags/$SHUBA_TAG) = "$SHUBA_TAG_OBJECT"; or exit 1
       - name: Select JDK 17
         run: |
           echo "JAVA_HOME=$JAVA_HOME_17_X64" >>"$GITHUB_ENV"
@@ -160,28 +160,29 @@ jobs:
       - name: Install exact Android SDK CMake with contract-selected tools
         shell: fish {0}
         run: |
-          source tools/release/lib/core.fish
-          source tools/release/lib/release-contract.fish
-          source tools/release/lib/android-toolchain.fish
-          shuba_contract_load release/release.properties
-          set -gx shuba_android_sdk_root (shuba_resolve_android_sdk_root)
-          set -l sdkmanager (shuba_resolve_android_command_line_tools_root)/bin/sdkmanager
+          source tools/release/lib/core.fish; or exit 1
+          source tools/release/lib/release-contract.fish; or exit 1
+          source tools/release/lib/android-toolchain.fish; or exit 1
+          shuba_contract_load release/release.properties; or exit 1
+          set -gx shuba_android_sdk_root (shuba_resolve_android_sdk_root); or exit 1
+          set -l sdkmanager (shuba_resolve_android_command_line_tools_root)/bin/sdkmanager; or exit 1
           yes | $sdkmanager --licenses >/dev/null
-          $sdkmanager "cmake;3.22.1"
-          test -x "$shuba_android_sdk_root/cmake/3.22.1/bin/cmake"
+          test $pipestatus[-1] -eq 0; or exit 1
+          $sdkmanager "cmake;3.22.1"; or exit 1
+          test -x "$shuba_android_sdk_root/cmake/3.22.1/bin/cmake"; or exit 1
       - name: Validate Android command-line tools and SDK contract
         run: tools/release/check-release-contract.fish
       - name: Calculate Android dependency fingerprints
         id: fingerprints
         shell: fish {0}
         run: |
-          set -l libjxl_fingerprint (tools/release/build-libjxl-android.fish --print-fingerprint)
-          test (count $libjxl_fingerprint) -eq 1
-          string match --regex --quiet '^[0-9a-f]{64}$' -- $libjxl_fingerprint
-          set -l projucer_fingerprint (tools/release/build-projucer.fish --print-fingerprint)
-          test (count $projucer_fingerprint) -eq 1
-          string match --regex --quiet '^[0-9a-f]{64}$' -- $projucer_fingerprint
-          printf 'libjxl=%s\nprojucer=%s\n' $libjxl_fingerprint $projucer_fingerprint >>$GITHUB_OUTPUT
+          set -l libjxl_fingerprint (tools/release/build-libjxl-android.fish --print-fingerprint); or exit 1
+          test (count $libjxl_fingerprint) -eq 1; or exit 1
+          string match --regex --quiet '^[0-9a-f]{64}$' -- $libjxl_fingerprint; or exit 1
+          set -l projucer_fingerprint (tools/release/build-projucer.fish --print-fingerprint); or exit 1
+          test (count $projucer_fingerprint) -eq 1; or exit 1
+          string match --regex --quiet '^[0-9a-f]{64}$' -- $projucer_fingerprint; or exit 1
+          printf 'libjxl=%s\nprojucer=%s\n' $libjxl_fingerprint $projucer_fingerprint >>$GITHUB_OUTPUT; or exit 1
       - name: Restore Android libjxl
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
@@ -260,25 +261,42 @@ jobs:
           SHUBA_ANDROID_STORE_PASSWORD: ${{ secrets.SHUBA_ANDROID_STORE_PASSWORD }}
           SHUBA_ANDROID_KEY_PASSWORD: ${{ secrets.SHUBA_ANDROID_KEY_PASSWORD }}
         run: tools/ci/run-release-tool-tests.fish --rehearsal
+      - name: Check out clean recursive candidate sources for publication
+        if: inputs.operation == 'candidate'
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ inputs.tag }}
+          path: build/publication-source
+          submodules: recursive
+          fetch-depth: 1
+          fetch-tags: true
+          persist-credentials: false
       - name: Build and verify the complete public candidate bundle
         if: inputs.operation == 'candidate'
         env:
           SHUBA_TAG: ${{ inputs.tag }}
+          SHUBA_TAG_COMMIT: ${{ inputs.tag_commit }}
+          SHUBA_TAG_OBJECT: ${{ inputs.tag_object }}
         shell: fish {0}
+        working-directory: build/publication-source
         run: |
-          source tools/release/lib/core.fish
-          source tools/release/lib/release-contract.fish
-          source tools/release/lib/exact-source.fish
-          shuba_contract_load release/release.properties
-          shuba_exact_source_write_tag_notes $PWD $SHUBA_TAG $RUNNER_TEMP/release-notes.md
-          tools/release/build-exact-source.fish --tag $SHUBA_TAG --output dist/public-source
+          source tools/release/lib/core.fish; or exit 1
+          source tools/release/lib/release-contract.fish; or exit 1
+          source tools/release/lib/exact-source.fish; or exit 1
+          shuba_contract_load release/release.properties; or exit 1
+          shuba_exact_source_resolve_tag $PWD $SHUBA_TAG; or exit 1
+          test "$shuba_exact_source_commit" = "$SHUBA_TAG_COMMIT"; or exit 1
+          test (git rev-parse HEAD) = "$SHUBA_TAG_COMMIT"; or exit 1
+          test (git rev-parse refs/tags/$SHUBA_TAG) = "$SHUBA_TAG_OBJECT"; or exit 1
+          shuba_exact_source_write_tag_notes $PWD $SHUBA_TAG $RUNNER_TEMP/release-notes.md; or exit 1
+          tools/release/build-exact-source.fish --tag $SHUBA_TAG --output $GITHUB_WORKSPACE/dist/public-source; or exit 1
           tools/release/build-publication-bundle.fish \
               --tag $SHUBA_TAG \
-              --packet-dir dist/release \
-              --source-dir dist/public-source \
+              --packet-dir $GITHUB_WORKSPACE/dist/release \
+              --source-dir $GITHUB_WORKSPACE/dist/public-source \
               --release-notes $RUNNER_TEMP/release-notes.md \
-              --output dist/public-bundle
-          tools/release/verify-publication-bundle.fish --tag $SHUBA_TAG --bundle-dir dist/public-bundle
+              --output $GITHUB_WORKSPACE/dist/public-bundle; or exit 1
+          tools/release/verify-publication-bundle.fish --tag $SHUBA_TAG --bundle-dir $GITHUB_WORKSPACE/dist/public-bundle; or exit 1
       - name: Remove temporary signing material
         if: always()
         shell: bash
@@ -341,21 +359,23 @@ jobs:
       - name: Install exact Android SDK CMake with contract-selected tools
         shell: fish {0}
         run: |
-          source tools/release/lib/core.fish
-          source tools/release/lib/release-contract.fish
-          source tools/release/lib/android-toolchain.fish
-          shuba_contract_load release/release.properties
-          shuba_require_fish_version (shuba_contract_get tool.fish_min_version)
-          set -gx shuba_android_sdk_root (shuba_resolve_android_sdk_root)
-          set -l sdkmanager (shuba_resolve_android_command_line_tools_root)/bin/sdkmanager
+          source tools/release/lib/core.fish; or exit 1
+          source tools/release/lib/release-contract.fish; or exit 1
+          source tools/release/lib/android-toolchain.fish; or exit 1
+          shuba_contract_load release/release.properties; or exit 1
+          shuba_require_fish_version (shuba_contract_get tool.fish_min_version); or exit 1
+          set -gx shuba_android_sdk_root (shuba_resolve_android_sdk_root); or exit 1
+          set -l sdkmanager (shuba_resolve_android_command_line_tools_root)/bin/sdkmanager; or exit 1
           yes | $sdkmanager --licenses >/dev/null
-          $sdkmanager "cmake;3.22.1"
+          test $pipestatus[-1] -eq 0; or exit 1
+          $sdkmanager "cmake;3.22.1"; or exit 1
       - name: Download the immutable workflow artifact
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p dist/public-bundle
           gh run download "$GITHUB_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
             --name "shuba-public-bundle-${GITHUB_RUN_ID}" \
             --dir dist/public-bundle
       - name: Revalidate tag, Android tools, and complete public bundle
@@ -365,26 +385,26 @@ jobs:
           SHUBA_TAG_OBJECT: ${{ inputs.tag_object }}
         shell: fish {0}
         run: |
-          source tools/release/lib/core.fish
-          source tools/release/lib/release-contract.fish
-          source tools/release/lib/exact-source.fish
-          shuba_contract_load release/release.properties
-          shuba_exact_source_resolve_tag $PWD $SHUBA_TAG
-          test "$shuba_exact_source_commit" = "$SHUBA_TAG_COMMIT"
-          test (git rev-parse HEAD) = "$SHUBA_TAG_COMMIT"
-          test (git rev-parse refs/tags/$SHUBA_TAG) = "$SHUBA_TAG_OBJECT"
-          tools/release/check-release-contract.fish
-          tools/release/verify-publication-bundle.fish --tag $SHUBA_TAG --bundle-dir dist/public-bundle
+          source tools/release/lib/core.fish; or exit 1
+          source tools/release/lib/release-contract.fish; or exit 1
+          source tools/release/lib/exact-source.fish; or exit 1
+          shuba_contract_load release/release.properties; or exit 1
+          shuba_exact_source_resolve_tag $PWD $SHUBA_TAG; or exit 1
+          test "$shuba_exact_source_commit" = "$SHUBA_TAG_COMMIT"; or exit 1
+          test (git rev-parse HEAD) = "$SHUBA_TAG_COMMIT"; or exit 1
+          test (git rev-parse refs/tags/$SHUBA_TAG) = "$SHUBA_TAG_OBJECT"; or exit 1
+          tools/release/check-release-contract.fish; or exit 1
+          tools/release/verify-publication-bundle.fish --tag $SHUBA_TAG --bundle-dir dist/public-bundle; or exit 1
       - name: Export the verified release title
         id: release-identity
         shell: fish {0}
         run: |
-          source tools/release/lib/core.fish
-          source tools/release/lib/release-contract.fish
-          shuba_contract_load release/release.properties
+          source tools/release/lib/core.fish; or exit 1
+          source tools/release/lib/release-contract.fish; or exit 1
+          shuba_contract_load release/release.properties; or exit 1
           printf 'release-title=%s %s release candidate\n' \
-              (shuba_contract_get app.name) (shuba_contract_get app.version_name) >>$GITHUB_OUTPUT
-          printf 'apk-name=%s\n' (shuba_contract_get artifact.basename) >>$GITHUB_OUTPUT
+              (shuba_contract_get app.name) (shuba_contract_get app.version_name) >>$GITHUB_OUTPUT; or exit 1
+          printf 'apk-name=%s\n' (shuba_contract_get artifact.basename) >>$GITHUB_OUTPUT; or exit 1
 
   publish-candidate:
     name: Publish GitHub release candidate
@@ -402,6 +422,7 @@ jobs:
         run: |
           mkdir -p dist/public-bundle
           gh run download "$GITHUB_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
             --name "shuba-public-bundle-${GITHUB_RUN_ID}" \
             --dir dist/public-bundle
       - name: Publish and validate the non-draft prerelease
@@ -454,6 +475,7 @@ jobs:
             "$RUNNER_TEMP/expected-assets.json" >/dev/null
 
           gh release create "$SHUBA_TAG" dist/public-bundle/* \
+            --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --prerelease \
             --latest=false \
@@ -528,15 +550,16 @@ jobs:
       - name: Install exact Android SDK CMake with contract-selected tools
         shell: fish {0}
         run: |
-          source tools/release/lib/core.fish
-          source tools/release/lib/release-contract.fish
-          source tools/release/lib/android-toolchain.fish
-          shuba_contract_load release/release.properties
-          shuba_require_fish_version (shuba_contract_get tool.fish_min_version)
-          set -gx shuba_android_sdk_root (shuba_resolve_android_sdk_root)
-          set -l sdkmanager (shuba_resolve_android_command_line_tools_root)/bin/sdkmanager
+          source tools/release/lib/core.fish; or exit 1
+          source tools/release/lib/release-contract.fish; or exit 1
+          source tools/release/lib/android-toolchain.fish; or exit 1
+          shuba_contract_load release/release.properties; or exit 1
+          shuba_require_fish_version (shuba_contract_get tool.fish_min_version); or exit 1
+          set -gx shuba_android_sdk_root (shuba_resolve_android_sdk_root); or exit 1
+          set -l sdkmanager (shuba_resolve_android_command_line_tools_root)/bin/sdkmanager; or exit 1
           yes | $sdkmanager --licenses >/dev/null
-          $sdkmanager "cmake;3.22.1"
+          test $pipestatus[-1] -eq 0; or exit 1
+          $sdkmanager "cmake;3.22.1"; or exit 1
       - name: Snapshot the exact prerelease and download its assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -595,16 +618,16 @@ jobs:
           SHUBA_TAG: ${{ inputs.tag }}
         shell: fish {0}
         run: |
-          source tools/release/lib/core.fish
-          source tools/release/lib/release-contract.fish
-          source tools/release/lib/exact-source.fish
-          shuba_contract_load release/release.properties
-          shuba_exact_source_write_tag_notes $PWD $SHUBA_TAG $RUNNER_TEMP/release-notes.md
+          source tools/release/lib/core.fish; or exit 1
+          source tools/release/lib/release-contract.fish; or exit 1
+          source tools/release/lib/exact-source.fish; or exit 1
+          shuba_contract_load release/release.properties; or exit 1
+          shuba_exact_source_write_tag_notes $PWD $SHUBA_TAG $RUNNER_TEMP/release-notes.md; or exit 1
           jq --exit-status --rawfile notes $RUNNER_TEMP/release-notes.md \
-              '.body == $notes' $RUNNER_TEMP/before-release.json >/dev/null
-          tools/release/check-release-contract.fish
+              '.body == $notes' $RUNNER_TEMP/before-release.json >/dev/null; or exit 1
+          tools/release/check-release-contract.fish; or exit 1
           tools/release/verify-publication-bundle.fish \
-              --tag $SHUBA_TAG --bundle-dir dist/promotion-bundle
+              --tag $SHUBA_TAG --bundle-dir dist/promotion-bundle; or exit 1
       - name: Upload immutable promotion evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -637,6 +660,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/promotion-evidence"
           gh run download "$GITHUB_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
             --name "shuba-promotion-evidence-${GITHUB_RUN_ID}" \
             --dir "$RUNNER_TEMP/promotion-evidence"
       - name: Recheck live identity and promote only the existing release record
