@@ -114,7 +114,7 @@ jobs:
           jq --exit-status --arg tag "$SHUBA_TAG" \
             '[.[][] | select(.tag_name == $tag)] | length == 0' <<<"$releases" >/dev/null
       - name: Check out recursive sources
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.operation == 'candidate' && inputs.tag || github.ref }}
           submodules: recursive
@@ -184,12 +184,12 @@ jobs:
           string match --regex --quiet '^[0-9a-f]{64}$' -- $projucer_fingerprint; or exit 1
           printf 'libjxl=%s\nprojucer=%s\n' $libjxl_fingerprint $projucer_fingerprint >>$GITHUB_OUTPUT; or exit 1
       - name: Restore Android libjxl
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/libjxl-android-arm64
           key: android-libjxl-ubuntu-24.04-${{ steps.fingerprints.outputs.libjxl }}
       - name: Restore Projucer
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/projucer-release
           key: projucer-ubuntu-24.04-${{ steps.fingerprints.outputs.projucer }}
@@ -201,7 +201,7 @@ jobs:
           tools/release/build-projucer.fish
       - name: Restore secret-free Gradle dependency cache
         id: gradle-cache
-        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.gradle/caches
@@ -215,7 +215,7 @@ jobs:
           tools/ci/run-release-tool-tests.fish --generated
       - name: Save secret-free Gradle dependency cache
         if: steps.gradle-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.gradle/caches
@@ -263,7 +263,7 @@ jobs:
         run: tools/ci/run-release-tool-tests.fish --rehearsal
       - name: Check out clean recursive candidate sources for publication
         if: inputs.operation == 'candidate'
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag }}
           path: build/publication-source
@@ -306,7 +306,7 @@ jobs:
           fi
       - name: Upload private rehearsal artifact
         if: inputs.operation == 'rehearsal'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: shuba-signed-android-rehearsal-${{ github.run_id }}
           path: dist/release/
@@ -316,7 +316,7 @@ jobs:
           include-hidden-files: false
       - name: Upload verified public candidate bundle
         if: inputs.operation == 'candidate'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: shuba-public-bundle-${{ github.run_id }}
           path: dist/public-bundle/
@@ -339,7 +339,7 @@ jobs:
       contents: read
     steps:
       - name: Check out the exact recursive tag
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag }}
           submodules: recursive
@@ -530,7 +530,7 @@ jobs:
           [[ $SHUBA_CONFIRM_TAG == "$SHUBA_TAG" ]]
           [[ $GITHUB_REF == refs/heads/master ]]
       - name: Check out the exact recursive tag
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag }}
           submodules: recursive
@@ -629,7 +629,7 @@ jobs:
           tools/release/verify-publication-bundle.fish \
               --tag $SHUBA_TAG --bundle-dir dist/promotion-bundle; or exit 1
       - name: Upload immutable promotion evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: shuba-promotion-evidence-${{ github.run_id }}
           path: |
